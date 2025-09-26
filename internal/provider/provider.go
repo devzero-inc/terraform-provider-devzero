@@ -1,6 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
 package provider
 
 import (
@@ -59,7 +56,7 @@ func (p *DevzeroProvider) Schema(ctx context.Context, req provider.SchemaRequest
 				Optional:            true,
 			},
 			"team_id": schema.StringAttribute{
-				MarkdownDescription: "Devzero Team ID",
+				MarkdownDescription: "Devzero Team ID. You can retrieve it from your [Devzero Organization Settings](https://www.devzero.io/organization-settings/account)",
 				Optional:            true,
 			},
 			"token": schema.StringAttribute{

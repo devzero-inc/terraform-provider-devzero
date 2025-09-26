@@ -12,8 +12,6 @@ description: |-
 ## Example Usage
 
 ```terraform
-# Copyright (c) HashiCorp, Inc.
-
 terraform {
   required_providers {
     devzero = {
@@ -33,6 +31,6 @@ provider "devzero" {
 
 ### Optional
 
-- `team_id` (String) Devzero Team ID
+- `team_id` (String) Devzero Team ID. You can retrieve it from your [Devzero Organization Settings](https://www.devzero.io/organization-settings/account)
 - `token` (String, Sensitive) The token used to authenticate with the Devzero API. For more information, see the [Devzero documentation](https://www.devzero.io/docs/platform/admin/personal-access-tokens).
 - `url` (String) Devzero API URL

@@ -1,11 +1,9 @@
-// Copyright (c) HashiCorp, Inc.
-
 syntax = "proto3";
 
 package api.v1;
 
-import "google/protobuf/timestamp.proto";
 import "api/v1/common.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/devzero-inc/services/dakr/gen/api/v1;gen";
 option java_multiple_files = true;
@@ -18,8 +16,8 @@ message GetNodeRequest {
   string team_id = 1; // Unique identifier for the team.
   string cluster_id = 2; // Unique identifier for the cluster.
   string node_id = 3; // Unique identifier for the node.
-  bool with_details = 11; // Optional flag to include additional resource details 
-  bool with_metadata = 12; // Optional flag to include metadata 
+  bool with_details = 11; // Optional flag to include additional resource details
+  bool with_metadata = 12; // Optional flag to include metadata
 
   optional google.protobuf.Timestamp start_time = 21;
   optional google.protobuf.Timestamp end_time = 22;
@@ -41,7 +39,7 @@ message GetNodeGroupRequest {
 message GetWorkloadsRequest {
   string team_id = 1; // Unique identifier for the team.
   string cluster_id = 2; // Unique identifier for the cluster.
-  
+
   // By default we do not show deleted workloads, change to true if you want to return deleted workloads
   bool show_deleted = 12 [deprecated = true]; // Prefer filters.status instead
 
@@ -60,7 +58,7 @@ message GetResourcesRequest {
   optional string cluster_id = 2; // Unique identifier for the cluster.
   K8sObjectKind kind = 3; // Type of object to get.
   optional string search = 4; // Search term to filter resources by name
-  
+
   Pagination pagination = 11; // Pagination parameters
 }
 
@@ -71,7 +69,7 @@ message GetPodsRequest {
   optional string search = 4; // Search term to filter pods by name
 
   Pagination pagination = 11; // Pagination parameters
-  
+
   repeated string node_group_names = 25; // Optional filter for node groups
   repeated string node_ids = 26; // Optional filter for specific node IDs
   // Note: When both node_group_names and node_ids are provided, they are combined with AND logic (intersection)
@@ -91,8 +89,8 @@ message GetWorkloadRequest {
   string uid = 4; // Unique identifier for the workload.
 
   bool include_deleted = 11;
-  bool with_details = 12; // Optional flag to include additional resource details 
-  bool with_metadata = 13; // Optional flag to include metadata 
+  bool with_details = 12; // Optional flag to include additional resource details
+  bool with_metadata = 13; // Optional flag to include metadata
 
   optional google.protobuf.Timestamp start_time = 21;
   optional google.protobuf.Timestamp end_time = 22;
@@ -154,7 +152,6 @@ message UpdateClusterResponse {
   Cluster cluster = 1; // Updated cluster details.
 }
 
-
 // GetResourcesResponse is the response for getting k8s resources.
 message GetResourcesResponse {
   repeated WorkloadItem workload_items = 1; // Return list of resources requested
@@ -183,7 +180,6 @@ message ResetClusterTokenRequest {
 message ResetClusterTokenResponse {
   string token = 1; // Token for the new cluster.
 }
-
 
 // GetNodeGroupsRequest is used to fetch node groups for a specific cluster.
 message GetNodeGroupsRequest {
@@ -239,7 +235,7 @@ message NodeGroupMetric {
   int64 capacity_memory = 12; // bytes
   int64 capacity_gpu_vram = 13; // bytes
   int64 capacity_gpu_devices = 14; // number
-  
+
   int64 aggr_cpu_req = 21; // millicores
   int64 aggr_memory_req = 22; // bytes
   int64 aggr_gpu_req = 23; // number
@@ -347,7 +343,7 @@ message GetForecastWorkloadResponse {
   repeated ResourceDataPoint resource_data_points = 6; // Time-series resource metrics for the workload.
 }
 
-// GetClusterMetadataResponse 
+// GetClusterMetadataResponse
 message GetClusterMetadataResponse {
   repeated Cluster clusters = 1; // List of clusters.
 }
@@ -360,9 +356,9 @@ message ClusterElement {
 message GetAllNamespacesRequest {
   string team_id = 1;
   repeated string cluster_ids = 5;
-  
-  int64 start_time = 11; 
-  int64 stop_time = 12; 
+
+  int64 start_time = 11;
+  int64 stop_time = 12;
 }
 
 message GetAllNamespacesResponse {
@@ -374,11 +370,11 @@ message GetAllWorkloadNamesRequest {
   repeated string cluster_ids = 5;
   repeated string namespaces = 6;
   repeated K8sObjectKind kinds = 7;
-  repeated string workload_labels = 8; // each element is "key=val" 
+  repeated string workload_labels = 8; // each element is "key=val"
   repeated string node_group_names = 9;
-  
-  int64 start_time = 11; 
-  int64 stop_time = 12; 
+
+  int64 start_time = 11;
+  int64 stop_time = 12;
 
   bool include_deleted = 21;
 }
@@ -394,9 +390,9 @@ message GetAllWorkloadLabelsRequest {
   repeated K8sObjectKind kinds = 7;
   repeated string workload_names = 8;
   repeated string node_group_names = 9;
-  
-  int64 start_time = 11; 
-  int64 stop_time = 12; 
+
+  int64 start_time = 11;
+  int64 stop_time = 12;
 }
 
 message GetAllWorkloadLabelsResponse {
@@ -406,9 +402,9 @@ message GetAllWorkloadLabelsResponse {
 message GetAllNodeGroupNamesRequest {
   string team_id = 1;
   repeated string cluster_ids = 5;
-  
-  int64 start_time = 11; 
-  int64 stop_time = 12; 
+
+  int64 start_time = 11;
+  int64 stop_time = 12;
 
   bool include_deleted = 21;
 }
@@ -488,7 +484,7 @@ message GalaxyGetClusterPerspectiveResponse {
 message GalaxyClusterGroup {
   string group_key = 1; // e.g., "us-west-2", "AWS", "v1.27", etc.
   // TODO (debo) might want to change cluster_ids to just cluster (same as GetClusters etc)
-  repeated string cluster_ids = 2; // IDs of clusters in this group 
+  repeated string cluster_ids = 2; // IDs of clusters in this group
   CostInfo cost_info = 3; // aggregated cost for this group
   ResourceMetrics resource_metrics = 4; // aggregated resource metrics
   NodeInfo node_info = 5; // (optional) node counts (on-demand, spot, etc)
@@ -539,7 +535,6 @@ message GalaxyWorkloadGroup {
   ResourceMetrics resource_metrics = 5;
   ResourceSummary resource_summary = 6; // (optional) aggregated resource kind/status info
 }
-
 
 enum GalaxyPOVClusterGroupBy {
   GALAXY_POV_CLUSTER_GROUP_BY_UNSPECIFIED = 0;
@@ -645,10 +640,10 @@ message ListAuditLogOriginatorsResponse {
 
 // SendWorkloadEmailRequest is used to send an email w/ csv data.
 message SendWorkloadEmailRequest {
-  string team_id = 1; 
-  string cluster_id = 2; 
-  int64 start_time = 11; 
-  int64 stop_time = 12; 
+  string team_id = 1;
+  string cluster_id = 2;
+  int64 start_time = 11;
+  int64 stop_time = 12;
   repeated string to = 21;
 }
 
@@ -677,7 +672,7 @@ message SendWeeklySummaryEmailResponse {
 message GetClustersNodeInfoRequest {
   string team_id = 1; // Unique identifier for the team.
   repeated string cluster_ids = 2; // Optional list of cluster IDs to filter by. If empty, returns info for all clusters.
-  
+
   optional google.protobuf.Timestamp start_time = 11;
   optional google.protobuf.Timestamp end_time = 12;
 
@@ -708,22 +703,22 @@ message MetadataForWorkloadsResponse {
 message WorkloadMetadata {
   map<string, NodeMetadata> pod_uid_to_node_metadata = 1;
   map<string, PodMetadata> pod_uid_to_pod_metadata = 2;
-  string label = 6; 
-  string annotation = 7; 
-  string spec = 8; 
-  string status = 9; 
-  string metadata = 10; 
+  string label = 6;
+  string annotation = 7;
+  string spec = 8;
+  string status = 9;
+  string metadata = 10;
   K8sObjectKind kind = 11;
 }
 
 message PodMetadata {
   string name = 1;
-  
-  string label = 6; 
-  string annotation = 7; 
-  string spec = 8; 
-  string status = 9; 
-  string metadata = 10; 
+
+  string label = 6;
+  string annotation = 7;
+  string spec = 8;
+  string status = 9;
+  string metadata = 10;
 }
 
 message NodeMetadata {
@@ -732,11 +727,11 @@ message NodeMetadata {
   string node_group_type = 3;
   string cloud_inst_type_name = 4;
 
-  string label = 6; 
-  string annotation = 7; 
-  string spec = 8; 
-  string status = 9; 
-  string metadata = 10; 
+  string label = 6;
+  string annotation = 7;
+  string spec = 8;
+  string status = 9;
+  string metadata = 10;
 }
 
 // Defines the K8SService RPC methods for Kubernetes cluster management and monitoring.
@@ -793,7 +788,6 @@ service K8SService {
 
   // GetForecastWorkload retrieves detailed information for a specific workload.
   rpc GetForecastWorkload(GetForecastWorkloadRequest) returns (GetForecastWorkloadResponse);
-
 
   // GetResources retrivers specific resource and their details from db, simulating informer.
   rpc GetResources(GetResourcesRequest) returns (GetResourcesResponse);
@@ -856,7 +850,7 @@ message DailyUtilizationResponse {
 
   message Datapoint {
     int64 timestamp = 1; // Unix timestamp (seconds since epoch).
-    
+
     int32 value = 6; // some value
   }
 
@@ -880,7 +874,7 @@ message DailyUtilizationInstanceTypeResponse {
 
   message Datapoint {
     int64 timestamp = 1; // Unix timestamp (seconds since epoch).
-    
+
     map<string, int32> instance_type_to_daily_total_core_minutes = 11;
   }
 
@@ -903,11 +897,10 @@ message DailyUtilizationNodeTypeResponse {
 
   message Datapoint {
     int64 timestamp = 1; // Unix timestamp (seconds since epoch).
-    
+
     map<string, int32> node_type_to_daily_total_core_minutes = 11;
   }
 
   map<string, Datapoints> cluster_id_to_datapoints = 1;
   map<string, Cluster> cluster_id_to_meta = 11;
 }
-
