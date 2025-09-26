@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -299,7 +300,7 @@ func (r *WorkloadPolicyResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	policy := data.toProto(r.client.TeamId)
+	policy := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId)
 
 	createWorkloadPolicyReq := &apiv1.CreateWorkloadRecommendationPolicyRequest{
 		TeamId: r.client.TeamId,
@@ -369,7 +370,7 @@ func (r *WorkloadPolicyResource) Update(ctx context.Context, req resource.Update
 
 	updateWorkloadPolicyReq := &apiv1.UpdateWorkloadRecommendationPolicyRequest{
 		TeamId: r.client.TeamId,
-		Policy: data.toProto(r.client.TeamId),
+		Policy: data.toProto(ctx, &resp.Diagnostics, r.client.TeamId),
 	}
 
 	updateWorkloadPolicyResp, err := r.client.RecommendationClient.UpdateWorkloadRecommendationPolicy(ctx, connect.NewRequest(updateWorkloadPolicyReq))
@@ -415,33 +416,39 @@ func (r *WorkloadPolicyResource) ImportState(ctx context.Context, req resource.I
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (m *WorkloadPolicyResourceModel) toProto(teamId string) *apiv1.WorkloadRecommendationPolicy {
-	actionTriggers := make([]apiv1.ActionTrigger, 0)
-	for _, actionTrigger := range m.ActionTriggers.Elements() {
-		var trigger apiv1.ActionTrigger
-		switch actionTrigger.String() {
+func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagnostics, teamId string) *apiv1.WorkloadRecommendationPolicy {
+	actionTriggers, err := getElementList(ctx, m.ActionTriggers.Elements(), func(ctx context.Context, value string) (apiv1.ActionTrigger, error) {
+		switch value {
 		case "on_schedule":
-			trigger = apiv1.ActionTrigger_ACTION_TRIGGER_ON_SCHEDULE
+			return apiv1.ActionTrigger_ACTION_TRIGGER_ON_SCHEDULE, nil
 		case "on_detection":
-			trigger = apiv1.ActionTrigger_ACTION_TRIGGER_ON_DETECTION
+			return apiv1.ActionTrigger_ACTION_TRIGGER_ON_DETECTION, nil
+		default:
+			return apiv1.ActionTrigger_ACTION_TRIGGER_UNSPECIFIED, fmt.Errorf("invalid action trigger: %s", value)
 		}
-		actionTriggers = append(actionTriggers, trigger)
+	})
+	if err != nil {
+		diags.AddError("Client Error", fmt.Sprintf("Unable to convert action triggers to Terraform value, got error: %s", err))
+		return nil
 	}
 
-	detectionTriggers := make([]apiv1.WorkloadDetectionTrigger, 0)
-	for _, detectionTrigger := range m.DetectionTriggers.Elements() {
-		var trigger apiv1.WorkloadDetectionTrigger
-		switch detectionTrigger.String() {
+	detectionTriggers, err := getElementList(ctx, m.DetectionTriggers.Elements(), func(ctx context.Context, value string) (apiv1.WorkloadDetectionTrigger, error) {
+		switch value {
 		case "pod_creation":
-			trigger = apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_CREATION
+			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_CREATION, nil
 		case "pod_update":
-			trigger = apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE
+			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE, nil
+		default:
+			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_UNSPECIFIED, fmt.Errorf("invalid detection trigger: %s", value)
 		}
-		detectionTriggers = append(detectionTriggers, trigger)
+	})
+	if err != nil {
+		diags.AddError("Client Error", fmt.Sprintf("Unable to convert detection triggers to Terraform value, got error: %s", err))
+		return nil
 	}
 
 	var recommendationMode apiv1.RecommendationMode
-	switch m.RecommendationMode.String() {
+	switch m.RecommendationMode.ValueString() {
 	case "balanced":
 		recommendationMode = apiv1.RecommendationMode_RECOMMENDATION_MODE_BALANCED
 	case "aggressive":
@@ -450,9 +457,10 @@ func (m *WorkloadPolicyResourceModel) toProto(teamId string) *apiv1.WorkloadReco
 		recommendationMode = apiv1.RecommendationMode_RECOMMENDATION_MODE_CONSERVATIVE
 	}
 
-	var schedulerPlugins []string
-	for _, schedulerPlugin := range m.SchedulerPlugins.Elements() {
-		schedulerPlugins = append(schedulerPlugins, schedulerPlugin.String())
+	schedulerPlugins, err := getStringList(ctx, m.SchedulerPlugins.Elements())
+	if err != nil {
+		diags.AddError("Client Error", fmt.Sprintf("Unable to convert scheduler plugins to Terraform value, got error: %s", err))
+		return nil
 	}
 
 	return &apiv1.WorkloadRecommendationPolicy{
