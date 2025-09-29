@@ -220,7 +220,7 @@ func (r *ClusterResource) Update(ctx context.Context, req resource.UpdateRequest
 	data.Name = types.StringValue(updateClusterResp.Msg.Cluster.CustomName)
 
 	// If prior token was empty, rotate it now and persist the new token in state
-	if data.Token.IsUnknown() {
+	if data.Token.IsNull() || data.Token.IsUnknown() || data.Token.ValueString() == "" {
 		resetReq := &apiv1.ResetClusterTokenRequest{
 			TeamId:    r.client.TeamId,
 			ClusterId: data.Id.ValueString(),
