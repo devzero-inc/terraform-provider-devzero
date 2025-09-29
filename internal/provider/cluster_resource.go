@@ -20,6 +20,7 @@ import (
 var _ resource.Resource = &ClusterResource{}
 var _ resource.ResourceWithConfigure = &ClusterResource{}
 var _ resource.ResourceWithImportState = &ClusterResource{}
+var _ resource.ResourceWithModifyPlan = &ClusterResource{}
 
 func NewClusterResource() resource.Resource {
 	return &ClusterResource{}
@@ -88,6 +89,33 @@ func (r *ClusterResource) Configure(ctx context.Context, req resource.ConfigureR
 	}
 
 	r.client = client
+}
+
+func (r *ClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// If the resource is being created, skip forcing a rotation during plan
+	if req.State.Raw.IsNull() {
+		return
+	}
+
+	var data ClusterResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// If the prior token is empty, mark the planned token as unknown so that
+	// Terraform plans an apply which will rotate the token during Update.
+	if data.Token.IsNull() || data.Token.ValueString() == "" {
+		// Only attempt to set if plan is available
+		if !req.Plan.Raw.IsNull() {
+			// Set token to unknown in plan
+			err := resp.Plan.SetAttribute(ctx, path.Root("token"), types.StringUnknown())
+			if err != nil {
+				resp.Diagnostics.AddError("Plan Error", fmt.Sprintf("Unable to mark token unknown in plan: %s", err))
+				return
+			}
+		}
+	}
 }
 
 func (r *ClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -190,6 +218,24 @@ func (r *ClusterResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	data.Name = types.StringValue(updateClusterResp.Msg.Cluster.CustomName)
+
+	// If prior token was empty, rotate it now and persist the new token in state
+	if data.Token.IsUnknown() {
+		resetReq := &apiv1.ResetClusterTokenRequest{
+			TeamId:    r.client.TeamId,
+			ClusterId: data.Id.ValueString(),
+		}
+		resetResp, err := r.client.ClusterMutationClient.ResetClusterToken(ctx, connect.NewRequest(resetReq))
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to reset cluster token, got error: %s", err))
+			return
+		}
+		if resetResp.Msg.Token == "" {
+			resp.Diagnostics.AddError("Client Error", "Cluster token reset returned empty token")
+			return
+		}
+		data.Token = types.StringValue(resetResp.Msg.Token)
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

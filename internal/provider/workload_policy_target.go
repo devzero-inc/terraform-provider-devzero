@@ -13,7 +13,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -37,20 +40,20 @@ type WorkloadPolicyTargetResource struct {
 
 // ExampleResourceModel describes the resource data model.
 type WorkloadPolicyTargetResourceModel struct {
-	Id                 types.String  `tfsdk:"id"`
-	PolicyId           types.String  `tfsdk:"policy_id"`
-	Name               types.String  `tfsdk:"name"`
-	Description        types.String  `tfsdk:"description"`
-	Priority           types.Int32   `tfsdk:"priority"`
-	Enabled            types.Bool    `tfsdk:"enabled"`
-	NamespaceSelector  LabelSelector `tfsdk:"namespace_selector"`
-	WorkloadSelector   LabelSelector `tfsdk:"workload_selector"`
-	KindFilter         types.List    `tfsdk:"kind_filter"`
-	NamePattern        RegexPattern  `tfsdk:"name_pattern"`
-	AnnotationSelector LabelSelector `tfsdk:"annotation_selector"`
-	WorkloadNames      types.List    `tfsdk:"workload_names"`
-	NodeGroupNames     types.List    `tfsdk:"node_group_names"`
-	ClusterIds         types.List    `tfsdk:"cluster_ids"`
+	Id                 types.String   `tfsdk:"id"`
+	PolicyId           types.String   `tfsdk:"policy_id"`
+	Name               types.String   `tfsdk:"name"`
+	Description        types.String   `tfsdk:"description"`
+	Priority           types.Int32    `tfsdk:"priority"`
+	Enabled            types.Bool     `tfsdk:"enabled"`
+	NamespaceSelector  *LabelSelector `tfsdk:"namespace_selector"`
+	WorkloadSelector   *LabelSelector `tfsdk:"workload_selector"`
+	KindFilter         types.List     `tfsdk:"kind_filter"`
+	NamePattern        *RegexPattern  `tfsdk:"name_pattern"`
+	AnnotationSelector *LabelSelector `tfsdk:"annotation_selector"`
+	WorkloadNames      types.List     `tfsdk:"workload_names"`
+	NodeGroupNames     types.List     `tfsdk:"node_group_names"`
+	ClusterIds         types.List     `tfsdk:"cluster_ids"`
 }
 
 type LabelSelector struct {
@@ -145,10 +148,14 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 			"description": schema.StringAttribute{
 				Description: "Description of the workload policy target",
 				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString(""),
 			},
 			"priority": schema.Int32Attribute{
 				Description: "Priority of the workload policy target",
 				Optional:    true,
+				Computed:    true,
+				Default:     int32default.StaticInt32(0),
 			},
 			"enabled": schema.BoolAttribute{
 				Description: "Whether the workload policy target is enabled",
@@ -170,6 +177,8 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Description: "Kind filter of the workload policy target",
 				Optional:    true,
 				ElementType: types.StringType,
+				Computed:    true,
+				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 			"name_pattern": schema.SingleNestedAttribute{
 				Description: "Name pattern of the workload policy target",
@@ -185,15 +194,19 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Description: "Workload names of the workload policy target",
 				Optional:    true,
 				ElementType: types.StringType,
+				Computed:    true,
+				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 			"node_group_names": schema.ListAttribute{
 				Description: "Node group names of the workload policy target",
 				Optional:    true,
 				ElementType: types.StringType,
+				Computed:    true,
+				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 			"cluster_ids": schema.ListAttribute{
 				Description: "Cluster IDs of the workload policy target",
-				Optional:    true,
+				Required:    true,
 				ElementType: types.StringType,
 			},
 		},
@@ -317,7 +330,8 @@ func (r *WorkloadPolicyTargetResource) Read(ctx context.Context, req resource.Re
 	}
 
 	getWorkloadPolicyTargetReq := &apiv1.GetWorkloadPolicyTargetRequest{
-		TeamId: r.client.TeamId,
+		TeamId:   r.client.TeamId,
+		TargetId: data.Id.ValueString(),
 	}
 
 	getWorkloadPolicyTargetResp, err := r.client.RecommendationClient.GetWorkloadPolicyTarget(ctx, connect.NewRequest(getWorkloadPolicyTargetReq))
@@ -389,6 +403,7 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 
 	updateWorkloadPolicyTargetReq := &apiv1.UpdateWorkloadPolicyTargetRequest{
 		TeamId:             r.client.TeamId,
+		TargetId:           data.Id.ValueString(),
 		PolicyId:           data.PolicyId.ValueStringPointer(),
 		Name:               data.Name.ValueString(),
 		Description:        data.Description.ValueString(),
@@ -448,6 +463,9 @@ func (r *WorkloadPolicyTargetResource) ImportState(ctx context.Context, req reso
 }
 
 func (l *LabelSelector) toProto(ctx context.Context) (*apiv1.LabelSelector, error) {
+	if l == nil {
+		return nil, nil
+	}
 	matchLabels, err := getStringMap(ctx, l.MatchLabels.Elements())
 	if err != nil {
 		return nil, err
@@ -492,6 +510,9 @@ func (m *MatchExpression) toProto(ctx context.Context) (*apiv1.LabelSelectorRequ
 }
 
 func (r *RegexPattern) toProto() *apiv1.RegexPattern {
+	if r == nil {
+		return nil
+	}
 	return &apiv1.RegexPattern{
 		Pattern: r.Pattern.ValueString(),
 		Flags:   r.Flags.ValueString(),
@@ -571,11 +592,25 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 }
 
 func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
+	if selector == nil {
+		m = nil
+		return
+	}
+	if m == nil {
+		m = &LabelSelector{}
+	}
 	m.MatchLabels = types.MapValueMust(types.StringType, fromStringMap(selector.MatchLabels))
 	m.MatchExpressions = types.ListValueMust(types.StringType, fromElementList(selector.MatchExpressions, MatchExpression{}.AttrTypes()))
 }
 
 func (m *RegexPattern) fromProto(pattern *apiv1.RegexPattern) {
+	if pattern == nil {
+		m = nil
+		return
+	}
+	if m == nil {
+		m = &RegexPattern{}
+	}
 	m.Pattern = types.StringValue(pattern.Pattern)
 	m.Flags = types.StringValue(pattern.Flags)
 }

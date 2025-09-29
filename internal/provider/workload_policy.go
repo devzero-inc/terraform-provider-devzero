@@ -42,23 +42,23 @@ type WorkloadPolicyResource struct {
 
 // ExampleResourceModel describes the resource data model.
 type WorkloadPolicyResourceModel struct {
-	Id                      types.String             `tfsdk:"id"`
-	Name                    types.String             `tfsdk:"name"`
-	Description             types.String             `tfsdk:"description"`
-	ActionTriggers          types.List               `tfsdk:"action_triggers"`
-	CronSchedule            types.String             `tfsdk:"cron_schedule"`
-	DetectionTriggers       types.List               `tfsdk:"detection_triggers"`
-	RecommendationMode      types.String             `tfsdk:"recommendation_mode"`
-	LoopbackPeriodSeconds   types.Int32              `tfsdk:"loopback_period_seconds"`
-	StartupPeriodSeconds    types.Int32              `tfsdk:"startup_period_seconds"`
-	CPUVerticalScaling      VerticalScalingOptions   `tfsdk:"cpu_vertical_scaling"`
-	MemoryVerticalScaling   VerticalScalingOptions   `tfsdk:"memory_vertical_scaling"`
-	GPUVerticalScaling      VerticalScalingOptions   `tfsdk:"gpu_vertical_scaling"`
-	GPUVRAMVerticalScaling  VerticalScalingOptions   `tfsdk:"gpu_vram_vertical_scaling"`
-	HorizontalScaling       HorizontalScalingOptions `tfsdk:"horizontal_scaling"`
-	LiveMigrationEnabled    types.Bool               `tfsdk:"live_migration_enabled"`
-	SchedulerPlugins        types.List               `tfsdk:"scheduler_plugins"`
-	DefragmentationSchedule types.String             `tfsdk:"defragmentation_schedule"`
+	Id                      types.String              `tfsdk:"id"`
+	Name                    types.String              `tfsdk:"name"`
+	Description             types.String              `tfsdk:"description"`
+	ActionTriggers          types.List                `tfsdk:"action_triggers"`
+	CronSchedule            types.String              `tfsdk:"cron_schedule"`
+	DetectionTriggers       types.List                `tfsdk:"detection_triggers"`
+	RecommendationMode      types.String              `tfsdk:"recommendation_mode"`
+	LoopbackPeriodSeconds   types.Int32               `tfsdk:"loopback_period_seconds"`
+	StartupPeriodSeconds    types.Int32               `tfsdk:"startup_period_seconds"`
+	CPUVerticalScaling      *VerticalScalingOptions   `tfsdk:"cpu_vertical_scaling"`
+	MemoryVerticalScaling   *VerticalScalingOptions   `tfsdk:"memory_vertical_scaling"`
+	GPUVerticalScaling      *VerticalScalingOptions   `tfsdk:"gpu_vertical_scaling"`
+	GPUVRAMVerticalScaling  *VerticalScalingOptions   `tfsdk:"gpu_vram_vertical_scaling"`
+	HorizontalScaling       *HorizontalScalingOptions `tfsdk:"horizontal_scaling"`
+	LiveMigrationEnabled    types.Bool                `tfsdk:"live_migration_enabled"`
+	SchedulerPlugins        types.List                `tfsdk:"scheduler_plugins"`
+	DefragmentationSchedule types.String              `tfsdk:"defragmentation_schedule"`
 }
 
 type VerticalScalingOptions struct {
@@ -130,6 +130,8 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 			"description": schema.StringAttribute{
 				Description: "Description of the workload policy",
 				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString(""),
 			},
 			"action_triggers": schema.ListAttribute{
 				Description: "Action triggers for when to apply the workload policy",
@@ -484,6 +486,7 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 }
 
 func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommendationPolicy) {
+	m.Id = types.StringValue(policy.PolicyId)
 	m.Name = types.StringValue(policy.Name)
 	m.Description = types.StringValue(policy.Description)
 
@@ -531,7 +534,6 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	m.GPUVerticalScaling.fromProto(policy.GpuVerticalScaling)
 	m.GPUVRAMVerticalScaling.fromProto(policy.GpuVramVerticalScaling)
 	m.HorizontalScaling.fromProto(policy.HorizontalScaling)
-
 	m.LiveMigrationEnabled = types.BoolValue(policy.LiveMigrationEnabled)
 
 	var schedulerPlugins []attr.Value
@@ -545,6 +547,9 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 }
 
 func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTarget {
+	if o == nil {
+		return nil
+	}
 	return &apiv1.VerticalScalingOptimizationTarget{
 		Enabled:                 o.Enabled.ValueBool(),
 		MinRequest:              o.MinRequest.ValueInt64Pointer(),
@@ -555,14 +560,33 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 }
 
 func (o *VerticalScalingOptions) fromProto(target *apiv1.VerticalScalingOptimizationTarget) {
+	if target == nil {
+		o = nil
+		return
+	}
+	if o == nil {
+		o = &VerticalScalingOptions{}
+	}
 	o.Enabled = types.BoolValue(target.Enabled)
-	o.MinRequest = types.Int64Value(*target.MinRequest)
-	o.MaxRequest = types.Int64Value(*target.MaxRequest)
-	o.OverheadMultiplier = types.Float32Value(*target.OverheadMultiplier)
-	o.LimitsAdjustmentEnabled = types.BoolValue(*target.LimitsAdjustmentEnabled)
+
+	if target.MinRequest != nil {
+		o.MinRequest = types.Int64Value(*target.MinRequest)
+	}
+	if target.MaxRequest != nil {
+		o.MaxRequest = types.Int64Value(*target.MaxRequest)
+	}
+	if target.OverheadMultiplier != nil {
+		o.OverheadMultiplier = types.Float32Value(*target.OverheadMultiplier)
+	}
+	if target.LimitsAdjustmentEnabled != nil {
+		o.LimitsAdjustmentEnabled = types.BoolValue(*target.LimitsAdjustmentEnabled)
+	}
 }
 
 func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizationTarget {
+	if o == nil {
+		return nil
+	}
 	return &apiv1.HorizontalScalingOptimizationTarget{
 		Enabled:     o.Enabled.ValueBool(),
 		MinReplicas: o.MinReplicas.ValueInt32Pointer(),
@@ -571,7 +595,18 @@ func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizatio
 }
 
 func (o *HorizontalScalingOptions) fromProto(target *apiv1.HorizontalScalingOptimizationTarget) {
+	if target == nil {
+		o = nil
+		return
+	}
+	if o == nil {
+		o = &HorizontalScalingOptions{}
+	}
 	o.Enabled = types.BoolValue(target.Enabled)
-	o.MinReplicas = types.Int32Value(*target.MinReplicas)
-	o.MaxReplicas = types.Int32Value(*target.MaxReplicas)
+	if target.MinReplicas != nil {
+		o.MinReplicas = types.Int32Value(*target.MinReplicas)
+	}
+	if target.MaxReplicas != nil {
+		o.MaxReplicas = types.Int32Value(*target.MaxReplicas)
+	}
 }
