@@ -13,7 +13,7 @@ resource "devzero_workload_policy" "workload_policy" {
   detection_triggers       = ["pod_creation", "pod_update"]
   recommendation_mode      = "balanced"
   loopback_period_seconds  = 3600 # 1 hour
-  startup_period_seconds   = 3600 # 1 minute
+  startup_period_seconds   = 60 # 1 minute
   live_migration_enabled   = true
   scheduler_plugins        = ["dz-scheduler"]
   defragmentation_schedule = "*/15 * * * *"
