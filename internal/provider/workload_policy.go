@@ -48,7 +48,6 @@ type WorkloadPolicyResourceModel struct {
 	ActionTriggers          types.List                `tfsdk:"action_triggers"`
 	CronSchedule            types.String              `tfsdk:"cron_schedule"`
 	DetectionTriggers       types.List                `tfsdk:"detection_triggers"`
-	RecommendationMode      types.String              `tfsdk:"recommendation_mode"`
 	LoopbackPeriodSeconds   types.Int32               `tfsdk:"loopback_period_seconds"`
 	StartupPeriodSeconds    types.Int32               `tfsdk:"startup_period_seconds"`
 	CPUVerticalScaling      *VerticalScalingOptions   `tfsdk:"cpu_vertical_scaling"`
@@ -59,6 +58,13 @@ type WorkloadPolicyResourceModel struct {
 	LiveMigrationEnabled    types.Bool                `tfsdk:"live_migration_enabled"`
 	SchedulerPlugins        types.List                `tfsdk:"scheduler_plugins"`
 	DefragmentationSchedule types.String              `tfsdk:"defragmentation_schedule"`
+	MinChangePercent        types.Float32             `tfsdk:"min_change_percent"`
+	MinDataPoints           types.Int32               `tfsdk:"min_data_points"`
+	StabilityCvMax          types.Float32             `tfsdk:"stability_cv_max"`
+	HysteresisVsTarget      types.Float32             `tfsdk:"hysteresis_vs_target"`
+	DriftDeltaPercent       types.Float32             `tfsdk:"drift_delta_percent"`
+	MinVpaWindowDataPoints  types.Int32               `tfsdk:"min_vpa_window_data_points"`
+	CooldownMinutes         types.Int32               `tfsdk:"cooldown_minutes"`
 }
 
 type VerticalScalingOptions struct {
@@ -67,12 +73,21 @@ type VerticalScalingOptions struct {
 	MaxRequest              types.Int64   `tfsdk:"max_request"`
 	OverheadMultiplier      types.Float32 `tfsdk:"overhead_multiplier"`
 	LimitsAdjustmentEnabled types.Bool    `tfsdk:"limits_adjustment_enabled"`
+	TargetPercentile        types.Float32 `tfsdk:"target_percentile"`
+	MaxScaleUpPercent       types.Float32 `tfsdk:"max_scale_up_percent"`
+	MaxScaleDownPercent     types.Float32 `tfsdk:"max_scale_down_percent"`
+	LimitMultiplier         types.Float32 `tfsdk:"limit_multiplier"`
+	MinDataPoints           types.Int32   `tfsdk:"min_data_points"`
 }
 
 type HorizontalScalingOptions struct {
-	Enabled     types.Bool  `tfsdk:"enabled"`
-	MinReplicas types.Int32 `tfsdk:"min_replicas"`
-	MaxReplicas types.Int32 `tfsdk:"max_replicas"`
+	Enabled                 types.Bool    `tfsdk:"enabled"`
+	MinReplicas             types.Int32   `tfsdk:"min_replicas"`
+	MaxReplicas             types.Int32   `tfsdk:"max_replicas"`
+	TargetUtilization       types.Float32 `tfsdk:"target_utilization"`
+	PrimaryMetric           types.String  `tfsdk:"primary_metric"`
+	MinDataPoints           types.Int32   `tfsdk:"min_data_points"`
+	MaxReplicaChangePercent types.Float32 `tfsdk:"max_replica_change_percent"`
 }
 
 func (r *WorkloadPolicyResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -83,58 +98,88 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 	verticalScalingAttributes := func(defaultEnabled bool) map[string]schema.Attribute {
 		return map[string]schema.Attribute{
 			"enabled": schema.BoolAttribute{
-				Description: "Whether vertical scaling is enabled for the workload policy",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(defaultEnabled),
+				Description:         "Enable or disable vertical scaling for this resource",
+				MarkdownDescription: "Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(defaultEnabled),
 			},
 			"min_request": schema.Int64Attribute{
-				Description: "Minimum request for vertical scaling",
-				Optional:    true,
+				Description:         "Lower bound for container resource requests",
+				MarkdownDescription: "Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.",
+				Optional:            true,
 			},
 			"max_request": schema.Int64Attribute{
-				Description: "Maximum request for vertical scaling",
-				Optional:    true,
+				Description:         "Upper bound for container resource requests",
+				MarkdownDescription: "Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.",
+				Optional:            true,
 			},
 			"overhead_multiplier": schema.Float32Attribute{
-				Description: "Overhead multiplier for vertical scaling",
-				Optional:    true,
-				Computed:    true,
-				Default:     float32default.StaticFloat32(0.05),
+				Description:         "Additional headroom added to recommendations",
+				MarkdownDescription: "Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).",
+				Optional:            true,
+				Computed:            true,
+				Default:             float32default.StaticFloat32(0.05),
 			},
 			"limits_adjustment_enabled": schema.BoolAttribute{
-				Description: "Whether limits adjustment is enabled for vertical scaling",
+				Description:         "Allow recommender to adjust container limits as well as requests",
+				MarkdownDescription: "Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+			"target_percentile": schema.Float32Attribute{
+				Description:         "Target percentile for resource sizing (0.0-1.0)",
+				MarkdownDescription: "Target percentile for resource sizing (e.g., 0.75 = P75).",
+				Optional:            true,
+			},
+			"max_scale_up_percent": schema.Float32Attribute{
+				Description: "Maximum percent to scale up in one step",
 				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+			},
+			"max_scale_down_percent": schema.Float32Attribute{
+				Description: "Maximum percent to scale down in one step",
+				Optional:    true,
+			},
+			"limit_multiplier": schema.Float32Attribute{
+				Description:         "How much higher limits should be vs requests",
+				MarkdownDescription: "How much higher limits should be vs requests (e.g., 2.0 = 2x the request).",
+				Optional:            true,
+			},
+			"min_data_points": schema.Int32Attribute{
+				Description: "Minimum data points required for VPA decisions",
+				Optional:    true,
 			},
 		}
 	}
 
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Workload policy resource",
+		MarkdownDescription: "Configures DevZero workload recommendation policies, including triggers, scaling targets, and scheduler options.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "ID of the workload policy",
-				Computed:    true,
+				Description:         "Unique identifier of the workload policy",
+				MarkdownDescription: "Unique identifier of the workload policy. Managed by the provider.",
+				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				Description: "Name of the workload policy",
-				Required:    true,
+				Description:         "Human-friendly name for the policy",
+				MarkdownDescription: "Human-friendly name for the policy. Used for display in the DevZero UI.",
+				Required:            true,
 			},
 			"description": schema.StringAttribute{
-				Description: "Description of the workload policy",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString(""),
+				Description:         "Free-form description of the policy",
+				MarkdownDescription: "Free-form description of the policy to help others understand its intent and scope.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
 			},
 			"action_triggers": schema.ListAttribute{
-				Description: "Action triggers for when to apply the workload policy",
+				Description: "When to apply this policy",
 				MarkdownDescription: "Action triggers for when to apply the workload policy. Only one of `on_schedule` or `on_detection` is allowed." +
 					"The `on_schedule` trigger is used to apply the workload policy on a schedule configured with the `cron_schedule` attribute." +
 					"The `on_detection` trigger is used to apply the workload policy when a detection trigger event occurs, configured with the `detection_triggers` attribute.",
@@ -148,13 +193,14 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				},
 			},
 			"cron_schedule": schema.StringAttribute{
-				Description: "Cron schedule to trigger the workload policy.",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("*/15 * * * *"),
+				Description:         "Cron expression for scheduled application",
+				MarkdownDescription: "Cron expression for scheduled application. Uses standard 5-field cron format in the cluster timezone.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("*/15 * * * *"),
 			},
 			"detection_triggers": schema.ListAttribute{
-				Description: "Detection triggers for when to apply the workload policy",
+				Description: "Events that trigger application of this policy",
 				MarkdownDescription: "Detection triggers for when to apply the workload policy. Only one of `pod_creation` or `pod_update` is allowed." +
 					"The `pod_creation` trigger is used to apply the workload policy when a pod is created." +
 					"The `pod_update` trigger is used to apply the workload policy when a pod is updated.",
@@ -174,80 +220,87 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 					listvalidator.ValueStringsAre(stringvalidator.OneOf("pod_creation", "pod_update")),
 				},
 			},
-			"recommendation_mode": schema.StringAttribute{
-				Description: "Recommendation mode of the workload policy",
-				MarkdownDescription: "Recommendation mode of the workload policy. The `balanced` mode is the default mode and is used to balance the recommendation between the other modes." +
-					"The `aggressive` mode is used to recommend the most aggressive optimization targets." +
-					"The `conservative` mode is used to recommend the most conservative optimization targets.",
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString("balanced"),
-				Validators: []validator.String{
-					stringvalidator.OneOf("balanced", "aggressive", "conservative"),
-				},
-			},
 			"loopback_period_seconds": schema.Int32Attribute{
-				Description:         "Loopback period seconds of the workload policy",
+				Description:         "Window of historical data for recommendations",
 				MarkdownDescription: "Loopback period seconds of the workload policy. The loopback period is the period of time to look back for resource usage data.",
 				Optional:            true,
 				Computed:            true,
 				Default:             int32default.StaticInt32(86400),
 			},
 			"startup_period_seconds": schema.Int32Attribute{
-				Description:         "Startup period seconds of the workload policy",
+				Description:         "Ignore early-life metrics for this duration",
 				MarkdownDescription: "Startup period seconds of the workload policy. The startup period is the period of time to ignore resource usage data after the workload is started.",
 				Optional:            true,
 				Computed:            true,
 				Default:             int32default.StaticInt32(0),
 			},
 			"cpu_vertical_scaling": schema.SingleNestedAttribute{
-				Description: "CPU vertical scaling options for the workload policy",
+				Description: "CPU vertical scaling options",
 				Optional:    true,
 				Attributes:  verticalScalingAttributes(true),
 			},
 			"memory_vertical_scaling": schema.SingleNestedAttribute{
-				Description: "Memory vertical scaling options for the workload policy",
+				Description: "Memory vertical scaling options",
 				Optional:    true,
 				Attributes:  verticalScalingAttributes(true),
 			},
 			"gpu_vertical_scaling": schema.SingleNestedAttribute{
-				Description: "GPU vertical scaling options for the workload policy",
+				Description: "GPU vertical scaling options",
 				Optional:    true,
 				Attributes:  verticalScalingAttributes(false),
 			},
 			"gpu_vram_vertical_scaling": schema.SingleNestedAttribute{
-				Description: "GPU VRAM vertical scaling options for the workload policy",
+				Description: "GPU VRAM vertical scaling options",
 				Optional:    true,
 				Attributes:  verticalScalingAttributes(false),
 			},
 			"horizontal_scaling": schema.SingleNestedAttribute{
-				Description: "Horizontal scaling options for the workload policy",
+				Description: "Horizontal scaling options",
 				Optional:    true,
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
-						Description: "Whether horizontal scaling is enabled for the workload policy",
+						Description: "Enable or disable horizontal scaling",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
 					"min_replicas": schema.Int32Attribute{
-						Description: "Minimum replicas for horizontal scaling",
+						Description: "Lower bound on replicas",
 						Optional:    true,
 					},
 					"max_replicas": schema.Int32Attribute{
-						Description: "Maximum replicas for horizontal scaling",
+						Description: "Upper bound on replicas",
+						Optional:    true,
+					},
+					"target_utilization": schema.Float32Attribute{
+						Description: "Target utilization for primary metric (0.0-1.0)",
+						Optional:    true,
+					},
+					"primary_metric": schema.StringAttribute{
+						Description: "Primary metric to use for HPA decisions",
+						Optional:    true,
+						Validators: []validator.String{
+							stringvalidator.OneOf("cpu", "memory", "gpu", "network"),
+						},
+					},
+					"min_data_points": schema.Int32Attribute{
+						Description: "Minimum data points required for HPA decisions",
+						Optional:    true,
+					},
+					"max_replica_change_percent": schema.Float32Attribute{
+						Description: "Maximum percent replica change in one step",
 						Optional:    true,
 					},
 				},
 			},
 			"live_migration_enabled": schema.BoolAttribute{
-				Description: "Whether live migration is enabled for the workload policy",
+				Description: "Allow live migration when applying recommendations",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
 			"scheduler_plugins": schema.ListAttribute{
-				Description: "Scheduler plugins for the workload policy",
+				Description: "Kubernetes scheduler plugins to activate",
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
@@ -264,10 +317,39 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				},
 			},
 			"defragmentation_schedule": schema.StringAttribute{
-				Description: "Defragmentation schedule for the workload policy",
+				Description:         "Cron expression for background defragmentation",
+				MarkdownDescription: "Cron expression for background defragmentation that can move workloads to reduce fragmentation.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("*/15 * * * *"),
+			},
+			"min_change_percent": schema.Float32Attribute{
+				Description: "Global minimum change threshold for applying recommendations",
 				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("*/15 * * * *"),
+			},
+			"min_data_points": schema.Int32Attribute{
+				Description: "Global minimum data points required for recommendations",
+				Optional:    true,
+			},
+			"stability_cv_max": schema.Float32Attribute{
+				Description: "Maximum coefficient of variation to consider stable",
+				Optional:    true,
+			},
+			"hysteresis_vs_target": schema.Float32Attribute{
+				Description: "Hysteresis threshold vs target for HPA coordination",
+				Optional:    true,
+			},
+			"drift_delta_percent": schema.Float32Attribute{
+				Description: "Percentage drift from baseline that triggers VPA refresh",
+				Optional:    true,
+			},
+			"min_vpa_window_data_points": schema.Int32Attribute{
+				Description: "Minimum data points in VPA analysis window",
+				Optional:    true,
+			},
+			"cooldown_minutes": schema.Int32Attribute{
+				Description: "Minutes to wait between applying recommendations",
+				Optional:    true,
 			},
 		},
 	}
@@ -449,16 +531,6 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		return nil
 	}
 
-	var recommendationMode apiv1.RecommendationMode
-	switch m.RecommendationMode.ValueString() {
-	case "balanced":
-		recommendationMode = apiv1.RecommendationMode_RECOMMENDATION_MODE_BALANCED
-	case "aggressive":
-		recommendationMode = apiv1.RecommendationMode_RECOMMENDATION_MODE_AGGRESSIVE
-	case "conservative":
-		recommendationMode = apiv1.RecommendationMode_RECOMMENDATION_MODE_CONSERVATIVE
-	}
-
 	schedulerPlugins, err := getStringList(ctx, m.SchedulerPlugins.Elements())
 	if err != nil {
 		diags.AddError("Client Error", fmt.Sprintf("Unable to convert scheduler plugins to Terraform value, got error: %s", err))
@@ -473,7 +545,6 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		ActionTriggers:          actionTriggers,
 		CronSchedule:            m.CronSchedule.ValueStringPointer(),
 		DetectionTriggers:       detectionTriggers,
-		RecommendationMode:      recommendationMode,
 		CpuVerticalScaling:      m.CPUVerticalScaling.toProto(),
 		MemoryVerticalScaling:   m.MemoryVerticalScaling.toProto(),
 		GpuVerticalScaling:      m.GPUVerticalScaling.toProto(),
@@ -518,17 +589,6 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	}
 	m.DetectionTriggers = types.ListValueMust(types.StringType, detectionTriggers)
 
-	var recommendationMode types.String
-	switch policy.RecommendationMode {
-	case apiv1.RecommendationMode_RECOMMENDATION_MODE_BALANCED:
-		recommendationMode = types.StringValue("balanced")
-	case apiv1.RecommendationMode_RECOMMENDATION_MODE_AGGRESSIVE:
-		recommendationMode = types.StringValue("aggressive")
-	case apiv1.RecommendationMode_RECOMMENDATION_MODE_CONSERVATIVE:
-		recommendationMode = types.StringValue("conservative")
-	}
-	m.RecommendationMode = recommendationMode
-
 	m.CPUVerticalScaling.fromProto(policy.CpuVerticalScaling)
 	m.MemoryVerticalScaling.fromProto(policy.MemoryVerticalScaling)
 	m.GPUVerticalScaling.fromProto(policy.GpuVerticalScaling)
@@ -556,6 +616,11 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 		MaxRequest:              o.MaxRequest.ValueInt64Pointer(),
 		OverheadMultiplier:      o.OverheadMultiplier.ValueFloat32Pointer(),
 		LimitsAdjustmentEnabled: o.LimitsAdjustmentEnabled.ValueBoolPointer(),
+		TargetPercentile:        o.TargetPercentile.ValueFloat32Pointer(),
+		MaxScaleUpPercent:       o.MaxScaleUpPercent.ValueFloat32Pointer(),
+		MaxScaleDownPercent:     o.MaxScaleDownPercent.ValueFloat32Pointer(),
+		LimitMultiplier:         o.LimitMultiplier.ValueFloat32Pointer(),
+		MinDataPoints:           o.MinDataPoints.ValueInt32Pointer(),
 	}
 }
 
@@ -581,6 +646,21 @@ func (o *VerticalScalingOptions) fromProto(target *apiv1.VerticalScalingOptimiza
 	if target.LimitsAdjustmentEnabled != nil {
 		o.LimitsAdjustmentEnabled = types.BoolValue(*target.LimitsAdjustmentEnabled)
 	}
+	if target.TargetPercentile != nil {
+		o.TargetPercentile = types.Float32Value(*target.TargetPercentile)
+	}
+	if target.MaxScaleUpPercent != nil {
+		o.MaxScaleUpPercent = types.Float32Value(*target.MaxScaleUpPercent)
+	}
+	if target.MaxScaleDownPercent != nil {
+		o.MaxScaleDownPercent = types.Float32Value(*target.MaxScaleDownPercent)
+	}
+	if target.LimitMultiplier != nil {
+		o.LimitMultiplier = types.Float32Value(*target.LimitMultiplier)
+	}
+	if target.MinDataPoints != nil {
+		o.MinDataPoints = types.Int32Value(*target.MinDataPoints)
+	}
 }
 
 func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizationTarget {
@@ -588,9 +668,13 @@ func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizatio
 		return nil
 	}
 	return &apiv1.HorizontalScalingOptimizationTarget{
-		Enabled:     o.Enabled.ValueBool(),
-		MinReplicas: o.MinReplicas.ValueInt32Pointer(),
-		MaxReplicas: o.MaxReplicas.ValueInt32Pointer(),
+		Enabled:                 o.Enabled.ValueBool(),
+		MinReplicas:             o.MinReplicas.ValueInt32Pointer(),
+		MaxReplicas:             o.MaxReplicas.ValueInt32Pointer(),
+		TargetUtilization:       o.TargetUtilization.ValueFloat32Pointer(),
+		PrimaryMetric:           o.toHPAMetric(),
+		MinDataPoints:           o.MinDataPoints.ValueInt32Pointer(),
+		MaxReplicaChangePercent: o.MaxReplicaChangePercent.ValueFloat32Pointer(),
 	}
 }
 
@@ -608,5 +692,47 @@ func (o *HorizontalScalingOptions) fromProto(target *apiv1.HorizontalScalingOpti
 	}
 	if target.MaxReplicas != nil {
 		o.MaxReplicas = types.Int32Value(*target.MaxReplicas)
+	}
+	if target.TargetUtilization != nil {
+		o.TargetUtilization = types.Float32Value(*target.TargetUtilization)
+	}
+	o.PrimaryMetric = types.StringValue(o.fromHPAMetric(target.GetPrimaryMetric()))
+	if target.MinDataPoints != nil {
+		o.MinDataPoints = types.Int32Value(*target.MinDataPoints)
+	}
+	if target.MaxReplicaChangePercent != nil {
+		o.MaxReplicaChangePercent = types.Float32Value(*target.MaxReplicaChangePercent)
+	}
+}
+
+func (o *HorizontalScalingOptions) toHPAMetric() *apiv1.HPAMetricType {
+	var metric apiv1.HPAMetricType
+	switch o.PrimaryMetric.ValueString() {
+	case "cpu":
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU
+	case "memory":
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY
+	case "gpu":
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU
+	case "network":
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK
+	default:
+		return nil
+	}
+	return &metric
+}
+
+func (o *HorizontalScalingOptions) fromHPAMetric(metric apiv1.HPAMetricType) string {
+	switch metric {
+	case apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU:
+		return "cpu"
+	case apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY:
+		return "memory"
+	case apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU:
+		return "gpu"
+	case apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK:
+		return "network"
+	default:
+		return ""
 	}
 }

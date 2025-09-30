@@ -11,35 +11,35 @@ option java_package = "gen.api.v1";
 
 // Enums
 enum K8sObjectKind {
-  K8S_OBJECT_KIND_UNSPECIFIED = 0;
-  K8S_OBJECT_KIND_DEPLOYMENT = 1;
-  K8S_OBJECT_KIND_REPLICA_SET = 2;
-  K8S_OBJECT_KIND_STATEFUL_SET = 3;
-  K8S_OBJECT_KIND_DAEMON_SET = 4;
-  K8S_OBJECT_KIND_JOB = 5;
-  K8S_OBJECT_KIND_CRON_JOB = 6;
-  K8S_OBJECT_KIND_REPLICATION_CONTROLLER = 7;
-  K8S_OBJECT_KIND_POD = 8;
-  K8S_OBJECT_KIND_NAMESPACE = 9;
-  K8S_OBJECT_KIND_NODE = 10;
-  K8S_OBJECT_KIND_INGRESS = 11;
-  K8S_OBJECT_KIND_CONTAINER = 12;
-  K8S_OBJECT_KIND_SERVICE = 13;
-  K8S_OBJECT_KIND_CONFIG_MAP = 14;
-  K8S_OBJECT_KIND_PERSISTENT_VOLUME = 15;
-  K8S_OBJECT_KIND_PERSISTENT_VOLUME_CLAIM = 16;
-  K8S_OBJECT_KIND_STORAGE_CLASS = 17;
-  K8S_OBJECT_KIND_ARGO_ROLLOUT = 18;
-  K8S_OBJECT_KIND_HORIZONTAL_POD_AUTOSCALER = 19;
-  K8S_OBJECT_KIND_VERTICAL_POD_AUTOSCALER = 20;
-  K8S_OBJECT_KIND_LIMIT_RANGE = 21;
-  K8S_OBJECT_KIND_SERVICE_ACCOUNT = 22;
-  K8S_OBJECT_KIND_ROLE = 23;
-  K8S_OBJECT_KIND_ROLE_BINDING = 24;
-  K8S_OBJECT_KIND_KEDA_SCALED_OBJECT = 25;
-  K8S_OBJECT_KIND_KARPENTER_RESOURCE = 26;
-  K8S_OBJECT_KIND_POD_DISRUPTION_BUDGET = 27;
-  K8S_OBJECT_KIND_RESOURCE_QUOTA = 28;
+    K8S_OBJECT_KIND_UNSPECIFIED = 0;
+    K8S_OBJECT_KIND_DEPLOYMENT = 1;
+    K8S_OBJECT_KIND_REPLICA_SET = 2;
+    K8S_OBJECT_KIND_STATEFUL_SET = 3;
+    K8S_OBJECT_KIND_DAEMON_SET = 4;
+    K8S_OBJECT_KIND_JOB = 5;
+    K8S_OBJECT_KIND_CRON_JOB = 6;
+    K8S_OBJECT_KIND_REPLICATION_CONTROLLER = 7;
+    K8S_OBJECT_KIND_POD = 8;
+    K8S_OBJECT_KIND_NAMESPACE = 9;
+    K8S_OBJECT_KIND_NODE = 10;
+    K8S_OBJECT_KIND_INGRESS = 11;
+    K8S_OBJECT_KIND_CONTAINER = 12;
+    K8S_OBJECT_KIND_SERVICE = 13;
+    K8S_OBJECT_KIND_CONFIG_MAP = 14;
+    K8S_OBJECT_KIND_PERSISTENT_VOLUME = 15;
+    K8S_OBJECT_KIND_PERSISTENT_VOLUME_CLAIM = 16;
+    K8S_OBJECT_KIND_STORAGE_CLASS = 17;
+    K8S_OBJECT_KIND_ARGO_ROLLOUT = 18;
+    K8S_OBJECT_KIND_HORIZONTAL_POD_AUTOSCALER = 19;
+    K8S_OBJECT_KIND_VERTICAL_POD_AUTOSCALER = 20;
+    K8S_OBJECT_KIND_LIMIT_RANGE = 21;
+    K8S_OBJECT_KIND_SERVICE_ACCOUNT = 22;
+    K8S_OBJECT_KIND_ROLE = 23;
+    K8S_OBJECT_KIND_ROLE_BINDING = 24;
+    K8S_OBJECT_KIND_KEDA_SCALED_OBJECT = 25;
+    K8S_OBJECT_KIND_KARPENTER_RESOURCE = 26;
+    K8S_OBJECT_KIND_POD_DISRUPTION_BUDGET = 27;
+    K8S_OBJECT_KIND_RESOURCE_QUOTA = 28;
 }
 
 // Represents a single audit log entry
@@ -82,8 +82,8 @@ message Pagination {
 
 // Enum listing order by directions
 enum OrderByEnum {
-  ORDER_BY_ENUM_DESC_UNSPECIFIED = 0;
-  ORDER_BY_ENUM_ASC = 1;
+    ORDER_BY_ENUM_DESC_UNSPECIFIED = 0;
+    ORDER_BY_ENUM_ASC = 1;
 }
 
 // CostInfo contains cost estimates and optimized cost projections.
@@ -237,7 +237,7 @@ message WorkloadItem {
   optional google.protobuf.Timestamp deleted_at = 17; // Last update time of the workload item.
   string cluster_id = 18; // Cluster id of the workload
   string id = 19; // DevZero unique identifier
-  // Resource-specific details for different K8s resource types
+    // Resource-specific details for different K8s resource types
   bool is_karpenter_resource = 20;
   optional ResourceDetails resource_details = 30;
   repeated string policy_ids = 56; // List of policy IDs attached to this workload
@@ -283,7 +283,7 @@ message Node {
   bool is_ready = 10; // Indicates whether the node is ready.
   optional ContainerRuntimeInfo container_runtime = 20;
   string node_group_name = 30; // it is what the variable says it is
-
+  
   ResourceDetails resource_details = 40; // if withDetails is true
 
   // metadata if withMetadata is true
@@ -303,8 +303,8 @@ message Node {
   double gpu_price = 56;
 
   // Enhanced node classification
-  string extracted_node_type = 60; // "spot", "on-demand", "reserved"
-  string availability_zone = 61; // Multi-cloud AZ extraction
+  string extracted_node_type = 60; // "spot", "on-demand", "reserved" 
+  string availability_zone = 61;   // Multi-cloud AZ extraction
 
   // Kubernetes metadata
   string kubernetes_uid = 62;
@@ -357,10 +357,10 @@ message SavingsData {
   double cumulative_cpu_savings_millicores = 4;
 
   double cpu_cost_without_autoscaler = 5; // hypothetical cost w/ chart-level request
-  double actual_cpu_cost = 6; // what you paid
-  double cpu_cost_savings = 7; // autoscaler impact (5 - 6)
-  double cpu_usage_cost = 8; // based on actual usage
-  double cpu_cost_waste = 9; // 6 - 8
+  double actual_cpu_cost = 6;             // what you paid
+  double cpu_cost_savings = 7;            // autoscaler impact (5 - 6)
+  double cpu_usage_cost = 8;              // based on actual usage
+  double cpu_cost_waste = 9;              // 6 - 8
 }
 
 message SavingsDataPoint {
@@ -370,7 +370,7 @@ message SavingsDataPoint {
 
 message SavingsTimeSeries {
   repeated SavingsDataPoint savings_datapoints = 1;
-
+  
   double total_cpu_savings_millicores = 2;
   double total_cpu_cost_savings = 3;
   double total_cpu_cost_waste = 4;
@@ -380,52 +380,53 @@ message SavingsTimeSeries {
 
 // LabelSelectorOperator is the set of operators that can be used in a selector requirement.
 enum LabelSelectorOperator {
-  LABEL_SELECTOR_OPERATOR_UNSPECIFIED = 0;
-  LABEL_SELECTOR_OPERATOR_IN = 1; // In
-  LABEL_SELECTOR_OPERATOR_NOT_IN = 2; // NotIn
-  LABEL_SELECTOR_OPERATOR_EXISTS = 3; // Exists
-  LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST = 4; // DoesNotExist
+    LABEL_SELECTOR_OPERATOR_UNSPECIFIED = 0;
+    LABEL_SELECTOR_OPERATOR_IN = 1;             // In
+    LABEL_SELECTOR_OPERATOR_NOT_IN = 2;         // NotIn  
+    LABEL_SELECTOR_OPERATOR_EXISTS = 3;         // Exists
+    LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST = 4; // DoesNotExist
 }
 
 // LabelSelectorRequirement is a selector that contains values, a key, and an operator that
 // relates the key and values.
 message LabelSelectorRequirement {
-  // key is the label key that the selector applies to.
-  string key = 1;
-  // operator represents a key's relationship to a set of values.
-  // Valid operators are In, NotIn, Exists and DoesNotExist.
-  LabelSelectorOperator operator = 2;
-  // values is an array of string values. If the operator is In or NotIn,
-  // the values array must be non-empty. If the operator is Exists or DoesNotExist,
-  // the values array must be empty. This array is replaced during a strategic
-  // merge patch.
-  repeated string values = 3;
+    // key is the label key that the selector applies to.
+    string key = 1;
+    // operator represents a key's relationship to a set of values.
+    // Valid operators are In, NotIn, Exists and DoesNotExist.
+    LabelSelectorOperator operator = 2;
+    // values is an array of string values. If the operator is In or NotIn,
+    // the values array must be non-empty. If the operator is Exists or DoesNotExist,
+    // the values array must be empty. This array is replaced during a strategic
+    // merge patch.
+    repeated string values = 3;
 }
 
 // LabelSelector is a label query over a set of resources. The result of matchLabels and
 // matchExpressions are ANDed. An empty label selector matches all objects. A null
 // label selector matches no objects.
 message LabelSelector {
-  // Department-style labels for backwards compatibility
-  repeated Label labels = 1 [deprecated = true]; // Deprecated: Label is still used for departments but we will soon migrate to match_label and match_expressions
 
-  message Label {
-    string key = 1;
-    string value = 2;
-  }
+    // Department-style labels for backwards compatibility
+    repeated Label labels = 1 [deprecated = true]; // Deprecated: Label is still used for departments but we will soon migrate to match_label and match_expressions
+    
+    message Label {
+        string key = 1;
+        string value = 2;
+    }
 
-  // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-  // map is equivalent to an element of matchExpressions, whose key field is "key", the
-  // operator is "In", and the values array contains only "value". The requirements are ANDed.
-  map<string, string> match_labels = 2;
-  // matchExpressions is a list of label selector requirements. The requirements are ANDed.
-  repeated LabelSelectorRequirement match_expressions = 3;
+    // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+    // map is equivalent to an element of matchExpressions, whose key field is "key", the
+    // operator is "In", and the values array contains only "value". The requirements are ANDed.
+    map<string, string> match_labels = 2;
+    // matchExpressions is a list of label selector requirements. The requirements are ANDed.
+    repeated LabelSelectorRequirement match_expressions = 3;   
 }
 
 // RegexPattern represents a regex pattern with optional flags
 message RegexPattern {
-  string pattern = 1;
-  string flags = 2; // case-insensitive, etc. (optional)
+    string pattern = 1;
+    string flags = 2; // case-insensitive, etc. (optional)
 }
 
 // ResourceDetails contains resource-specific information flattened for easy frontend access
@@ -437,7 +438,7 @@ message ResourceDetails {
     DeploymentDetails deployment_details = 2;
     // StatefulSet-specific fields
     StatefulSetDetails stateful_set_details = 3;
-    // DaemonSet-specific fields
+    // DaemonSet-specific fields  
     DaemonSetDetails daemon_set_details = 4;
     // ReplicaSet-specific fields
     ReplicaSetDetails replica_set_details = 5;
@@ -480,86 +481,86 @@ message ResourceDetails {
     // ResourceQuota-specific fields
     ResourceQuotaDetails resource_quota_details = 238;
   }
-
+  
   // Common fields that can be flattened at this level for easier access
   // These are populated based on the resource type
-  string phase = 10; // Pod phase: "Running", "Pending", "Succeeded", "Failed", "Unknown"
-  string pod_ip = 11; // Pod IP from status.podIP
-  string host_ip = 12; // Host IP from status.hostIP
-  string node_name = 13; // Node name where pod is scheduled
-  bool ready = 14; // Pod ready status from conditions
-  string qos_class = 15; // Pod QoS class: "Guaranteed", "Burstable", "BestEffort"
-  int32 container_count = 16; // Number of containers in the pod
-  int32 restart_count = 17; // Sum of all container restart counts
-
+  string phase = 10;           // Pod phase: "Running", "Pending", "Succeeded", "Failed", "Unknown"
+  string pod_ip = 11;          // Pod IP from status.podIP
+  string host_ip = 12;         // Host IP from status.hostIP  
+  string node_name = 13;       // Node name where pod is scheduled
+  bool ready = 14;             // Pod ready status from conditions
+  string qos_class = 15;       // Pod QoS class: "Guaranteed", "Burstable", "BestEffort"
+  int32 container_count = 16;  // Number of containers in the pod
+  int32 restart_count = 17;    // Sum of all container restart counts
+  
   // Resource requests/limits from Pod spec (static declarations)
-  int64 cpu_requests_millicores = 20; // Sum of all container CPU requests in millicores
-  int64 memory_requests_bytes = 21; // Sum of all container memory requests in bytes
-  int64 cpu_limits_millicores = 22; // Sum of all container CPU limits in millicores
-  int64 memory_limits_bytes = 23; // Sum of all container memory limits in bytes
-  string status_reason = 30; // Reason for current status (e.g., "ImagePullBackOff", "Completed")
-  string controlled_by = 31; // Friendly owner name (e.g., "deployment/my-app", "daemonset/logs")
-  string age = 32; // Human-readable age since creation (e.g., "2h", "5m", "10d")
-
+  int64 cpu_requests_millicores = 20;    // Sum of all container CPU requests in millicores
+  int64 memory_requests_bytes = 21;      // Sum of all container memory requests in bytes
+  int64 cpu_limits_millicores = 22;      // Sum of all container CPU limits in millicores  
+  int64 memory_limits_bytes = 23;        // Sum of all container memory limits in bytes
+  string status_reason = 30;             // Reason for current status (e.g., "ImagePullBackOff", "Completed")
+  string controlled_by = 31;             // Friendly owner name (e.g., "deployment/my-app", "daemonset/logs")  
+  string age = 32;                       // Human-readable age since creation (e.g., "2h", "5m", "10d")
+  
   // Deployment-specific fields (flattened for easy access)
-  int32 replicas_desired = 40; // Desired replicas from spec.replicas
-  int32 replicas_ready = 41; // Ready replicas from status.readyReplicas
-  int32 replicas_available = 42; // Available replicas from status.availableReplicas
-  int32 replicas_updated = 43; // Updated replicas from status.updatedReplicas
-  string strategy_type = 44; // Deployment strategy: "RollingUpdate", "Recreate"
-  bool available = 45; // Deployment Available condition status
-  bool progressing = 46; // Deployment Progressing condition status
-  string deployment_status = 47; // Overall status: "Available", "Progressing", "Failed"
-  repeated string images = 48; // Unique container images used
+  int32 replicas_desired = 40;           // Desired replicas from spec.replicas
+  int32 replicas_ready = 41;             // Ready replicas from status.readyReplicas  
+  int32 replicas_available = 42;         // Available replicas from status.availableReplicas
+  int32 replicas_updated = 43;           // Updated replicas from status.updatedReplicas
+  string strategy_type = 44;             // Deployment strategy: "RollingUpdate", "Recreate"
+  bool available = 45;                   // Deployment Available condition status
+  bool progressing = 46;                 // Deployment Progressing condition status  
+  string deployment_status = 47;         // Overall status: "Available", "Progressing", "Failed"
+  repeated string images = 48;           // Unique container images used
   // Note: container_count already defined at field 16 for pods, reused for deployments/statefulsets
-
+  
   // StatefulSet-specific fields (reuses deployment replica fields 40-43)
-  string service_name = 60; // Headless service name for StatefulSet
-  string pod_management_policy = 61; // "OrderedReady" or "Parallel"
-  string update_strategy_type = 62; // "RollingUpdate" (StatefulSet strategy)
+  string service_name = 60;             // Headless service name for StatefulSet
+  string pod_management_policy = 61;    // "OrderedReady" or "Parallel"
+  string update_strategy_type = 62;     // "RollingUpdate" (StatefulSet strategy)
   int32 volume_claim_template_count = 63; // Number of persistent volume claim templates
-  string pvc_retention_policy = 64; // "Retain" or "Delete" for PVC retention
-  string current_revision = 65; // Current StatefulSet revision
-  string update_revision = 66; // Update StatefulSet revision
-
+  string pvc_retention_policy = 64;     // "Retain" or "Delete" for PVC retention
+  string current_revision = 65;         // Current StatefulSet revision
+  string update_revision = 66;          // Update StatefulSet revision
+  
   // DaemonSet-specific fields (nodes instead of replicas)
-  int32 nodes_desired = 70; // Desired nodes to schedule on (desiredNumberScheduled)
-  int32 nodes_ready = 71; // Ready nodes (numberReady)
-  int32 nodes_available = 72; // Available nodes (numberAvailable)
-  int32 nodes_current = 73; // Currently scheduled nodes (currentNumberScheduled)
-  int32 nodes_updated = 74; // Updated nodes (updatedNumberScheduled)
-  int32 nodes_misscheduled = 75; // Misscheduled nodes (numberMisscheduled)
-  string max_unavailable = 76; // RollingUpdate maxUnavailable setting
-  string priority_class = 77; // Priority class name
-
+  int32 nodes_desired = 70;             // Desired nodes to schedule on (desiredNumberScheduled)
+  int32 nodes_ready = 71;               // Ready nodes (numberReady)  
+  int32 nodes_available = 72;           // Available nodes (numberAvailable)
+  int32 nodes_current = 73;             // Currently scheduled nodes (currentNumberScheduled)
+  int32 nodes_updated = 74;             // Updated nodes (updatedNumberScheduled)
+  int32 nodes_misscheduled = 75;        // Misscheduled nodes (numberMisscheduled)
+  string max_unavailable = 76;          // RollingUpdate maxUnavailable setting
+  string priority_class = 77;           // Priority class name
+  
   // Job-specific fields
-  int32 job_completions_desired = 80; // Desired number of completions from spec.completions
+  int32 job_completions_desired = 80;   // Desired number of completions from spec.completions
   int32 job_completions_succeeded = 81; // Number of succeeded pods from status.succeeded
-  int32 job_parallelism = 82; // Maximum number of pods that can run in parallel
-  int32 job_backoff_limit = 83; // Number of retries before marking job as failed
-  string job_completion_mode = 84; // "NonIndexed" or "Indexed"
-  bool job_suspended = 85; // Whether the job is suspended
-  string job_duration = 86; // Duration from start to completion (or current time)
-  string job_status = 87; // Overall job status: "Complete", "Failed", "Running", "Suspended"
-  int32 job_active_pods = 88; // Number of actively running pods
-  int32 job_failed_pods = 89; // Number of failed pods
-
+  int32 job_parallelism = 82;           // Maximum number of pods that can run in parallel
+  int32 job_backoff_limit = 83;         // Number of retries before marking job as failed
+  string job_completion_mode = 84;      // "NonIndexed" or "Indexed"
+  bool job_suspended = 85;              // Whether the job is suspended
+  string job_duration = 86;             // Duration from start to completion (or current time)
+  string job_status = 87;               // Overall job status: "Complete", "Failed", "Running", "Suspended"
+  int32 job_active_pods = 88;           // Number of actively running pods
+  int32 job_failed_pods = 89;           // Number of failed pods
+  
   // CronJob-specific fields
-  string cron_schedule = 90; // Cron schedule expression (e.g., "0 */6 * * *")
-  bool cron_suspended = 91; // Whether the cron job is suspended
-  int32 cron_active_jobs = 92; // Number of currently active jobs
-  string cron_last_schedule_time = 93; // Last time the job was scheduled (RFC3339 format)
-  string cron_next_schedule_time = 94; // Next scheduled time (calculated, RFC3339 format)
-  string cron_concurrency_policy = 95; // "Allow", "Forbid", "Replace"
+  string cron_schedule = 90;            // Cron schedule expression (e.g., "0 */6 * * *")
+  bool cron_suspended = 91;             // Whether the cron job is suspended
+  int32 cron_active_jobs = 92;          // Number of currently active jobs
+  string cron_last_schedule_time = 93;  // Last time the job was scheduled (RFC3339 format)
+  string cron_next_schedule_time = 94;  // Next scheduled time (calculated, RFC3339 format)
+  string cron_concurrency_policy = 95;  // "Allow", "Forbid", "Replace"
   int32 cron_successful_jobs_limit = 96; // Number of successful job history to retain
-  int32 cron_failed_jobs_limit = 97; // Number of failed job history to retain
+  int32 cron_failed_jobs_limit = 97;    // Number of failed job history to retain
   int32 cron_starting_deadline_seconds = 98; // Optional deadline in seconds for starting the job
-
+  
   // Service-specific fields
-  string service_type = 100; // Service type: "ClusterIP", "NodePort", "LoadBalancer", "ExternalName"
-  string service_cluster_ip = 101; // Cluster IP address
+  string service_type = 100;            // Service type: "ClusterIP", "NodePort", "LoadBalancer", "ExternalName"
+  string service_cluster_ip = 101;      // Cluster IP address
   repeated string service_external_ips = 102; // External IP addresses (from spec or loadbalancer status)
-  repeated ServicePort service_ports = 103; // Service ports information
+  repeated ServicePort service_ports = 103;   // Service ports information
   map<string, string> service_selector = 104; // Service selector labels
   string service_session_affinity = 105; // Session affinity: "None" or "ClientIP"
   string service_external_traffic_policy = 106; // "Cluster" or "Local"
@@ -568,103 +569,103 @@ message ResourceDetails {
   string service_load_balancer_class = 109; // LoadBalancer class
   repeated string service_ip_families = 110; // IP families: ["IPv4"], ["IPv6"], or ["IPv4", "IPv6"]
   string service_ip_family_policy = 111; // "SingleStack", "PreferDualStack", "RequireDualStack"
-
+  
   // Ingress-specific fields
-  string ingress_class_name = 120; // Ingress class name (e.g., "nginx", "traefik")
-  repeated string ingress_hosts = 121; // List of hosts served by this ingress
-  repeated string ingress_paths = 122; // List of paths served by this ingress
+  string ingress_class_name = 120;      // Ingress class name (e.g., "nginx", "traefik")
+  repeated string ingress_hosts = 121;  // List of hosts served by this ingress
+  repeated string ingress_paths = 122;  // List of paths served by this ingress
   repeated string ingress_backends = 123; // List of backend services
   repeated string ingress_tls_hosts = 124; // Hosts covered by TLS
   repeated string ingress_tls_secrets = 125; // TLS secret names
   repeated string ingress_load_balancer_ips = 126; // Load balancer IPs/hostnames from status
-  int32 ingress_rules_count = 127; // Number of ingress rules
-  int32 ingress_tls_count = 128; // Number of TLS configurations
+  int32 ingress_rules_count = 127;      // Number of ingress rules
+  int32 ingress_tls_count = 128;        // Number of TLS configurations
   bool ingress_has_default_backend = 129; // Whether ingress has a default backend
-
+  
   // PersistentVolumeClaim-specific fields
-  string pvc_storage_class_name = 130; // Storage class name (e.g., "gp2", "fast-ssd")
-  string pvc_requested_capacity = 131; // Requested storage capacity (e.g., "50Gi")
-  string pvc_actual_capacity = 132; // Actual allocated capacity from status (e.g., "100Gi")
+  string pvc_storage_class_name = 130;  // Storage class name (e.g., "gp2", "fast-ssd")
+  string pvc_requested_capacity = 131;  // Requested storage capacity (e.g., "50Gi")
+  string pvc_actual_capacity = 132;     // Actual allocated capacity from status (e.g., "100Gi")
   repeated string pvc_access_modes = 133; // Access modes: ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"]
-  string pvc_volume_mode = 134; // Volume mode: "Filesystem" or "Block"
-  string pvc_volume_name = 135; // Bound persistent volume name
-  string pvc_status = 136; // PVC status: "Pending", "Bound", "Lost"
-  bool pvc_is_bound = 137; // Whether PVC is bound to a PV
+  string pvc_volume_mode = 134;         // Volume mode: "Filesystem" or "Block"
+  string pvc_volume_name = 135;         // Bound persistent volume name
+  string pvc_status = 136;              // PVC status: "Pending", "Bound", "Lost"
+  bool pvc_is_bound = 137;              // Whether PVC is bound to a PV
   string pvc_selector_match_labels = 138; // Selector labels for PV binding (JSON string)
   repeated string pvc_allowed_topologies = 139; // Allowed node topologies
-
+  
   // PersistentVolume-specific fields
-  string pv_storage_class_name = 150; // Storage class name (e.g., "standard-rwo", "fast-ssd")
-  string pv_capacity = 151; // Storage capacity (e.g., "5Gi")
+  string pv_storage_class_name = 150;   // Storage class name (e.g., "standard-rwo", "fast-ssd")
+  string pv_capacity = 151;             // Storage capacity (e.g., "5Gi")
   repeated string pv_access_modes = 152; // Access modes: ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"]
-  string pv_reclaim_policy = 153; // Reclaim policy: "Retain", "Delete", "Recycle"
-  string pv_claim_ref_name = 154; // Referenced PVC name
-  string pv_claim_ref_namespace = 155; // Referenced PVC namespace
-  string pv_status = 156; // PV status: "Available", "Bound", "Released", "Failed"
-  bool pv_is_bound = 157; // Whether PV is bound to a PVC
-  string pv_volume_mode = 158; // Volume mode: "Filesystem" or "Block"
-  string pv_csi_driver = 159; // CSI driver name (if using CSI)
-  string pv_volume_source_type = 160; // Volume source type: "CSI", "HostPath", "NFS", "AWS EBS", etc.
+  string pv_reclaim_policy = 153;       // Reclaim policy: "Retain", "Delete", "Recycle"
+  string pv_claim_ref_name = 154;       // Referenced PVC name
+  string pv_claim_ref_namespace = 155;  // Referenced PVC namespace
+  string pv_status = 156;               // PV status: "Available", "Bound", "Released", "Failed"
+  bool pv_is_bound = 157;               // Whether PV is bound to a PVC
+  string pv_volume_mode = 158;          // Volume mode: "Filesystem" or "Block"
+  string pv_csi_driver = 159;           // CSI driver name (if using CSI)
+  string pv_volume_source_type = 160;   // Volume source type: "CSI", "HostPath", "NFS", "AWS EBS", etc.
   repeated string pv_node_affinity_zones = 161; // Node affinity zones/regions
-
+  
   // StorageClass-specific fields
-  string sc_provisioner = 170; // Storage provisioner (e.g., "kubernetes.io/aws-ebs", "pd.csi.storage.gke.io")
-  string sc_reclaim_policy = 171; // Default reclaim policy: "Retain", "Delete"
-  string sc_volume_binding_mode = 172; // Volume binding mode: "Immediate", "WaitForFirstConsumer"
+  string sc_provisioner = 170;         // Storage provisioner (e.g., "kubernetes.io/aws-ebs", "pd.csi.storage.gke.io")
+  string sc_reclaim_policy = 171;       // Default reclaim policy: "Retain", "Delete"
+  string sc_volume_binding_mode = 172;  // Volume binding mode: "Immediate", "WaitForFirstConsumer"
   bool sc_allow_volume_expansion = 173; // Whether volume expansion is allowed
   map<string, string> sc_parameters = 174; // Storage class parameters (type, encrypted, etc.)
   repeated string sc_allowed_topologies = 175; // Allowed topologies for volumes
   repeated string sc_mount_options = 176; // Default mount options
 
   // Namespace fields (name|status|age + additional)
-  string ns_status = 177; // Namespace status/phase: "Active", "Terminating"
-  repeated string ns_finalizers = 178; // Finalizers preventing deletion
+  string ns_status = 177;                    // Namespace status/phase: "Active", "Terminating"
+  repeated string ns_finalizers = 178;       // Finalizers preventing deletion
 
   // Node fields (name|cpu|memory|ready|taints|roles|internal IP|external IP|version|age + additional)
-  string node_cpu_capacity = 179; // CPU capacity (e.g., "16", "15890m")
-  string node_memory_capacity = 180; // Memory capacity (e.g., "64422188Ki")
-  bool node_ready = 181; // Node ready status
-  repeated NodeTaint node_taints = 182; // Node taints affecting scheduling
-  repeated string node_roles = 183; // Node roles (master, worker, etc.)
-  string node_internal_ip = 184; // Internal IP address
-  string node_external_ip = 185; // External IP address (if any)
-  string node_version = 186; // Kubelet version
-  string node_instance_type = 187; // Cloud instance type (e.g., "m5.xlarge")
-  string node_os = 188; // Operating system
-  string node_container_runtime = 189; // Container runtime version
-  int32 node_image_count = 190; // Number of container images
+  string node_cpu_capacity = 179;           // CPU capacity (e.g., "16", "15890m")
+  string node_memory_capacity = 180;        // Memory capacity (e.g., "64422188Ki")
+  bool node_ready = 181;                    // Node ready status
+  repeated NodeTaint node_taints = 182;     // Node taints affecting scheduling
+  repeated string node_roles = 183;         // Node roles (master, worker, etc.)
+  string node_internal_ip = 184;            // Internal IP address
+  string node_external_ip = 185;            // External IP address (if any)
+  string node_version = 186;                // Kubelet version
+  string node_instance_type = 187;          // Cloud instance type (e.g., "m5.xlarge")
+  string node_os = 188;                     // Operating system
+  string node_container_runtime = 189;      // Container runtime version
+  int32 node_image_count = 190;             // Number of container images
 
   // HorizontalPodAutoscaler-specific fields
-  int32 hpa_min_replicas = 200; // Minimum replicas from spec.minReplicas
-  int32 hpa_max_replicas = 201; // Maximum replicas from spec.maxReplicas
-  int32 hpa_current_replicas = 202; // Current replicas from status.currentReplicas
-  int32 hpa_desired_replicas = 203; // Desired replicas from status.desiredReplicas
-  int32 hpa_metrics_count = 204; // Number of metrics configured
-  string hpa_status = 205; // HPA status: "Active", "Inactive", "Unknown"
-  int32 hpa_scale_up_stabilization = 206; // Scale up stabilization window seconds
+  int32 hpa_min_replicas = 200;             // Minimum replicas from spec.minReplicas
+  int32 hpa_max_replicas = 201;             // Maximum replicas from spec.maxReplicas  
+  int32 hpa_current_replicas = 202;         // Current replicas from status.currentReplicas
+  int32 hpa_desired_replicas = 203;         // Desired replicas from status.desiredReplicas
+  int32 hpa_metrics_count = 204;            // Number of metrics configured
+  string hpa_status = 205;                  // HPA status: "Active", "Inactive", "Unknown"
+  int32 hpa_scale_up_stabilization = 206;   // Scale up stabilization window seconds
   int32 hpa_scale_down_stabilization = 207; // Scale down stabilization window seconds
 
-  // VerticalPodAutoscaler-specific fields
-  string vpa_update_mode = 210; // Update mode: "Off", "Initial", "Recreation", "Auto"
-  int32 vpa_policies_count = 211; // Number of container policies configured
-  int32 vpa_recommendations_count = 212; // Number of container recommendations available
-  string vpa_cpu_target = 213; // CPU target recommendation (e.g., "100m")
-  string vpa_memory_target = 214; // Memory target recommendation (e.g., "128Mi")
-  string vpa_status = 215; // VPA status: "Active", "No Recommendations"
+  // VerticalPodAutoscaler-specific fields  
+  string vpa_update_mode = 210;             // Update mode: "Off", "Initial", "Recreation", "Auto"
+  int32 vpa_policies_count = 211;           // Number of container policies configured
+  int32 vpa_recommendations_count = 212;    // Number of container recommendations available
+  string vpa_cpu_target = 213;             // CPU target recommendation (e.g., "100m")
+  string vpa_memory_target = 214;          // Memory target recommendation (e.g., "128Mi")
+  string vpa_status = 215;                 // VPA status: "Active", "No Recommendations"
 
   // LimitRange-specific fields
-  int32 limit_range_items_count = 220; // Number of limit items configured
+  int32 limit_range_items_count = 220;     // Number of limit items configured
   repeated string limit_range_types = 221; // Types of limits: ["Container", "Pod", "PersistentVolumeClaim"]
-  bool limit_range_has_defaults = 222; // Whether default limits/requests are set
-  string limit_range_max_cpu = 223; // Maximum CPU limit (e.g., "2")
-  string limit_range_max_memory = 224; // Maximum memory limit (e.g., "2Gi")
-  string limit_range_min_cpu = 225; // Minimum CPU limit (e.g., "100m")
-  string limit_range_min_memory = 226; // Minimum memory limit (e.g., "64Mi")
-  string limit_range_default_cpu_limit = 227; // Default CPU limit (e.g., "500m")
+  bool limit_range_has_defaults = 222;     // Whether default limits/requests are set
+  string limit_range_max_cpu = 223;        // Maximum CPU limit (e.g., "2")
+  string limit_range_max_memory = 224;     // Maximum memory limit (e.g., "2Gi")
+  string limit_range_min_cpu = 225;        // Minimum CPU limit (e.g., "100m")  
+  string limit_range_min_memory = 226;     // Minimum memory limit (e.g., "64Mi")
+  string limit_range_default_cpu_limit = 227;    // Default CPU limit (e.g., "500m")
   string limit_range_default_memory_limit = 228; // Default memory limit (e.g., "512Mi")
-  string limit_range_default_cpu_request = 229; // Default CPU request (e.g., "200m")
+  string limit_range_default_cpu_request = 229;  // Default CPU request (e.g., "200m")
   string limit_range_default_memory_request = 230; // Default memory request (e.g., "256Mi")
-  string limit_range_status = 231; // LimitRange status (always "Active")
+  string limit_range_status = 231;         // LimitRange status (always "Active")
 
   string resource_version = 240; // Service account resource version
   string api_version = 241; // API version
@@ -672,328 +673,328 @@ message ResourceDetails {
 
 // PodDetails contains detailed Pod information (for the oneof, if we need nested data later)
 message PodDetails {
-  repeated ContainerSummary containers = 1; // Container details for debugging
+  repeated ContainerSummary containers = 1;  // Container details for debugging
 }
 
 // ContainerSummary provides essential container information
 message ContainerSummary {
-  string name = 1; // Container name
-  string image = 2; // Container image
-  bool ready = 3; // Container ready status
-  int32 restart_count = 4; // Container restart count
-  string state = 5; // "running", "waiting", "terminated"
-  string state_reason = 6; // Reason for current state (if not running)
+  string name = 1;            // Container name
+  string image = 2;           // Container image
+  bool ready = 3;             // Container ready status
+  int32 restart_count = 4;    // Container restart count
+  string state = 5;           // "running", "waiting", "terminated"
+  string state_reason = 6;    // Reason for current state (if not running)
 }
 
 // DeploymentDetails contains detailed Deployment information for drill-down
 message DeploymentDetails {
-  repeated ContainerTemplate containers = 1; // Container templates from pod spec
+  repeated ContainerTemplate containers = 1;  // Container templates from pod spec
   repeated DeploymentCondition conditions = 2; // Deployment conditions for debugging
 }
 
 // ContainerTemplate represents a container template in a deployment
 message ContainerTemplate {
-  string name = 1; // Container name
-  string image = 2; // Container image
-  int64 cpu_requests_millicores = 3; // CPU requests in millicores
-  int64 memory_requests_bytes = 4; // Memory requests in bytes
-  int64 cpu_limits_millicores = 5; // CPU limits in millicores
-  int64 memory_limits_bytes = 6; // Memory limits in bytes
+  string name = 1;                      // Container name
+  string image = 2;                     // Container image
+  int64 cpu_requests_millicores = 3;    // CPU requests in millicores  
+  int64 memory_requests_bytes = 4;      // Memory requests in bytes
+  int64 cpu_limits_millicores = 5;      // CPU limits in millicores
+  int64 memory_limits_bytes = 6;        // Memory limits in bytes
 }
 
 // DeploymentCondition represents a deployment condition
 message DeploymentCondition {
-  string type = 1; // "Available", "Progressing", etc.
-  string status = 2; // "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
+  string type = 1;          // "Available", "Progressing", etc.
+  string status = 2;        // "True", "False", "Unknown"
+  string reason = 3;        // Reason for the condition
+  string message = 4;       // Human readable message
   int64 last_update_time = 5; // Last time condition was updated
 }
 
 // StatefulSetDetails contains detailed StatefulSet information for drill-down
 message StatefulSetDetails {
-  repeated ContainerTemplate containers = 1; // Container templates from pod spec
+  repeated ContainerTemplate containers = 1;    // Container templates from pod spec
   repeated VolumeClaimTemplate volume_claim_templates = 2; // PVC templates
-  int32 partition = 3; // Update strategy partition (for canary updates)
+  int32 partition = 3;                          // Update strategy partition (for canary updates)
 }
 
 // VolumeClaimTemplate represents a volume claim template in a StatefulSet
 message VolumeClaimTemplate {
-  string name = 1; // PVC template name
-  repeated string access_modes = 2; // "ReadWriteOnce", etc.
-  string volume_mode = 3; // "Filesystem" or "Block"
-  int64 storage_requests = 4; // Storage size requested in bytes
-  string storage_class = 5; // Storage class name (optional)
+  string name = 1;                    // PVC template name
+  repeated string access_modes = 2;   // "ReadWriteOnce", etc.
+  string volume_mode = 3;            // "Filesystem" or "Block"
+  int64 storage_requests = 4;        // Storage size requested in bytes
+  string storage_class = 5;          // Storage class name (optional)
 }
 
 // DaemonSetDetails contains detailed DaemonSet information for drill-down
 message DaemonSetDetails {
-  repeated ContainerTemplate containers = 1; // Container templates from pod spec
-  repeated TolerationInfo tolerations = 2; // Tolerations for node scheduling
-  NodeSelector node_selector = 3; // Node selector requirements (optional)
+  repeated ContainerTemplate containers = 1;   // Container templates from pod spec
+  repeated TolerationInfo tolerations = 2;     // Tolerations for node scheduling
+  NodeSelector node_selector = 3;              // Node selector requirements (optional)
 }
 
 // ReplicaSetDetails contains detailed ReplicaSet information for drill-down
 message ReplicaSetDetails {
-  repeated ContainerTemplate containers = 1; // Container templates from pod spec
-  LabelSelector selector = 2; // Pod selector for replica set
+  repeated ContainerTemplate containers = 1;   // Container templates from pod spec
+  LabelSelector selector = 2;                  // Pod selector for replica set
 }
 
 // JobDetails contains detailed Job information for drill-down
 message JobDetails {
-  repeated ContainerTemplate containers = 1; // Container templates from pod spec
-  repeated JobCondition conditions = 2; // Job conditions for debugging
-  LabelSelector selector = 3; // Pod selector for job
+  repeated ContainerTemplate containers = 1;   // Container templates from pod spec
+  repeated JobCondition conditions = 2;        // Job conditions for debugging
+  LabelSelector selector = 3;                  // Pod selector for job
 }
 
 // JobCondition represents a job condition
 message JobCondition {
-  string type = 1; // "Complete", "Failed", "SuccessCriteriaMet", etc.
-  string status = 2; // "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_probe_time = 5; // Last time condition was probed
+  string type = 1;          // "Complete", "Failed", "SuccessCriteriaMet", etc.
+  string status = 2;        // "True", "False", "Unknown"
+  string reason = 3;        // Reason for the condition
+  string message = 4;       // Human readable message
+  int64 last_probe_time = 5;      // Last time condition was probed
   int64 last_transition_time = 6; // Last time condition transitioned
 }
 
 // CronJobDetails contains detailed CronJob information for drill-down
 message CronJobDetails {
-  repeated ContainerTemplate containers = 1; // Container templates from job template pod spec
+  repeated ContainerTemplate containers = 1;   // Container templates from job template pod spec
   repeated ActiveJobReference active_jobs = 2; // Currently active jobs
-  JobTemplate job_template = 3; // Job template specification
+  JobTemplate job_template = 3;               // Job template specification
 }
 
 // ActiveJobReference represents an active job created by a CronJob
 message ActiveJobReference {
-  string name = 1; // Job name
-  string uid = 2; // Job UID
-  string namespace = 3; // Job namespace
-  int64 creation_time = 4; // Job creation timestamp
+  string name = 1;           // Job name
+  string uid = 2;            // Job UID
+  string namespace = 3;      // Job namespace
+  int64 creation_time = 4;   // Job creation timestamp
 }
 
 // JobTemplate represents the job template in a CronJob
 message JobTemplate {
-  repeated ContainerTemplate containers = 1; // Container templates
-  int32 backoff_limit = 2; // Backoff limit from job template
-  int32 completions = 3; // Desired completions
-  int32 parallelism = 4; // Parallelism setting
-  string completion_mode = 5; // Completion mode
+  repeated ContainerTemplate containers = 1;  // Container templates
+  int32 backoff_limit = 2;                   // Backoff limit from job template
+  int32 completions = 3;                     // Desired completions
+  int32 parallelism = 4;                     // Parallelism setting
+  string completion_mode = 5;                // Completion mode
 }
 
 // ServiceDetails contains detailed Service information for drill-down
 message ServiceDetails {
-  repeated ServicePort ports = 1; // Detailed port information
-  map<string, string> selector = 2; // Service selector
+  repeated ServicePort ports = 1;                    // Detailed port information
+  map<string, string> selector = 2;                  // Service selector
   repeated LoadBalancerIngress load_balancer_ingress = 3; // LoadBalancer ingress points
-  repeated string endpoint_addresses = 4; // Endpoint addresses (if available)
+  repeated string endpoint_addresses = 4;            // Endpoint addresses (if available)
 }
 
 // ServicePort represents a port exposed by a service
 message ServicePort {
-  string name = 1; // Port name (optional)
-  int32 port = 2; // Service port number
-  int32 target_port = 3; // Target port on pods (could be port number or name)
+  string name = 1;           // Port name (optional)
+  int32 port = 2;            // Service port number
+  int32 target_port = 3;     // Target port on pods (could be port number or name)
   string target_port_name = 4; // Target port name if it's a named port
-  string protocol = 5; // Protocol: "TCP", "UDP", "SCTP"
-  int32 node_port = 6; // NodePort (for NodePort and LoadBalancer services)
-  string app_protocol = 7; // Application protocol (optional, e.g., "HTTP", "HTTPS")
+  string protocol = 5;       // Protocol: "TCP", "UDP", "SCTP"
+  int32 node_port = 6;       // NodePort (for NodePort and LoadBalancer services)
+  string app_protocol = 7;   // Application protocol (optional, e.g., "HTTP", "HTTPS")
 }
 
 // LoadBalancerIngress represents a load balancer ingress point
 message LoadBalancerIngress {
-  string ip = 1; // IP address
-  string hostname = 2; // Hostname (alternative to IP)
+  string ip = 1;             // IP address
+  string hostname = 2;       // Hostname (alternative to IP)
   repeated string ports = 3; // Ports information from ingress
-  string ip_mode = 4; // IP mode: "VIP" or "Proxy"
+  string ip_mode = 4;        // IP mode: "VIP" or "Proxy"
 }
 
 // IngressDetails contains detailed Ingress information for drill-down
 message IngressDetails {
-  repeated IngressRule rules = 1; // Ingress rules
-  repeated IngressTLS tls = 2; // TLS configurations
-  IngressBackend default_backend = 3; // Default backend (optional)
+  repeated IngressRule rules = 1;           // Ingress rules
+  repeated IngressTLS tls = 2;              // TLS configurations
+  IngressBackend default_backend = 3;       // Default backend (optional)
   repeated LoadBalancerIngress load_balancer_ingress = 4; // Load balancer status
 }
 
 // IngressRule represents an ingress rule
 message IngressRule {
-  string host = 1; // Host name (optional, empty means all hosts)
-  repeated IngressPath paths = 2; // HTTP paths
+  string host = 1;                          // Host name (optional, empty means all hosts)
+  repeated IngressPath paths = 2;           // HTTP paths
 }
 
 // IngressPath represents a path rule within an ingress
 message IngressPath {
-  string path = 1; // URL path
-  string path_type = 2; // Path type: "Exact", "Prefix", "ImplementationSpecific"
-  IngressBackend backend = 3; // Backend service
+  string path = 1;                          // URL path
+  string path_type = 2;                     // Path type: "Exact", "Prefix", "ImplementationSpecific"
+  IngressBackend backend = 3;               // Backend service
 }
 
 // IngressBackend represents a backend referenced by an ingress
 message IngressBackend {
-  string service_name = 1; // Service name
-  int32 service_port = 2; // Service port number
-  string service_port_name = 3; // Service port name (alternative to number)
-  string resource_api_version = 4; // Resource API version (for non-service backends)
-  string resource_kind = 5; // Resource kind (for non-service backends)
-  string resource_name = 6; // Resource name (for non-service backends)
+  string service_name = 1;                  // Service name
+  int32 service_port = 2;                   // Service port number
+  string service_port_name = 3;             // Service port name (alternative to number)
+  string resource_api_version = 4;          // Resource API version (for non-service backends)
+  string resource_kind = 5;                 // Resource kind (for non-service backends)  
+  string resource_name = 6;                 // Resource name (for non-service backends)
 }
 
 // IngressTLS represents TLS configuration for an ingress
 message IngressTLS {
-  repeated string hosts = 1; // Hosts covered by this TLS config
-  string secret_name = 2; // Secret containing the TLS certificate
+  repeated string hosts = 1;                // Hosts covered by this TLS config
+  string secret_name = 2;                   // Secret containing the TLS certificate
 }
 
 // PersistentVolumeClaimDetails contains detailed PVC information for drill-down
 message PersistentVolumeClaimDetails {
   ResourceRequirements resource_requirements = 1; // Storage resource requirements
-  LabelSelector selector = 2; // Label selector for PV binding
+  LabelSelector selector = 2;                     // Label selector for PV binding
   repeated VolumeNodeAffinity volume_node_affinity = 3; // Node affinity constraints
-  repeated PVCCondition conditions = 4; // PVC conditions
-  repeated string mounted_by_pods = 5; // Pods currently using this PVC
+  repeated PVCCondition conditions = 4;           // PVC conditions
+  repeated string mounted_by_pods = 5;            // Pods currently using this PVC
 }
 
 // ResourceRequirements represents storage resource requirements
 message ResourceRequirements {
-  map<string, string> requests = 1; // Resource requests (e.g., "storage": "50Gi")
-  map<string, string> limits = 2; // Resource limits (optional for PVCs)
+  map<string, string> requests = 1;              // Resource requests (e.g., "storage": "50Gi")
+  map<string, string> limits = 2;                // Resource limits (optional for PVCs)
 }
 
 // VolumeNodeAffinity represents node affinity constraints for volumes
 message VolumeNodeAffinity {
-  repeated NodeSelectorRequirement required = 1; // Required node selector terms
+  repeated NodeSelectorRequirement required = 1;  // Required node selector terms
   repeated NodeSelectorRequirement preferred = 2; // Preferred node selector terms
 }
 
 // PVCCondition represents a condition of a PVC
 message PVCCondition {
-  string type = 1; // Condition type (e.g., "Resizing")
-  string status = 2; // "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_probe_time = 5; // Last time condition was probed
-  int64 last_transition_time = 6; // Last time condition transitioned
+  string type = 1;                               // Condition type (e.g., "Resizing")
+  string status = 2;                             // "True", "False", "Unknown"
+  string reason = 3;                             // Reason for the condition
+  string message = 4;                            // Human readable message
+  int64 last_probe_time = 5;                     // Last time condition was probed
+  int64 last_transition_time = 6;                // Last time condition transitioned
 }
 
 // PersistentVolumeDetails contains detailed PV information for drill-down
 message PersistentVolumeDetails {
-  map<string, string> capacity = 1; // Storage capacity resources
-  PVClaimReference claim_ref = 2; // Reference to bound PVC
-  PVVolumeSource volume_source = 3; // Volume source (CSI, HostPath, etc.)
-  NodeSelector node_affinity = 4; // Node affinity constraints
-  repeated string mount_options = 5; // Mount options for the volume
+  map<string, string> capacity = 1;             // Storage capacity resources
+  PVClaimReference claim_ref = 2;                // Reference to bound PVC
+  PVVolumeSource volume_source = 3;              // Volume source (CSI, HostPath, etc.)
+  NodeSelector node_affinity = 4;               // Node affinity constraints
+  repeated string mount_options = 5;             // Mount options for the volume
 }
 
 // PVClaimReference represents a reference to a PVC
 message PVClaimReference {
-  string name = 1; // PVC name
-  string namespace = 2; // PVC namespace
-  string uid = 3; // PVC UID
-  string api_version = 4; // API version
-  string resource_version = 5; // Resource version
+  string name = 1;                               // PVC name
+  string namespace = 2;                          // PVC namespace
+  string uid = 3;                                // PVC UID
+  string api_version = 4;                        // API version
+  string resource_version = 5;                   // Resource version
 }
 
 // PVVolumeSource represents the source of a persistent volume
 message PVVolumeSource {
-  string type = 1; // Volume source type
-  CSIVolumeSource csi = 2; // CSI volume source (if applicable)
-  HostPathVolumeSource host_path = 3; // HostPath volume source (if applicable)
-  NFSVolumeSource nfs = 4; // NFS volume source (if applicable)
-  map<string, string> volume_attributes = 5; // Additional volume attributes
+  string type = 1;                               // Volume source type
+  CSIVolumeSource csi = 2;                       // CSI volume source (if applicable)
+  HostPathVolumeSource host_path = 3;            // HostPath volume source (if applicable)
+  NFSVolumeSource nfs = 4;                       // NFS volume source (if applicable)
+  map<string, string> volume_attributes = 5;     // Additional volume attributes
 }
 
 // CSIVolumeSource represents a CSI volume source
 message CSIVolumeSource {
-  string driver = 1; // CSI driver name
-  string volume_handle = 2; // Volume handle/ID
-  string fs_type = 3; // Filesystem type
-  bool read_only = 4; // Whether volume is read-only
-  map<string, string> volume_attributes = 5; // CSI volume attributes
+  string driver = 1;                             // CSI driver name
+  string volume_handle = 2;                      // Volume handle/ID
+  string fs_type = 3;                            // Filesystem type
+  bool read_only = 4;                            // Whether volume is read-only
+  map<string, string> volume_attributes = 5;     // CSI volume attributes
 }
 
 // HostPathVolumeSource represents a host path volume source
 message HostPathVolumeSource {
-  string path = 1; // Host path
-  string type = 2; // Path type (e.g., "Directory", "File")
+  string path = 1;                               // Host path
+  string type = 2;                               // Path type (e.g., "Directory", "File")
 }
 
 // NFSVolumeSource represents an NFS volume source
 message NFSVolumeSource {
-  string server = 1; // NFS server
-  string path = 2; // NFS path
-  bool read_only = 3; // Whether NFS mount is read-only
+  string server = 1;                             // NFS server
+  string path = 2;                               // NFS path
+  bool read_only = 3;                            // Whether NFS mount is read-only
 }
 
 // StorageClassDetails contains detailed StorageClass information for drill-down
 message StorageClassDetails {
-  string provisioner = 1; // Storage provisioner
-  map<string, string> parameters = 2; // Storage class parameters
+  string provisioner = 1;                       // Storage provisioner
+  map<string, string> parameters = 2;           // Storage class parameters
   repeated TopologySelector allowed_topologies = 3; // Allowed topologies
-  repeated string mount_options = 4; // Default mount options
-  string volume_binding_mode = 5; // Volume binding mode
-  string reclaim_policy = 6; // Default reclaim policy
-  bool allow_volume_expansion = 7; // Whether volume expansion is allowed
+  repeated string mount_options = 4;             // Default mount options
+  string volume_binding_mode = 5;                // Volume binding mode
+  string reclaim_policy = 6;                     // Default reclaim policy
+  bool allow_volume_expansion = 7;               // Whether volume expansion is allowed
 }
 
 // NamespaceDetails contains detailed Namespace information for drill-down
 message NamespaceDetails {
-  string phase = 1; // Namespace phase: "Active", "Terminating"
-  repeated string finalizers = 2; // Finalizers preventing deletion
-  map<string, string> conditions = 3; // Namespace conditions if any
+  string phase = 1;                              // Namespace phase: "Active", "Terminating"
+  repeated string finalizers = 2;                // Finalizers preventing deletion
+  map<string, string> conditions = 3;           // Namespace conditions if any
 }
 
-// NodeDetails contains detailed Node information for drill-down
+// NodeDetails contains detailed Node information for drill-down  
 message NodeDetails {
-  repeated NodeAddress addresses = 1; // Node addresses (Internal/External IP, DNS, etc.)
-  repeated NodeCondition conditions = 2; // Node conditions (Ready, MemoryPressure, etc.)
-  NodeSystemInfo system_info = 3; // System information (OS, kernel, etc.)
-  map<string, string> capacity = 4; // Resource capacity (cpu, memory, etc.)
-  map<string, string> allocatable = 5; // Allocatable resources
-  repeated NodeImage images = 6; // Container images on the node
+  repeated NodeAddress addresses = 1;            // Node addresses (Internal/External IP, DNS, etc.)
+  repeated NodeCondition conditions = 2;         // Node conditions (Ready, MemoryPressure, etc.)
+  NodeSystemInfo system_info = 3;               // System information (OS, kernel, etc.)
+  map<string, string> capacity = 4;             // Resource capacity (cpu, memory, etc.)
+  map<string, string> allocatable = 5;          // Allocatable resources
+  repeated NodeImage images = 6;                // Container images on the node
 }
 
 // NodeTaint represents a node taint that affects pod scheduling
 message NodeTaint {
-  string key = 1; // Taint key
-  string value = 2; // Taint value (optional)
-  string effect = 3; // Taint effect: "NoSchedule", "PreferNoSchedule", "NoExecute"
-  int64 time_added = 4; // When the taint was added (optional)
+  string key = 1;                                // Taint key
+  string value = 2;                              // Taint value (optional)
+  string effect = 3;                             // Taint effect: "NoSchedule", "PreferNoSchedule", "NoExecute"
+  int64 time_added = 4;                          // When the taint was added (optional)
 }
 
 // NodeAddress represents a node address
 message NodeAddress {
-  string type = 1; // Address type: "InternalIP", "ExternalIP", "InternalDNS", "ExternalDNS", "Hostname"
-  string address = 2; // The address value
+  string type = 1;                               // Address type: "InternalIP", "ExternalIP", "InternalDNS", "ExternalDNS", "Hostname"
+  string address = 2;                            // The address value
 }
 
 // NodeCondition represents a node condition
 message NodeCondition {
-  string type = 1; // Condition type: "Ready", "MemoryPressure", "DiskPressure", "PIDPressure", etc.
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_heartbeat_time = 5; // Last heartbeat time
-  int64 last_transition_time = 6; // Last transition time
+  string type = 1;                               // Condition type: "Ready", "MemoryPressure", "DiskPressure", "PIDPressure", etc.
+  string status = 2;                             // Condition status: "True", "False", "Unknown"
+  string reason = 3;                             // Reason for the condition
+  string message = 4;                            // Human readable message
+  int64 last_heartbeat_time = 5;                 // Last heartbeat time
+  int64 last_transition_time = 6;                // Last transition time
 }
 
 // NodeSystemInfo represents node system information
 message NodeSystemInfo {
-  string machine_id = 1; // Machine ID
-  string system_uuid = 2; // System UUID
-  string boot_id = 3; // Boot ID
-  string kernel_version = 4; // Kernel version
-  string os_image = 5; // OS image
-  string container_runtime_version = 6; // Container runtime version
-  string kubelet_version = 7; // Kubelet version
-  string kube_proxy_version = 8; // Kube-proxy version
-  string operating_system = 9; // Operating system
-  string architecture = 10; // Architecture
+  string machine_id = 1;                         // Machine ID
+  string system_uuid = 2;                        // System UUID
+  string boot_id = 3;                            // Boot ID
+  string kernel_version = 4;                     // Kernel version
+  string os_image = 5;                           // OS image
+  string container_runtime_version = 6;          // Container runtime version
+  string kubelet_version = 7;                    // Kubelet version
+  string kube_proxy_version = 8;                 // Kube-proxy version
+  string operating_system = 9;                   // Operating system
+  string architecture = 10;                      // Architecture
 }
 
 // NodeImage represents a container image on the node
 message NodeImage {
-  repeated string names = 1; // Image names/tags
-  int64 size_bytes = 2; // Image size in bytes
+  repeated string names = 1;                     // Image names/tags
+  int64 size_bytes = 2;                          // Image size in bytes
 }
 
 // TopologySelector represents topology requirements for storage
@@ -1003,16 +1004,16 @@ message TopologySelector {
 
 // TopologySelectorTerm represents a topology selector term
 message TopologySelectorTerm {
-  map<string, string> match_labels = 1; // Labels that must match
+  map<string, string> match_labels = 1;         // Labels that must match
 }
 
 // TolerationInfo represents a simplified pod toleration for DaemonSets
 message TolerationInfo {
-  string key = 1; // Toleration key (optional for exists/all)
-  string operator = 2; // "Equal", "Exists"
-  string value = 3; // Value to match (for Equal operator)
-  string effect = 4; // "NoSchedule", "PreferNoSchedule", "NoExecute", or ""
-  int64 toleration_seconds = 5; // Toleration period for NoExecute (optional)
+  string key = 1;                    // Toleration key (optional for exists/all)
+  string operator = 2;               // "Equal", "Exists"
+  string value = 3;                  // Value to match (for Equal operator)
+  string effect = 4;                 // "NoSchedule", "PreferNoSchedule", "NoExecute", or ""
+  int64 toleration_seconds = 5;      // Toleration period for NoExecute (optional)
 }
 
 // NodeSelector represents node selector requirements
@@ -1023,169 +1024,169 @@ message NodeSelector {
 // NodeSelectorTerm represents a node selector term
 message NodeSelectorTerm {
   repeated NodeSelectorRequirement match_expressions = 1; // Match expressions
-  repeated NodeSelectorRequirement match_fields = 2; // Match fields
+  repeated NodeSelectorRequirement match_fields = 2;      // Match fields
 }
 
 // NodeSelectorRequirement represents a node selector requirement
 message NodeSelectorRequirement {
-  string key = 1; // Selector key
-  string operator = 2; // "In", "NotIn", "Exists", "DoesNotExist", "Gt", "Lt"
-  repeated string values = 3; // Values to match
+  string key = 1;                    // Selector key
+  string operator = 2;               // "In", "NotIn", "Exists", "DoesNotExist", "Gt", "Lt"
+  repeated string values = 3;        // Values to match
 }
 
 // HPADetails contains detailed HorizontalPodAutoscaler information for drill-down
 message HPADetails {
-  ScaleTargetRef scale_target_ref = 1; // Target reference for scaling
-  repeated HPAMetric metrics = 2; // Scaling metrics configuration
-  repeated HPACondition conditions = 3; // HPA conditions for debugging
-  HPABehavior behavior = 4; // Scaling behavior policies (optional)
+  ScaleTargetRef scale_target_ref = 1;      // Target reference for scaling
+  repeated HPAMetric metrics = 2;           // Scaling metrics configuration
+  repeated HPACondition conditions = 3;     // HPA conditions for debugging  
+  HPABehavior behavior = 4;                // Scaling behavior policies (optional)
   repeated HPACurrentMetric current_metrics = 5; // Current metrics values
 }
 
 // ScaleTargetRef represents the target resource for HPA scaling
 message ScaleTargetRef {
-  string kind = 1; // Target resource kind (e.g., "Deployment")
-  string name = 2; // Target resource name
-  string api_version = 3; // API version of the target resource
+  string kind = 1;           // Target resource kind (e.g., "Deployment")
+  string name = 2;           // Target resource name
+  string api_version = 3;    // API version of the target resource
 }
 
 // HPAMetric represents an HPA metric configuration
 message HPAMetric {
-  string type = 1; // Metric type: "Resource", "Pods", "Object", "External"
-  HPAResourceMetric resource = 2; // Resource metric (if type is Resource)
-  HPAPodsMetric pods = 3; // Pods metric (if type is Pods)
-  HPAObjectMetric object = 4; // Object metric (if type is Object)
-  HPAExternalMetric external = 5; // External metric (if type is External)
+  string type = 1;           // Metric type: "Resource", "Pods", "Object", "External"
+  HPAResourceMetric resource = 2;    // Resource metric (if type is Resource)
+  HPAPodsMetric pods = 3;            // Pods metric (if type is Pods)  
+  HPAObjectMetric object = 4;        // Object metric (if type is Object)
+  HPAExternalMetric external = 5;    // External metric (if type is External)
 }
 
 // HPAResourceMetric represents a resource-based metric
 message HPAResourceMetric {
-  string name = 1; // Resource name: "cpu", "memory"
-  string target_type = 2; // Target type: "Utilization", "AverageValue"
-  string target_value = 3; // Target value (e.g., "80" for 80%, "100m" for 100 millicores)
+  string name = 1;           // Resource name: "cpu", "memory"
+  string target_type = 2;    // Target type: "Utilization", "AverageValue"  
+  string target_value = 3;   // Target value (e.g., "80" for 80%, "100m" for 100 millicores)
 }
 
-// HPAPodsMetric represents a pods-based metric
+// HPAPodsMetric represents a pods-based metric  
 message HPAPodsMetric {
-  HPAMetricSelector metric = 1; // Metric selector
-  string target_type = 2; // Target type: "AverageValue"
-  string target_value = 3; // Target average value per pod
+  HPAMetricSelector metric = 1;      // Metric selector
+  string target_type = 2;            // Target type: "AverageValue"
+  string target_value = 3;           // Target average value per pod
 }
 
 // HPAObjectMetric represents an object-based metric
 message HPAObjectMetric {
-  HPAObjectReference described_object = 1; // Object reference
-  HPAMetricSelector metric = 2; // Metric selector
-  string target_type = 3; // Target type: "Value", "AverageValue"
-  string target_value = 4; // Target value
+  HPAObjectReference described_object = 1;  // Object reference
+  HPAMetricSelector metric = 2;             // Metric selector
+  string target_type = 3;                   // Target type: "Value", "AverageValue"
+  string target_value = 4;                  // Target value
 }
 
 // HPAExternalMetric represents an external metric
 message HPAExternalMetric {
-  HPAMetricSelector metric = 1; // Metric selector
-  string target_type = 2; // Target type: "Value", "AverageValue"
-  string target_value = 3; // Target value
+  HPAMetricSelector metric = 1;      // Metric selector
+  string target_type = 2;            // Target type: "Value", "AverageValue"
+  string target_value = 3;           // Target value
 }
 
 // HPAMetricSelector represents a metric selector
 message HPAMetricSelector {
-  string name = 1; // Metric name
-  map<string, string> selector = 2; // Label selector (optional)
+  string name = 1;                           // Metric name
+  map<string, string> selector = 2;          // Label selector (optional)
 }
 
 // HPAObjectReference represents an object reference for metrics
 message HPAObjectReference {
-  string kind = 1; // Object kind
-  string name = 2; // Object name
-  string api_version = 3; // API version
-  string namespace = 4; // Object namespace (optional)
+  string kind = 1;                   // Object kind
+  string name = 2;                   // Object name  
+  string api_version = 3;            // API version
+  string namespace = 4;              // Object namespace (optional)
 }
 
 // HPACurrentMetric represents current metric values
 message HPACurrentMetric {
-  string type = 1; // Metric type: "Resource", "Pods", "Object", "External"
-  HPACurrentResourceMetric resource = 2; // Current resource metric
-  HPACurrentPodsMetric pods = 3; // Current pods metric
-  HPACurrentObjectMetric object = 4; // Current object metric
-  HPACurrentExternalMetric external = 5; // Current external metric
+  string type = 1;                   // Metric type: "Resource", "Pods", "Object", "External"
+  HPACurrentResourceMetric resource = 2;     // Current resource metric
+  HPACurrentPodsMetric pods = 3;             // Current pods metric
+  HPACurrentObjectMetric object = 4;         // Current object metric
+  HPACurrentExternalMetric external = 5;     // Current external metric
 }
 
 // HPACurrentResourceMetric represents current resource metric values
 message HPACurrentResourceMetric {
-  string name = 1; // Resource name
-  string current_utilization = 2; // Current utilization percentage (optional)
-  string current_average_value = 3; // Current average value (optional)
+  string name = 1;                   // Resource name
+  string current_utilization = 2;    // Current utilization percentage (optional)
+  string current_average_value = 3;  // Current average value (optional)
 }
 
 // HPACurrentPodsMetric represents current pods metric values
 message HPACurrentPodsMetric {
-  HPAMetricSelector metric = 1; // Metric selector
-  string current_average_value = 2; // Current average value per pod
+  HPAMetricSelector metric = 1;      // Metric selector
+  string current_average_value = 2;  // Current average value per pod
 }
 
 // HPACurrentObjectMetric represents current object metric values
 message HPACurrentObjectMetric {
-  HPAObjectReference described_object = 1; // Object reference
-  HPAMetricSelector metric = 2; // Metric selector
-  string current_value = 3; // Current value
+  HPAObjectReference described_object = 1;  // Object reference
+  HPAMetricSelector metric = 2;             // Metric selector
+  string current_value = 3;                 // Current value
 }
 
 // HPACurrentExternalMetric represents current external metric values
 message HPACurrentExternalMetric {
-  HPAMetricSelector metric = 1; // Metric selector
-  string current_value = 2; // Current value
-  string current_average_value = 3; // Current average value (optional)
+  HPAMetricSelector metric = 1;      // Metric selector
+  string current_value = 2;          // Current value
+  string current_average_value = 3;  // Current average value (optional)
 }
 
 // HPACondition represents an HPA condition
 message HPACondition {
-  string type = 1; // Condition type: "AbleToScale", "ScalingActive", "ScalingLimited"
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_transition_time = 5; // Last transition time
+  string type = 1;                   // Condition type: "AbleToScale", "ScalingActive", "ScalingLimited"
+  string status = 2;                 // Condition status: "True", "False", "Unknown"
+  string reason = 3;                 // Reason for the condition
+  string message = 4;                // Human readable message
+  int64 last_transition_time = 5;    // Last transition time
 }
 
 // HPABehavior represents HPA scaling behavior policies
 message HPABehavior {
-  HPAScalingRules scale_up = 1; // Scale up behavior
-  HPAScalingRules scale_down = 2; // Scale down behavior
+  HPAScalingRules scale_up = 1;      // Scale up behavior
+  HPAScalingRules scale_down = 2;    // Scale down behavior
 }
 
 // HPAScalingRules represents scaling behavior rules
 message HPAScalingRules {
   int32 stabilization_window_seconds = 1; // Stabilization window
-  string select_policy = 2; // Policy selection: "Max", "Min", "Disabled"
-  repeated HPAScalingPolicy policies = 3; // Scaling policies
+  string select_policy = 2;               // Policy selection: "Max", "Min", "Disabled"
+  repeated HPAScalingPolicy policies = 3;  // Scaling policies
 }
 
 // HPAScalingPolicy represents a scaling policy
 message HPAScalingPolicy {
-  string type = 1; // Policy type: "Pods", "Percent"
-  int32 value = 2; // Policy value
-  int32 period_seconds = 3; // Period in seconds
+  string type = 1;                   // Policy type: "Pods", "Percent"
+  int32 value = 2;                   // Policy value
+  int32 period_seconds = 3;          // Period in seconds
 }
 
-// VPADetails contains detailed VerticalPodAutoscaler information for drill-down
+// VPADetails contains detailed VerticalPodAutoscaler information for drill-down  
 message VPADetails {
-  VPATargetRef target_ref = 1; // Target reference for VPA
-  VPAUpdatePolicy update_policy = 2; // Update policy configuration
-  VPAResourcePolicy resource_policy = 3; // Resource policy configuration
-  VPARecommendation recommendation = 4; // Current recommendations
-  repeated VPACondition conditions = 5; // VPA conditions for debugging
+  VPATargetRef target_ref = 1;              // Target reference for VPA
+  VPAUpdatePolicy update_policy = 2;        // Update policy configuration
+  VPAResourcePolicy resource_policy = 3;    // Resource policy configuration
+  VPARecommendation recommendation = 4;     // Current recommendations
+  repeated VPACondition conditions = 5;     // VPA conditions for debugging
 }
 
 // VPATargetRef represents the target resource for VPA
 message VPATargetRef {
-  string kind = 1; // Target resource kind (e.g., "Deployment")
-  string name = 2; // Target resource name
-  string api_version = 3; // API version of the target resource
+  string kind = 1;           // Target resource kind (e.g., "Deployment")
+  string name = 2;           // Target resource name
+  string api_version = 3;    // API version of the target resource
 }
 
 // VPAUpdatePolicy represents VPA update policy
 message VPAUpdatePolicy {
-  string update_mode = 1; // Update mode: "Off", "Initial", "Recreation", "Auto"
-  int32 min_replicas = 2; // Minimum replicas during update (optional)
+  string update_mode = 1;    // Update mode: "Off", "Initial", "Recreation", "Auto"
+  int32 min_replicas = 2;    // Minimum replicas during update (optional)
 }
 
 // VPAResourcePolicy represents VPA resource policy
@@ -1195,12 +1196,12 @@ message VPAResourcePolicy {
 
 // VPAContainerResourcePolicy represents VPA policy for a container
 message VPAContainerResourcePolicy {
-  string container_name = 1; // Container name
-  string mode = 2; // Mode: "Auto", "Off"
-  map<string, string> min_allowed = 3; // Minimum allowed resources
-  map<string, string> max_allowed = 4; // Maximum allowed resources
-  repeated string controlled_resources = 5; // Controlled resource types
-  string controlled_values = 6; // Controlled values: "RequestsAndLimits", "RequestsOnly"
+  string container_name = 1;                    // Container name
+  string mode = 2;                             // Mode: "Auto", "Off"
+  map<string, string> min_allowed = 3;         // Minimum allowed resources
+  map<string, string> max_allowed = 4;         // Maximum allowed resources
+  repeated string controlled_resources = 5;    // Controlled resource types
+  string controlled_values = 6;                // Controlled values: "RequestsAndLimits", "RequestsOnly"
 }
 
 // VPARecommendation represents VPA recommendations
@@ -1210,203 +1211,245 @@ message VPARecommendation {
 
 // VPAContainerRecommendation represents VPA recommendation for a container
 message VPAContainerRecommendation {
-  string container_name = 1; // Container name
-  map<string, string> target = 2; // Target recommendations
-  map<string, string> lower_bound = 3; // Lower bound recommendations
-  map<string, string> upper_bound = 4; // Upper bound recommendations
+  string container_name = 1;            // Container name
+  map<string, string> target = 2;       // Target recommendations
+  map<string, string> lower_bound = 3;  // Lower bound recommendations  
+  map<string, string> upper_bound = 4;  // Upper bound recommendations
   map<string, string> uncapped_target = 5; // Uncapped target recommendations
 }
 
 // VPACondition represents a VPA condition
 message VPACondition {
-  string type = 1; // Condition type: "RecommendationProvided", "LowConfidence", etc.
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_transition_time = 5; // Last transition time
+  string type = 1;                   // Condition type: "RecommendationProvided", "LowConfidence", etc.
+  string status = 2;                 // Condition status: "True", "False", "Unknown"
+  string reason = 3;                 // Reason for the condition
+  string message = 4;                // Human readable message
+  int64 last_transition_time = 5;    // Last transition time
 }
 
 // LimitRangeDetails contains detailed LimitRange information for drill-down
 message LimitRangeDetails {
-  repeated LimitRangeItem limits = 1; // Limit range items
+  repeated LimitRangeItem limits = 1;    // Limit range items
 }
 
 // LimitRangeItem represents a single limit range item
 message LimitRangeItem {
-  string type = 1; // Type: "Container", "Pod", "PersistentVolumeClaim"
-  map<string, string> default_limits = 2; // Default limits
-  map<string, string> default_request = 3; // Default requests
-  map<string, string> max = 4; // Maximum limits
-  map<string, string> min = 5; // Minimum limits
+  string type = 1;                              // Type: "Container", "Pod", "PersistentVolumeClaim"
+  map<string, string> default_limits = 2;      // Default limits
+  map<string, string> default_request = 3;     // Default requests  
+  map<string, string> max = 4;                  // Maximum limits
+  map<string, string> min = 5;                  // Minimum limits
   map<string, string> max_limit_request_ratio = 6; // Max limit/request ratio
 }
 
 // ServiceAccountDetails contains detailed ServiceAccount information for drill-down
 message ServiceAccountDetails {
-  bool automount_service_account_token = 1; // Whether to automatically mount service account token
-  repeated string secrets = 2; // Names of secrets referenced by this service account
-  repeated string image_pull_secrets = 3; // Names of image pull secrets
+  bool automount_service_account_token = 1;     // Whether to automatically mount service account token
+  repeated string secrets = 2;                  // Names of secrets referenced by this service account
+  repeated string image_pull_secrets = 3;       // Names of image pull secrets
   string resource_version = 4;
 }
 
 // RoleDetails contains detailed Role information for drill-down
 message RoleDetails {
-  repeated RoleRule rules = 1; // Role rules defining permissions
+  repeated RoleRule rules = 1;                  // Role rules defining permissions
 }
 
 // RoleRule represents a single role rule
 message RoleRule {
-  repeated string api_groups = 1; // API groups (e.g., "", "apps", "extensions")
-  repeated string resources = 2; // Resources (e.g., "pods", "deployments")
-  repeated string verbs = 3; // Verbs (e.g., "get", "list", "create", "update", "delete")
-  repeated string resource_names = 4; // Specific resource names (optional)
+  repeated string api_groups = 1;               // API groups (e.g., "", "apps", "extensions")
+  repeated string resources = 2;                // Resources (e.g., "pods", "deployments")
+  repeated string verbs = 3;                    // Verbs (e.g., "get", "list", "create", "update", "delete")
+  repeated string resource_names = 4;           // Specific resource names (optional)
 }
 
 // RoleBindingDetails contains detailed RoleBinding information for drill-down
 message RoleBindingDetails {
-  repeated RoleBindingSubject subjects = 1; // Subjects that the role is bound to
-  RoleReference role_ref = 2; // Reference to the role being bound
+  repeated RoleBindingSubject subjects = 1;     // Subjects that the role is bound to
+  RoleReference role_ref = 2;                   // Reference to the role being bound
 }
 
 // RoleBindingSubject represents a subject in a role binding
 message RoleBindingSubject {
-  string kind = 1; // Subject kind: "User", "Group", "ServiceAccount"
-  string name = 2; // Subject name
-  string namespace = 3; // Subject namespace (for ServiceAccount)
-  string api_group = 4; // API group (optional)
+  string kind = 1;                              // Subject kind: "User", "Group", "ServiceAccount"
+  string name = 2;                              // Subject name
+  string namespace = 3;                         // Subject namespace (for ServiceAccount)
+  string api_group = 4;                         // API group (optional)
 }
 
 // RoleReference represents a reference to a role in a role binding
 message RoleReference {
-  string kind = 1; // Role kind: "Role", "ClusterRole"
-  string name = 2; // Role name
-  string api_group = 3; // API group (typically "rbac.authorization.k8s.io")
+  string kind = 1;                              // Role kind: "Role", "ClusterRole"
+  string name = 2;                              // Role name
+  string api_group = 3;                         // API group (typically "rbac.authorization.k8s.io")
 }
 
 // KedaScaledObjectDetails contains detailed KEDA ScaledObject information
 message KedaScaledObjectDetails {
-  string target_name = 1; // Name of the scale target
-  string target_kind = 2; // Kind of the scale target (e.g., "Deployment")
-  int32 min_replicas = 3; // Minimum number of replicas
-  int32 max_replicas = 4; // Maximum number of replicas
-  int32 current_replicas = 5; // Current number of replicas
+  string target_name = 1;                       // Name of the scale target
+  string target_kind = 2;                       // Kind of the scale target (e.g., "Deployment")
+  int32 min_replicas = 3;                       // Minimum number of replicas
+  int32 max_replicas = 4;                       // Maximum number of replicas
+  int32 current_replicas = 5;                   // Current number of replicas
   repeated KedaScaledObjectTrigger triggers = 6; // List of scaling triggers
   repeated KedaScaledObjectCondition conditions = 7; // Current conditions
-  string status = 8; // Overall status: "Ready", "Active", "Unknown"
+  string status = 8;                            // Overall status: "Ready", "Active", "Unknown"
 }
 
 // KedaScaledObjectTrigger represents a scaling trigger
 message KedaScaledObjectTrigger {
-  string type = 1; // Trigger type (e.g., "cpu", "memory", "prometheus")
-  map<string, string> metadata = 2; // Trigger-specific metadata
+  string type = 1;                              // Trigger type (e.g., "cpu", "memory", "prometheus")
+  map<string, string> metadata = 2;            // Trigger-specific metadata
 }
 
 // KedaScaledObjectCondition represents a condition of a KEDA ScaledObject
 message KedaScaledObjectCondition {
-  string type = 1; // Condition type (e.g., "Ready", "Active")
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_transition_time = 5; // Last transition time
+  string type = 1;                              // Condition type (e.g., "Ready", "Active")
+  string status = 2;                            // Condition status: "True", "False", "Unknown"
+  string reason = 3;                            // Reason for the condition
+  string message = 4;                           // Human readable message
+  int64 last_transition_time = 5;               // Last transition time
 }
 
 // KarpenterResourceDetails contains detailed Karpenter resource information
 message KarpenterResourceDetails {
-  string resource_type = 1; // Type of Karpenter resource (NodePool, NodeClaim, Provisioner)
-  string status = 2; // Overall status: "Ready", "Available", "Unknown"
+  string resource_type = 1;                     // Type of Karpenter resource (NodePool, NodeClaim, Provisioner)
+  string status = 2;                            // Overall status: "Ready", "Available", "Unknown"
   repeated KarpenterResourceCondition conditions = 3; // Current conditions
-  KarpenterCapacity capacity = 4; // Resource capacity (for NodePool/NodeClaim)
+  KarpenterCapacity capacity = 4;               // Resource capacity (for NodePool/NodeClaim)
   repeated KarpenterRequirement requirements = 5; // Instance requirements (for NodePool)
-  string node_class_ref = 6; // Reference to NodeClass (for NodePool)
-  string node_name = 7; // Associated node name (for NodeClaim)
-  map<string, string> limits = 8; // Resource limits (for Provisioner)
+  string node_class_ref = 6;                    // Reference to NodeClass (for NodePool)
+  string node_name = 7;                         // Associated node name (for NodeClaim)
+  map<string, string> limits = 8;               // Resource limits (for Provisioner)
+  string karpenter_version = 9;                 // Karpenter version
+  
 }
 
 // KarpenterResourceCondition represents a condition of a Karpenter resource
 message KarpenterResourceCondition {
-  string type = 1; // Condition type (e.g., "Ready", "Available")
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_transition_time = 5; // Last transition time
+  string type = 1;                              // Condition type (e.g., "Ready", "Available")
+  string status = 2;                            // Condition status: "True", "False", "Unknown"
+  string reason = 3;                            // Reason for the condition
+  string message = 4;                           // Human readable message
+  int64 last_transition_time = 5;               // Last transition time
 }
 
 // KarpenterCapacity represents capacity information
 message KarpenterCapacity {
-  string cpu = 1; // CPU capacity (e.g., "4")
-  string memory = 2; // Memory capacity (e.g., "16Gi")
-  map<string, string> other = 3; // Other resource capacities
+  string cpu = 1;                               // CPU capacity (e.g., "4")
+  string memory = 2;                            // Memory capacity (e.g., "16Gi")
+  map<string, string> other = 3;               // Other resource capacities
 }
 
 // KarpenterRequirement represents an instance requirement
 message KarpenterRequirement {
-  string key = 1; // Requirement key (e.g., "node.kubernetes.io/instance-type")
-  string operator = 2; // Operator (e.g., "In", "NotIn", "Exists")
-  repeated string values = 3; // Requirement values
+  string key = 1;                               // Requirement key (e.g., "node.kubernetes.io/instance-type")
+  string operator = 2;                          // Operator (e.g., "In", "NotIn", "Exists")
+  repeated string values = 3;                   // Requirement values
 }
 
 // Filter to select ACTIVE, DELETED, or BOTH types of workloads.
 enum WorkloadStatusFilter {
   WORKLOAD_STATUS_FILTER_UNSPECIFIED = 0;
-  WORKLOAD_STATUS_FILTER_ACTIVE = 1; // Only active (non-deleted) workloads
-  WORKLOAD_STATUS_FILTER_DELETED = 2; // Only deleted workloads
-  WORKLOAD_STATUS_FILTER_BOTH = 3; // Both active and deleted workloads
+  WORKLOAD_STATUS_FILTER_ACTIVE = 1;   // Only active (non-deleted) workloads
+  WORKLOAD_STATUS_FILTER_DELETED = 2;  // Only deleted workloads
+  WORKLOAD_STATUS_FILTER_BOTH = 3;     // Both active and deleted workloads
 }
 
 // WorkloadFilters provides optional filters for narrowing the GetWorkloads request.
 // All fields are optional. When multiple fields are provided, they are ANDed together.
 message WorkloadFilters {
   // Targeting criteria (AND logic between non-null fields)
-  optional LabelSelector namespace_selector = 11; // Target namespaces by labels
-  optional LabelSelector workload_selector = 12; // Target workloads by labels
-  repeated K8sObjectKind kind_filter = 13; // Target specific workload kinds
-  optional RegexPattern name_pattern = 14; // Target workloads by name pattern
-  optional LabelSelector annotation_selector = 15; // Target workloads by annotations
-  repeated string workload_names = 16; // Target specific workload kinds
+  optional LabelSelector namespace_selector = 11;   // Target namespaces by labels
+  optional LabelSelector workload_selector = 12;    // Target workloads by labels  
+  repeated K8sObjectKind kind_filter = 13;          // Target specific workload kinds
+  optional RegexPattern name_pattern = 14;          // Target workloads by name pattern
+  optional LabelSelector annotation_selector = 15;  // Target workloads by annotations
+  repeated string workload_names = 16;              // Target specific workload kinds
 
-  repeated string node_group_names = 21; // target workloads running on specific nodes
+  repeated string node_group_names = 21;            // target workloads running on specific nodes
 
   // Lifecycle status filter (overrides legacy show_deleted when set)
   WorkloadStatusFilter status = 30; // ACTIVE, DELETED, or BOTH
 }
-
 // PodDisruptionBudgetDetails contains detailed PodDisruptionBudget information
 message PodDisruptionBudgetDetails {
-  int32 min_available = 1; // Minimum number of pods that should be available
-  int32 max_unavailable = 2; // Maximum number of pods that can be unavailable
-  int32 current_healthy = 3; // Current number of healthy pods
-  int32 desired_healthy = 4; // Desired number of healthy pods
-  int32 disruptions_allowed = 5; // Number of disruptions currently allowed
-  int32 expected_pods = 6; // Expected number of pods
-  string status = 7; // Overall status: "Healthy", "Disrupted", "Unknown"
-  map<string, string> selector_labels = 8; // Label selector for target pods
+  int32 min_available = 1;                      // Minimum number of pods that should be available
+  int32 max_unavailable = 2;                    // Maximum number of pods that can be unavailable
+  int32 current_healthy = 3;                    // Current number of healthy pods
+  int32 desired_healthy = 4;                    // Desired number of healthy pods
+  int32 disruptions_allowed = 5;                // Number of disruptions currently allowed
+  int32 expected_pods = 6;                      // Expected number of pods
+  string status = 7;                            // Overall status: "Healthy", "Disrupted", "Unknown"
+  map<string, string> selector_labels = 8;      // Label selector for target pods
   repeated PodDisruptionBudgetCondition conditions = 9; // Current conditions
 }
 
 // PodDisruptionBudgetCondition represents a condition of a PodDisruptionBudget
 message PodDisruptionBudgetCondition {
-  string type = 1; // Condition type (e.g., "DisruptionAllowed")
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_transition_time = 5; // Last transition time
+  string type = 1;                              // Condition type (e.g., "DisruptionAllowed")
+  string status = 2;                            // Condition status: "True", "False", "Unknown"
+  string reason = 3;                            // Reason for the condition
+  string message = 4;                           // Human readable message
+  int64 last_transition_time = 5;               // Last transition time
 }
 
 // ResourceQuotaDetails contains detailed ResourceQuota information
 message ResourceQuotaDetails {
-  map<string, string> hard_limits = 1; // Hard resource limits (e.g., "requests.cpu": "4", "requests.memory": "8Gi")
-  map<string, string> used = 2; // Currently used resources
-  repeated string scopes = 3; // Quota scopes: ["BestEffort", "NotBestEffort", "NotTerminating", "Terminating"]
-  map<string, string> scope_selector = 4; // Scope selector match labels
-  string status = 5; // Overall status: "Valid", "Invalid", "Unknown"
+  map<string, string> hard_limits = 1;          // Hard resource limits (e.g., "requests.cpu": "4", "requests.memory": "8Gi")
+  map<string, string> used = 2;                 // Currently used resources
+  repeated string scopes = 3;                   // Quota scopes: ["BestEffort", "NotBestEffort", "NotTerminating", "Terminating"]
+  map<string, string> scope_selector = 4;       // Scope selector match labels
+  string status = 5;                            // Overall status: "Valid", "Invalid", "Unknown"
   repeated ResourceQuotaCondition conditions = 6; // Current conditions
 }
 
 // ResourceQuotaCondition represents a condition of a ResourceQuota
 message ResourceQuotaCondition {
-  string type = 1; // Condition type (typically not used in core/v1)
-  string status = 2; // Condition status: "True", "False", "Unknown"
-  string reason = 3; // Reason for the condition
-  string message = 4; // Human readable message
-  int64 last_transition_time = 5; // Last transition time
+  string type = 1;                              // Condition type (typically not used in core/v1)
+  string status = 2;                            // Condition status: "True", "False", "Unknown"  
+  string reason = 3;                            // Reason for the condition
+  string message = 4;                           // Human readable message
+  int64 last_transition_time = 5;               // Last transition time
 }
+
+message Event {
+  string id = 1;
+  string kind = 2;
+  string name = 3;
+  string namespace = 4;
+  string cluster_id = 5;
+  string owner_uid = 7; 
+  string owner_kind = 8;
+  string owner_name = 9;
+  string api_version = 10;
+  string resource_version = 11;
+  int32 count = 12;
+  string reason = 13;
+  string message = 14;
+  string type = 15;
+  string action = 16;
+  string source = 17;
+  string involved_object_kind = 18;
+  string involved_object_name = 19;
+  string involved_object_namespace = 20;
+  string reporting_controller = 21;
+  string reporting_instance = 22;
+
+  google.protobuf.Timestamp created_at = 41;
+  google.protobuf.Timestamp updated_at = 42;
+  google.protobuf.Timestamp last_seen = 43;
+  string created_at_age = 44;
+  string updated_at_age = 45;
+  string last_seen_age = 46;
+
+}
+
+// message InvolvedObject {
+//   string uid = 1;
+//   string kind = 2;
+//   string name = 3;
+//   string namespace = 4;
+//   string api_version = 5;
+//   string resource_version = 6;
+// }

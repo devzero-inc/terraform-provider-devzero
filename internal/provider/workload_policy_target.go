@@ -87,27 +87,32 @@ func (r *WorkloadPolicyTargetResource) Metadata(ctx context.Context, req resourc
 func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	labelSelectorAttributes := map[string]schema.Attribute{
 		"match_labels": schema.MapAttribute{
-			Description: "Match labels of the label selector",
-			Optional:    true,
-			ElementType: types.StringType,
+			Description:         "Exact label key/value pairs that the target must match",
+			MarkdownDescription: "Exact label key/value pairs that the target must match. Keys and values must be strings. Example: `{ \"app\": \"api\", \"env\": \"prod\" }`.",
+			Optional:            true,
+			ElementType:         types.StringType,
 		},
 		"match_expressions": schema.ListNestedAttribute{
-			Description: "Match expressions of the label selector",
-			Optional:    true,
+			Description:         "Advanced label selector requirements",
+			MarkdownDescription: "Advanced label selector requirements. Each expression supports operators `In`, `NotIn`, `Exists`, `DoesNotExist`. Use `values` only with `In`/`NotIn`.",
+			Optional:            true,
 			NestedObject: schema.NestedAttributeObject{
 				Attributes: map[string]schema.Attribute{
 					"key": schema.StringAttribute{
-						Description: "Key of the match expression",
-						Optional:    true,
+						Description:         "Label key to evaluate",
+						MarkdownDescription: "Label key to evaluate. Example: `app` or `kubernetes.io/name`.",
+						Optional:            true,
 					},
 					"operator": schema.StringAttribute{
-						Description: "Operator of the match expression",
-						Optional:    true,
+						Description:         "Label selection operator",
+						MarkdownDescription: "Label selection operator. One of `In`, `NotIn`, `Exists`, `DoesNotExist`.",
+						Optional:            true,
 					},
 					"values": schema.ListAttribute{
-						Description: "Values of the match expression",
-						Optional:    true,
-						ElementType: types.StringType,
+						Description:         "Values to compare against the key",
+						MarkdownDescription: "Values to compare against the key. Required with `In`/`NotIn`; must be omitted with `Exists`/`DoesNotExist`.",
+						Optional:            true,
+						ElementType:         types.StringType,
 					},
 				},
 			},
@@ -116,98 +121,114 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 
 	regexPatternAttributes := map[string]schema.Attribute{
 		"pattern": schema.StringAttribute{
-			Description: "Pattern of the regex pattern",
-			Optional:    true,
+			Description:         "Regular expression to match against the workload name",
+			MarkdownDescription: "Regular expression applied to workload names. Uses RE2 syntax. Example: `^api-(staging|prod)-.*$`.",
+			Optional:            true,
 		},
 		"flags": schema.StringAttribute{
-			Description: "Flags of the regex pattern",
-			Optional:    true,
+			Description:         "Regex flags to modify matching behavior",
+			MarkdownDescription: "Regex flags to modify matching behavior. Supported: `i` (case-insensitive), `m` (multi-line).",
+			Optional:            true,
 		},
 	}
 
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Workload policy target resource",
+		MarkdownDescription: "Defines which workloads a policy applies to by selecting namespaces, workloads, names, and clusters. Combine selectors and filters to precisely target Kubernetes objects.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "ID of the workload policy target",
-				Computed:    true,
+				Description:         "Unique identifier of the workload policy target",
+				MarkdownDescription: "Unique identifier of the workload policy target. Managed by the provider.",
+				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"policy_id": schema.StringAttribute{
-				Description: "ID of the workload policy",
-				Required:    true,
+				Description:         "Workload policy to attach this target to",
+				MarkdownDescription: "Workload policy to attach this target to. Must reference an existing `devzero_workload_policy` resource ID.",
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				Description: "Name of the workload policy target",
-				Required:    true,
+				Description:         "Human-friendly name for this target",
+				MarkdownDescription: "Human-friendly name for this target. Used for display in the DevZero UI.",
+				Required:            true,
 			},
 			"description": schema.StringAttribute{
-				Description: "Description of the workload policy target",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString(""),
+				Description:         "Free-form description of the target",
+				MarkdownDescription: "Free-form description of the target to help others understand its purpose.",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
 			},
 			"priority": schema.Int32Attribute{
-				Description: "Priority of the workload policy target",
-				Optional:    true,
-				Computed:    true,
-				Default:     int32default.StaticInt32(0),
+				Description:         "Evaluation priority among multiple targets",
+				MarkdownDescription: "Evaluation priority among multiple targets. Higher values take precedence when multiple targets overlap.",
+				Optional:            true,
+				Computed:            true,
+				Default:             int32default.StaticInt32(0),
 			},
 			"enabled": schema.BoolAttribute{
-				Description: "Whether the workload policy target is enabled",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(true),
+				Description:         "Enable or disable this target",
+				MarkdownDescription: "Enable or disable this target. When disabled, the associated policy will not apply to the selected workloads.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(true),
 			},
 			"namespace_selector": schema.SingleNestedAttribute{
-				Description: "Namespace selector of the workload policy target",
-				Optional:    true,
-				Attributes:  labelSelectorAttributes,
+				Description:         "Select namespaces by labels",
+				MarkdownDescription: "Select namespaces by labels. Uses the same semantics as Kubernetes label selectors.",
+				Optional:            true,
+				Attributes:          labelSelectorAttributes,
 			},
 			"workload_selector": schema.SingleNestedAttribute{
-				Description: "Workload selector of the workload policy target",
-				Optional:    true,
-				Attributes:  labelSelectorAttributes,
+				Description:         "Select workloads by labels",
+				MarkdownDescription: "Select workloads by labels. Applies to Kubernetes objects like Deployments, StatefulSets, DaemonSets, etc.",
+				Optional:            true,
+				Attributes:          labelSelectorAttributes,
 			},
 			"kind_filter": schema.ListAttribute{
-				Description: "Kind filter of the workload policy target",
-				Optional:    true,
-				ElementType: types.StringType,
-				Computed:    true,
-				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				Description:         "Restrict matching to specific Kubernetes kinds",
+				MarkdownDescription: "Restrict matching to specific Kubernetes kinds. Allowed values: `Pod`, `Job`, `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`, `CronJob`, `ReplicationController`, `Rollout`.",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 			"name_pattern": schema.SingleNestedAttribute{
-				Description: "Name pattern of the workload policy target",
-				Optional:    true,
-				Attributes:  regexPatternAttributes,
+				Description:         "Regex to match workload names",
+				MarkdownDescription: "Regex to match workload names. Useful to target rollouts or name conventions (e.g., `^api-.*`).",
+				Optional:            true,
+				Attributes:          regexPatternAttributes,
 			},
 			"annotation_selector": schema.SingleNestedAttribute{
-				Description: "Annotation selector of the workload policy target",
-				Optional:    true,
-				Attributes:  labelSelectorAttributes,
+				Description:         "Select workloads by annotations",
+				MarkdownDescription: "Select workloads by annotations. Works like `namespace_selector` and `workload_selector` but against annotations.",
+				Optional:            true,
+				Attributes:          labelSelectorAttributes,
 			},
 			"workload_names": schema.ListAttribute{
-				Description: "Workload names of the workload policy target",
-				Optional:    true,
-				ElementType: types.StringType,
-				Computed:    true,
-				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				Description:         "Explicit list of workload names to include",
+				MarkdownDescription: "Explicit list of workload names to include",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 			"node_group_names": schema.ListAttribute{
-				Description: "Node group names of the workload policy target",
-				Optional:    true,
-				ElementType: types.StringType,
-				Computed:    true,
-				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				Description:         "Restrict matching to specific node groups",
+				MarkdownDescription: "Restrict matching to specific node groups by name",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 			"cluster_ids": schema.ListAttribute{
-				Description: "Cluster IDs of the workload policy target",
-				Required:    true,
-				ElementType: types.StringType,
+				Description:         "Clusters where this target should apply",
+				MarkdownDescription: "Clusters where this target should apply. Provide one or more cluster IDs from `devzero_cluster`.",
+				Required:            true,
+				ElementType:         types.StringType,
 			},
 		},
 	}
@@ -373,11 +394,11 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		return
 	}
 
-	// nodeGroupNames, err := getStringList(ctx, data.NodeGroupNames.Elements())
-	// if err != nil {
-	// 	resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert node group name to Terraform value, got error: %s", err))
-	// 	return
-	// }
+	nodeGroupNames, err := getStringList(ctx, data.NodeGroupNames.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert node group name to Terraform value, got error: %s", err))
+		return
+	}
 
 	clusterIds, err := getStringList(ctx, data.ClusterIds.Elements())
 	if err != nil {
@@ -415,8 +436,8 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		NamePattern:        data.NamePattern.toProto(),
 		AnnotationSelector: annotationSelector,
 		WorkloadNames:      workloadNames,
-		//NodeGroupNames:     nodeGroupNames,
-		ClusterIds: clusterIds,
+		NodeGroupNames:     nodeGroupNames,
+		ClusterIds:         clusterIds,
 	}
 
 	updateWorkloadPolicyTargetResp, err := r.client.RecommendationClient.UpdateWorkloadPolicyTarget(ctx, connect.NewRequest(updateWorkloadPolicyTargetReq))

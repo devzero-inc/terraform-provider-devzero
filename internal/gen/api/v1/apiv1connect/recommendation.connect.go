@@ -84,6 +84,9 @@ const (
 	// K8SRecommendationServiceGetWorkloadRecommendationPolicyProcedure is the fully-qualified name of
 	// the K8sRecommendationService's GetWorkloadRecommendationPolicy RPC.
 	K8SRecommendationServiceGetWorkloadRecommendationPolicyProcedure = "/api.v1.K8sRecommendationService/GetWorkloadRecommendationPolicy"
+	// K8SRecommendationServiceGetPolicyRecommendedDefaultsProcedure is the fully-qualified name of the
+	// K8sRecommendationService's GetPolicyRecommendedDefaults RPC.
+	K8SRecommendationServiceGetPolicyRecommendedDefaultsProcedure = "/api.v1.K8sRecommendationService/GetPolicyRecommendedDefaults"
 	// K8SRecommendationServiceListWorkloadRecommendationPoliciesProcedure is the fully-qualified name
 	// of the K8sRecommendationService's ListWorkloadRecommendationPolicies RPC.
 	K8SRecommendationServiceListWorkloadRecommendationPoliciesProcedure = "/api.v1.K8sRecommendationService/ListWorkloadRecommendationPolicies"
@@ -207,6 +210,7 @@ type K8SRecommendationServiceClient interface {
 	// Workload Recommendation Policies
 	CreateWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.CreateWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.CreateWorkloadRecommendationPolicyResponse], error)
 	GetWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.GetWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.GetWorkloadRecommendationPolicyResponse], error)
+	GetPolicyRecommendedDefaults(context.Context, *connect.Request[v1.GetPolicyRecommendedDefaultsRequest]) (*connect.Response[v1.GetPolicyRecommendedDefaultsResponse], error)
 	ListWorkloadRecommendationPolicies(context.Context, *connect.Request[v1.ListWorkloadRecommendationPoliciesRequest]) (*connect.Response[v1.ListWorkloadRecommendationPoliciesResponse], error)
 	UpdateWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.UpdateWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.UpdateWorkloadRecommendationPolicyResponse], error)
 	DeleteWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.DeleteWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.DeleteWorkloadRecommendationPolicyResponse], error)
@@ -347,6 +351,11 @@ func NewK8SRecommendationServiceClient(httpClient connect.HTTPClient, baseURL st
 		getWorkloadRecommendationPolicy: connect.NewClient[v1.GetWorkloadRecommendationPolicyRequest, v1.GetWorkloadRecommendationPolicyResponse](
 			httpClient,
 			baseURL+K8SRecommendationServiceGetWorkloadRecommendationPolicyProcedure,
+			opts...,
+		),
+		getPolicyRecommendedDefaults: connect.NewClient[v1.GetPolicyRecommendedDefaultsRequest, v1.GetPolicyRecommendedDefaultsResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceGetPolicyRecommendedDefaultsProcedure,
 			opts...,
 		),
 		listWorkloadRecommendationPolicies: connect.NewClient[v1.ListWorkloadRecommendationPoliciesRequest, v1.ListWorkloadRecommendationPoliciesResponse](
@@ -531,6 +540,7 @@ type k8SRecommendationServiceClient struct {
 	attachNodeGroupRecommendationPolicy            *connect.Client[v1.AttachNodeGroupRecommendationPolicyRequest, v1.AttachNodeGroupRecommendationPolicyResponse]
 	createWorkloadRecommendationPolicy             *connect.Client[v1.CreateWorkloadRecommendationPolicyRequest, v1.CreateWorkloadRecommendationPolicyResponse]
 	getWorkloadRecommendationPolicy                *connect.Client[v1.GetWorkloadRecommendationPolicyRequest, v1.GetWorkloadRecommendationPolicyResponse]
+	getPolicyRecommendedDefaults                   *connect.Client[v1.GetPolicyRecommendedDefaultsRequest, v1.GetPolicyRecommendedDefaultsResponse]
 	listWorkloadRecommendationPolicies             *connect.Client[v1.ListWorkloadRecommendationPoliciesRequest, v1.ListWorkloadRecommendationPoliciesResponse]
 	updateWorkloadRecommendationPolicy             *connect.Client[v1.UpdateWorkloadRecommendationPolicyRequest, v1.UpdateWorkloadRecommendationPolicyResponse]
 	deleteWorkloadRecommendationPolicy             *connect.Client[v1.DeleteWorkloadRecommendationPolicyRequest, v1.DeleteWorkloadRecommendationPolicyResponse]
@@ -662,6 +672,11 @@ func (c *k8SRecommendationServiceClient) CreateWorkloadRecommendationPolicy(ctx 
 // api.v1.K8sRecommendationService.GetWorkloadRecommendationPolicy.
 func (c *k8SRecommendationServiceClient) GetWorkloadRecommendationPolicy(ctx context.Context, req *connect.Request[v1.GetWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.GetWorkloadRecommendationPolicyResponse], error) {
 	return c.getWorkloadRecommendationPolicy.CallUnary(ctx, req)
+}
+
+// GetPolicyRecommendedDefaults calls api.v1.K8sRecommendationService.GetPolicyRecommendedDefaults.
+func (c *k8SRecommendationServiceClient) GetPolicyRecommendedDefaults(ctx context.Context, req *connect.Request[v1.GetPolicyRecommendedDefaultsRequest]) (*connect.Response[v1.GetPolicyRecommendedDefaultsResponse], error) {
+	return c.getPolicyRecommendedDefaults.CallUnary(ctx, req)
 }
 
 // ListWorkloadRecommendationPolicies calls
@@ -860,6 +875,7 @@ type K8SRecommendationServiceHandler interface {
 	// Workload Recommendation Policies
 	CreateWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.CreateWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.CreateWorkloadRecommendationPolicyResponse], error)
 	GetWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.GetWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.GetWorkloadRecommendationPolicyResponse], error)
+	GetPolicyRecommendedDefaults(context.Context, *connect.Request[v1.GetPolicyRecommendedDefaultsRequest]) (*connect.Response[v1.GetPolicyRecommendedDefaultsResponse], error)
 	ListWorkloadRecommendationPolicies(context.Context, *connect.Request[v1.ListWorkloadRecommendationPoliciesRequest]) (*connect.Response[v1.ListWorkloadRecommendationPoliciesResponse], error)
 	UpdateWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.UpdateWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.UpdateWorkloadRecommendationPolicyResponse], error)
 	DeleteWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.DeleteWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.DeleteWorkloadRecommendationPolicyResponse], error)
@@ -996,6 +1012,11 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 	k8SRecommendationServiceGetWorkloadRecommendationPolicyHandler := connect.NewUnaryHandler(
 		K8SRecommendationServiceGetWorkloadRecommendationPolicyProcedure,
 		svc.GetWorkloadRecommendationPolicy,
+		opts...,
+	)
+	k8SRecommendationServiceGetPolicyRecommendedDefaultsHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceGetPolicyRecommendedDefaultsProcedure,
+		svc.GetPolicyRecommendedDefaults,
 		opts...,
 	)
 	k8SRecommendationServiceListWorkloadRecommendationPoliciesHandler := connect.NewUnaryHandler(
@@ -1194,6 +1215,8 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 			k8SRecommendationServiceCreateWorkloadRecommendationPolicyHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceGetWorkloadRecommendationPolicyProcedure:
 			k8SRecommendationServiceGetWorkloadRecommendationPolicyHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceGetPolicyRecommendedDefaultsProcedure:
+			k8SRecommendationServiceGetPolicyRecommendedDefaultsHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceListWorkloadRecommendationPoliciesProcedure:
 			k8SRecommendationServiceListWorkloadRecommendationPoliciesHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceUpdateWorkloadRecommendationPolicyProcedure:
@@ -1333,6 +1356,10 @@ func (UnimplementedK8SRecommendationServiceHandler) CreateWorkloadRecommendation
 
 func (UnimplementedK8SRecommendationServiceHandler) GetWorkloadRecommendationPolicy(context.Context, *connect.Request[v1.GetWorkloadRecommendationPolicyRequest]) (*connect.Response[v1.GetWorkloadRecommendationPolicyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetWorkloadRecommendationPolicy is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) GetPolicyRecommendedDefaults(context.Context, *connect.Request[v1.GetPolicyRecommendedDefaultsRequest]) (*connect.Response[v1.GetPolicyRecommendedDefaultsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetPolicyRecommendedDefaults is not implemented"))
 }
 
 func (UnimplementedK8SRecommendationServiceHandler) ListWorkloadRecommendationPolicies(context.Context, *connect.Request[v1.ListWorkloadRecommendationPoliciesRequest]) (*connect.Response[v1.ListWorkloadRecommendationPoliciesResponse], error) {
