@@ -124,8 +124,18 @@ func TestFromStringList(t *testing.T) {
 	}
 
 	for i, expectedValue := range expected {
-		if result[i].(types.String).ValueString() != expectedValue.(types.String).ValueString() {
-			t.Errorf("Expected %s at index %d, got %s", expectedValue.(types.String).ValueString(), i, result[i].(types.String).ValueString())
+		resultStr, ok := result[i].(types.String)
+		if !ok {
+			t.Errorf("Expected types.String at index %d, got %T", i, result[i])
+			continue
+		}
+		expectedStr, ok := expectedValue.(types.String)
+		if !ok {
+			t.Errorf("Expected types.String for expected value at index %d, got %T", i, expectedValue)
+			continue
+		}
+		if resultStr.ValueString() != expectedStr.ValueString() {
+			t.Errorf("Expected %s at index %d, got %s", expectedStr.ValueString(), i, resultStr.ValueString())
 		}
 	}
 }
@@ -153,8 +163,18 @@ func TestFromStringMap(t *testing.T) {
 	}
 
 	for key, expectedValue := range expected {
-		if result[key].(types.String).ValueString() != expectedValue.(types.String).ValueString() {
-			t.Errorf("Expected %s for key %s, got %s", expectedValue.(types.String).ValueString(), key, result[key].(types.String).ValueString())
+		resultStr, ok := result[key].(types.String)
+		if !ok {
+			t.Errorf("Expected types.String for key %s, got %T", key, result[key])
+			continue
+		}
+		expectedStr, ok := expectedValue.(types.String)
+		if !ok {
+			t.Errorf("Expected types.String for expected value at key %s, got %T", key, expectedValue)
+			continue
+		}
+		if resultStr.ValueString() != expectedStr.ValueString() {
+			t.Errorf("Expected %s for key %s, got %s", expectedStr.ValueString(), key, resultStr.ValueString())
 		}
 	}
 }
