@@ -3,12 +3,12 @@
 page_title: "devzero_workload_policy_target Resource - devzero"
 subcategory: ""
 description: |-
-  Workload policy target resource
+  Defines which workloads a policy applies to by selecting namespaces, workloads, names, and clusters. Combine selectors and filters to precisely target Kubernetes objects.
 ---
 
 # devzero_workload_policy_target (Resource)
 
-Workload policy target resource
+Defines which workloads a policy applies to by selecting namespaces, workloads, names, and clusters. Combine selectors and filters to precisely target Kubernetes objects.
 
 ## Example Usage
 
@@ -71,43 +71,43 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
 
 ### Required
 
-- `cluster_ids` (List of String) Cluster IDs of the workload policy target
-- `name` (String) Name of the workload policy target
-- `policy_id` (String) ID of the workload policy
+- `cluster_ids` (List of String) Clusters where this target should apply. Provide one or more cluster IDs from `devzero_cluster`.
+- `name` (String) Human-friendly name for this target. Used for display in the DevZero UI.
+- `policy_id` (String) Workload policy to attach this target to. Must reference an existing `devzero_workload_policy` resource ID.
 
 ### Optional
 
-- `annotation_selector` (Attributes) Annotation selector of the workload policy target (see [below for nested schema](#nestedatt--annotation_selector))
-- `description` (String) Description of the workload policy target
-- `enabled` (Boolean) Whether the workload policy target is enabled
-- `kind_filter` (List of String) Kind filter of the workload policy target
-- `name_pattern` (Attributes) Name pattern of the workload policy target (see [below for nested schema](#nestedatt--name_pattern))
-- `namespace_selector` (Attributes) Namespace selector of the workload policy target (see [below for nested schema](#nestedatt--namespace_selector))
-- `node_group_names` (List of String) Node group names of the workload policy target
-- `priority` (Number) Priority of the workload policy target
-- `workload_names` (List of String) Workload names of the workload policy target
-- `workload_selector` (Attributes) Workload selector of the workload policy target (see [below for nested schema](#nestedatt--workload_selector))
+- `annotation_selector` (Attributes) Select workloads by annotations. Works like `namespace_selector` and `workload_selector` but against annotations. (see [below for nested schema](#nestedatt--annotation_selector))
+- `description` (String) Free-form description of the target to help others understand its purpose.
+- `enabled` (Boolean) Enable or disable this target. When disabled, the associated policy will not apply to the selected workloads.
+- `kind_filter` (List of String) Restrict matching to specific Kubernetes kinds. Allowed values: `Pod`, `Job`, `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`, `CronJob`, `ReplicationController`, `Rollout`.
+- `name_pattern` (Attributes) Regex to match workload names. Useful to target rollouts or name conventions (e.g., `^api-.*`). (see [below for nested schema](#nestedatt--name_pattern))
+- `namespace_selector` (Attributes) Select namespaces by labels. Uses the same semantics as Kubernetes label selectors. (see [below for nested schema](#nestedatt--namespace_selector))
+- `node_group_names` (List of String) Restrict matching to specific node groups by name
+- `priority` (Number) Evaluation priority among multiple targets. Higher values take precedence when multiple targets overlap.
+- `workload_names` (List of String) Explicit list of workload names to include
+- `workload_selector` (Attributes) Select workloads by labels. Applies to Kubernetes objects like Deployments, StatefulSets, DaemonSets, etc. (see [below for nested schema](#nestedatt--workload_selector))
 
 ### Read-Only
 
-- `id` (String) ID of the workload policy target
+- `id` (String) Unique identifier of the workload policy target. Managed by the provider.
 
 <a id="nestedatt--annotation_selector"></a>
 ### Nested Schema for `annotation_selector`
 
 Optional:
 
-- `match_expressions` (Attributes List) Match expressions of the label selector (see [below for nested schema](#nestedatt--annotation_selector--match_expressions))
-- `match_labels` (Map of String) Match labels of the label selector
+- `match_expressions` (Attributes List) Advanced label selector requirements. Each expression supports operators `In`, `NotIn`, `Exists`, `DoesNotExist`. Use `values` only with `In`/`NotIn`. (see [below for nested schema](#nestedatt--annotation_selector--match_expressions))
+- `match_labels` (Map of String) Exact label key/value pairs that the target must match. Keys and values must be strings. Example: `{ "app": "api", "env": "prod" }`.
 
 <a id="nestedatt--annotation_selector--match_expressions"></a>
 ### Nested Schema for `annotation_selector.match_expressions`
 
 Optional:
 
-- `key` (String) Key of the match expression
-- `operator` (String) Operator of the match expression
-- `values` (List of String) Values of the match expression
+- `key` (String) Label key to evaluate. Example: `app` or `kubernetes.io/name`.
+- `operator` (String) Label selection operator. One of `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `values` (List of String) Values to compare against the key. Required with `In`/`NotIn`; must be omitted with `Exists`/`DoesNotExist`.
 
 
 
@@ -116,8 +116,8 @@ Optional:
 
 Optional:
 
-- `flags` (String) Flags of the regex pattern
-- `pattern` (String) Pattern of the regex pattern
+- `flags` (String) Regex flags to modify matching behavior. Supported: `i` (case-insensitive), `m` (multi-line).
+- `pattern` (String) Regular expression applied to workload names. Uses RE2 syntax. Example: `^api-(staging|prod)-.*$`.
 
 
 <a id="nestedatt--namespace_selector"></a>
@@ -125,17 +125,17 @@ Optional:
 
 Optional:
 
-- `match_expressions` (Attributes List) Match expressions of the label selector (see [below for nested schema](#nestedatt--namespace_selector--match_expressions))
-- `match_labels` (Map of String) Match labels of the label selector
+- `match_expressions` (Attributes List) Advanced label selector requirements. Each expression supports operators `In`, `NotIn`, `Exists`, `DoesNotExist`. Use `values` only with `In`/`NotIn`. (see [below for nested schema](#nestedatt--namespace_selector--match_expressions))
+- `match_labels` (Map of String) Exact label key/value pairs that the target must match. Keys and values must be strings. Example: `{ "app": "api", "env": "prod" }`.
 
 <a id="nestedatt--namespace_selector--match_expressions"></a>
 ### Nested Schema for `namespace_selector.match_expressions`
 
 Optional:
 
-- `key` (String) Key of the match expression
-- `operator` (String) Operator of the match expression
-- `values` (List of String) Values of the match expression
+- `key` (String) Label key to evaluate. Example: `app` or `kubernetes.io/name`.
+- `operator` (String) Label selection operator. One of `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `values` (List of String) Values to compare against the key. Required with `In`/`NotIn`; must be omitted with `Exists`/`DoesNotExist`.
 
 
 
@@ -144,17 +144,17 @@ Optional:
 
 Optional:
 
-- `match_expressions` (Attributes List) Match expressions of the label selector (see [below for nested schema](#nestedatt--workload_selector--match_expressions))
-- `match_labels` (Map of String) Match labels of the label selector
+- `match_expressions` (Attributes List) Advanced label selector requirements. Each expression supports operators `In`, `NotIn`, `Exists`, `DoesNotExist`. Use `values` only with `In`/`NotIn`. (see [below for nested schema](#nestedatt--workload_selector--match_expressions))
+- `match_labels` (Map of String) Exact label key/value pairs that the target must match. Keys and values must be strings. Example: `{ "app": "api", "env": "prod" }`.
 
 <a id="nestedatt--workload_selector--match_expressions"></a>
 ### Nested Schema for `workload_selector.match_expressions`
 
 Optional:
 
-- `key` (String) Key of the match expression
-- `operator` (String) Operator of the match expression
-- `values` (List of String) Values of the match expression
+- `key` (String) Label key to evaluate. Example: `app` or `kubernetes.io/name`.
+- `operator` (String) Label selection operator. One of `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `values` (List of String) Values to compare against the key. Required with `In`/`NotIn`; must be omitted with `Exists`/`DoesNotExist`.
 
 ## Import
 

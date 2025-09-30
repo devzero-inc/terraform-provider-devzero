@@ -3,12 +3,12 @@
 page_title: "devzero_workload_policy Resource - devzero"
 subcategory: ""
 description: |-
-  Workload policy resource
+  Configures DevZero workload recommendation policies, including triggers, scaling targets, and scheduler options.
 ---
 
 # devzero_workload_policy (Resource)
 
-Workload policy resource
+Configures DevZero workload recommendation policies, including triggers, scaling targets, and scheduler options.
 
 ## Example Usage
 
@@ -28,7 +28,7 @@ resource "devzero_workload_policy" "workload_policy" {
   detection_triggers       = ["pod_creation", "pod_update"]
   recommendation_mode      = "balanced"
   loopback_period_seconds  = 3600 # 1 hour
-  startup_period_seconds   = 3600 # 1 minute
+  startup_period_seconds   = 60   # 1 minute
   live_migration_enabled   = true
   scheduler_plugins        = ["dz-scheduler"]
   defragmentation_schedule = "*/15 * * * *"
@@ -81,39 +81,50 @@ resource "devzero_workload_policy" "workload_policy" {
 ### Required
 
 - `action_triggers` (List of String) Action triggers for when to apply the workload policy. Only one of `on_schedule` or `on_detection` is allowed.The `on_schedule` trigger is used to apply the workload policy on a schedule configured with the `cron_schedule` attribute.The `on_detection` trigger is used to apply the workload policy when a detection trigger event occurs, configured with the `detection_triggers` attribute.
-- `name` (String) Name of the workload policy
+- `name` (String) Human-friendly name for the policy. Used for display in the DevZero UI.
 
 ### Optional
 
-- `cpu_vertical_scaling` (Attributes) CPU vertical scaling options for the workload policy (see [below for nested schema](#nestedatt--cpu_vertical_scaling))
-- `cron_schedule` (String) Cron schedule to trigger the workload policy.
-- `defragmentation_schedule` (String) Defragmentation schedule for the workload policy
-- `description` (String) Description of the workload policy
+- `cooldown_minutes` (Number) Minutes to wait between applying recommendations
+- `cpu_vertical_scaling` (Attributes) CPU vertical scaling options (see [below for nested schema](#nestedatt--cpu_vertical_scaling))
+- `cron_schedule` (String) Cron expression for scheduled application. Uses standard 5-field cron format in the cluster timezone.
+- `defragmentation_schedule` (String) Cron expression for background defragmentation that can move workloads to reduce fragmentation.
+- `description` (String) Free-form description of the policy to help others understand its intent and scope.
 - `detection_triggers` (List of String) Detection triggers for when to apply the workload policy. Only one of `pod_creation` or `pod_update` is allowed.The `pod_creation` trigger is used to apply the workload policy when a pod is created.The `pod_update` trigger is used to apply the workload policy when a pod is updated.
-- `gpu_vertical_scaling` (Attributes) GPU vertical scaling options for the workload policy (see [below for nested schema](#nestedatt--gpu_vertical_scaling))
-- `gpu_vram_vertical_scaling` (Attributes) GPU VRAM vertical scaling options for the workload policy (see [below for nested schema](#nestedatt--gpu_vram_vertical_scaling))
-- `horizontal_scaling` (Attributes) Horizontal scaling options for the workload policy (see [below for nested schema](#nestedatt--horizontal_scaling))
-- `live_migration_enabled` (Boolean) Whether live migration is enabled for the workload policy
+- `drift_delta_percent` (Number) Percentage drift from baseline that triggers VPA refresh
+- `gpu_vertical_scaling` (Attributes) GPU vertical scaling options (see [below for nested schema](#nestedatt--gpu_vertical_scaling))
+- `gpu_vram_vertical_scaling` (Attributes) GPU VRAM vertical scaling options (see [below for nested schema](#nestedatt--gpu_vram_vertical_scaling))
+- `horizontal_scaling` (Attributes) Horizontal scaling options (see [below for nested schema](#nestedatt--horizontal_scaling))
+- `hysteresis_vs_target` (Number) Hysteresis threshold vs target for HPA coordination
+- `live_migration_enabled` (Boolean) Allow live migration when applying recommendations
 - `loopback_period_seconds` (Number) Loopback period seconds of the workload policy. The loopback period is the period of time to look back for resource usage data.
-- `memory_vertical_scaling` (Attributes) Memory vertical scaling options for the workload policy (see [below for nested schema](#nestedatt--memory_vertical_scaling))
-- `recommendation_mode` (String) Recommendation mode of the workload policy. The `balanced` mode is the default mode and is used to balance the recommendation between the other modes.The `aggressive` mode is used to recommend the most aggressive optimization targets.The `conservative` mode is used to recommend the most conservative optimization targets.
-- `scheduler_plugins` (List of String) Scheduler plugins for the workload policy
+- `memory_vertical_scaling` (Attributes) Memory vertical scaling options (see [below for nested schema](#nestedatt--memory_vertical_scaling))
+- `min_change_percent` (Number) Global minimum change threshold for applying recommendations
+- `min_data_points` (Number) Global minimum data points required for recommendations
+- `min_vpa_window_data_points` (Number) Minimum data points in VPA analysis window
+- `scheduler_plugins` (List of String) Kubernetes scheduler plugins to activate
+- `stability_cv_max` (Number) Maximum coefficient of variation to consider stable
 - `startup_period_seconds` (Number) Startup period seconds of the workload policy. The startup period is the period of time to ignore resource usage data after the workload is started.
 
 ### Read-Only
 
-- `id` (String) ID of the workload policy
+- `id` (String) Unique identifier of the workload policy. Managed by the provider.
 
 <a id="nestedatt--cpu_vertical_scaling"></a>
 ### Nested Schema for `cpu_vertical_scaling`
 
 Optional:
 
-- `enabled` (Boolean) Whether vertical scaling is enabled for the workload policy
-- `limits_adjustment_enabled` (Boolean) Whether limits adjustment is enabled for vertical scaling
-- `max_request` (Number) Maximum request for vertical scaling
-- `min_request` (Number) Minimum request for vertical scaling
-- `overhead_multiplier` (Number) Overhead multiplier for vertical scaling
+- `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
+- `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
+- `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `max_scale_down_percent` (Number) Maximum percent to scale down in one step
+- `max_scale_up_percent` (Number) Maximum percent to scale up in one step
+- `min_data_points` (Number) Minimum data points required for VPA decisions
+- `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 
 <a id="nestedatt--gpu_vertical_scaling"></a>
@@ -121,11 +132,16 @@ Optional:
 
 Optional:
 
-- `enabled` (Boolean) Whether vertical scaling is enabled for the workload policy
-- `limits_adjustment_enabled` (Boolean) Whether limits adjustment is enabled for vertical scaling
-- `max_request` (Number) Maximum request for vertical scaling
-- `min_request` (Number) Minimum request for vertical scaling
-- `overhead_multiplier` (Number) Overhead multiplier for vertical scaling
+- `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
+- `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
+- `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `max_scale_down_percent` (Number) Maximum percent to scale down in one step
+- `max_scale_up_percent` (Number) Maximum percent to scale up in one step
+- `min_data_points` (Number) Minimum data points required for VPA decisions
+- `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 
 <a id="nestedatt--gpu_vram_vertical_scaling"></a>
@@ -133,11 +149,16 @@ Optional:
 
 Optional:
 
-- `enabled` (Boolean) Whether vertical scaling is enabled for the workload policy
-- `limits_adjustment_enabled` (Boolean) Whether limits adjustment is enabled for vertical scaling
-- `max_request` (Number) Maximum request for vertical scaling
-- `min_request` (Number) Minimum request for vertical scaling
-- `overhead_multiplier` (Number) Overhead multiplier for vertical scaling
+- `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
+- `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
+- `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `max_scale_down_percent` (Number) Maximum percent to scale down in one step
+- `max_scale_up_percent` (Number) Maximum percent to scale up in one step
+- `min_data_points` (Number) Minimum data points required for VPA decisions
+- `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 
 <a id="nestedatt--horizontal_scaling"></a>
@@ -145,9 +166,13 @@ Optional:
 
 Optional:
 
-- `enabled` (Boolean) Whether horizontal scaling is enabled for the workload policy
-- `max_replicas` (Number) Maximum replicas for horizontal scaling
-- `min_replicas` (Number) Minimum replicas for horizontal scaling
+- `enabled` (Boolean) Enable or disable horizontal scaling
+- `max_replica_change_percent` (Number) Maximum percent replica change in one step
+- `max_replicas` (Number) Upper bound on replicas
+- `min_data_points` (Number) Minimum data points required for HPA decisions
+- `min_replicas` (Number) Lower bound on replicas
+- `primary_metric` (String) Primary metric to use for HPA decisions
+- `target_utilization` (Number) Target utilization for primary metric (0.0-1.0)
 
 
 <a id="nestedatt--memory_vertical_scaling"></a>
@@ -155,11 +180,16 @@ Optional:
 
 Optional:
 
-- `enabled` (Boolean) Whether vertical scaling is enabled for the workload policy
-- `limits_adjustment_enabled` (Boolean) Whether limits adjustment is enabled for vertical scaling
-- `max_request` (Number) Maximum request for vertical scaling
-- `min_request` (Number) Minimum request for vertical scaling
-- `overhead_multiplier` (Number) Overhead multiplier for vertical scaling
+- `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
+- `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
+- `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `max_scale_down_percent` (Number) Maximum percent to scale down in one step
+- `max_scale_up_percent` (Number) Maximum percent to scale up in one step
+- `min_data_points` (Number) Minimum data points required for VPA decisions
+- `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
+- `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 ## Import
 
