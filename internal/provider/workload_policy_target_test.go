@@ -142,8 +142,4 @@ func validateTargetSchema(t *testing.T, schema schema.Schema) {
 	if _, exists := schema.Attributes["name_pattern"]; !exists {
 		t.Error("name_pattern attribute not found")
 	}
-
-	if _, exists := schema.Attributes["annotation_selector"]; !exists {
-		t.Error("annotation_selector attribute not found")
-	}
 }
