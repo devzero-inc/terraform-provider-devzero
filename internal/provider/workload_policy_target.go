@@ -40,20 +40,19 @@ type WorkloadPolicyTargetResource struct {
 
 // ExampleResourceModel describes the resource data model.
 type WorkloadPolicyTargetResourceModel struct {
-	Id                 types.String   `tfsdk:"id"`
-	PolicyId           types.String   `tfsdk:"policy_id"`
-	Name               types.String   `tfsdk:"name"`
-	Description        types.String   `tfsdk:"description"`
-	Priority           types.Int32    `tfsdk:"priority"`
-	Enabled            types.Bool     `tfsdk:"enabled"`
-	NamespaceSelector  *LabelSelector `tfsdk:"namespace_selector"`
-	WorkloadSelector   *LabelSelector `tfsdk:"workload_selector"`
-	KindFilter         types.List     `tfsdk:"kind_filter"`
-	NamePattern        *RegexPattern  `tfsdk:"name_pattern"`
-	AnnotationSelector *LabelSelector `tfsdk:"annotation_selector"`
-	WorkloadNames      types.List     `tfsdk:"workload_names"`
-	NodeGroupNames     types.List     `tfsdk:"node_group_names"`
-	ClusterIds         types.List     `tfsdk:"cluster_ids"`
+	Id                types.String   `tfsdk:"id"`
+	PolicyId          types.String   `tfsdk:"policy_id"`
+	Name              types.String   `tfsdk:"name"`
+	Description       types.String   `tfsdk:"description"`
+	Priority          types.Int32    `tfsdk:"priority"`
+	Enabled           types.Bool     `tfsdk:"enabled"`
+	NamespaceSelector *LabelSelector `tfsdk:"namespace_selector"`
+	WorkloadSelector  *LabelSelector `tfsdk:"workload_selector"`
+	KindFilter        types.List     `tfsdk:"kind_filter"`
+	NamePattern       *RegexPattern  `tfsdk:"name_pattern"`
+	WorkloadNames     types.List     `tfsdk:"workload_names"`
+	NodeGroupNames    types.List     `tfsdk:"node_group_names"`
+	ClusterIds        types.List     `tfsdk:"cluster_ids"`
 }
 
 type LabelSelector struct {
@@ -202,12 +201,6 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Optional:            true,
 				Attributes:          regexPatternAttributes,
 			},
-			"annotation_selector": schema.SingleNestedAttribute{
-				Description:         "Select workloads by annotations",
-				MarkdownDescription: "Select workloads by annotations. Works like `namespace_selector` and `workload_selector` but against annotations.",
-				Optional:            true,
-				Attributes:          labelSelectorAttributes,
-			},
 			"workload_names": schema.ListAttribute{
 				Description:         "Explicit list of workload names to include",
 				MarkdownDescription: "Explicit list of workload names to include",
@@ -297,27 +290,21 @@ func (r *WorkloadPolicyTargetResource) Create(ctx context.Context, req resource.
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload selector to Terraform value, got error: %s", err))
 		return
 	}
-	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector to Terraform value, got error: %s", err))
-		return
-	}
 
 	createWorkloadPolicyTargetReq := &apiv1.CreateWorkloadPolicyTargetRequest{
-		TeamId:             r.client.TeamId,
-		PolicyId:           data.PolicyId.ValueString(),
-		Name:               data.Name.ValueString(),
-		Description:        data.Description.ValueString(),
-		Priority:           data.Priority.ValueInt32(),
-		Enabled:            data.Enabled.ValueBool(),
-		NamespaceSelector:  namespaceSelector,
-		WorkloadSelector:   workloadSelector,
-		KindFilter:         kindFilters,
-		NamePattern:        data.NamePattern.toProto(),
-		AnnotationSelector: annotationSelector,
-		WorkloadNames:      workloadNames,
-		NodeGroupNames:     nodeGroupNames,
-		ClusterIds:         clusterIds,
+		TeamId:            r.client.TeamId,
+		PolicyId:          data.PolicyId.ValueString(),
+		Name:              data.Name.ValueString(),
+		Description:       data.Description.ValueString(),
+		Priority:          data.Priority.ValueInt32(),
+		Enabled:           data.Enabled.ValueBool(),
+		NamespaceSelector: namespaceSelector,
+		WorkloadSelector:  workloadSelector,
+		KindFilter:        kindFilters,
+		NamePattern:       data.NamePattern.toProto(),
+		WorkloadNames:     workloadNames,
+		NodeGroupNames:    nodeGroupNames,
+		ClusterIds:        clusterIds,
 	}
 
 	createWorkloadPolicyTargetResp, err := r.client.RecommendationClient.CreateWorkloadPolicyTarget(ctx, connect.NewRequest(createWorkloadPolicyTargetReq))
@@ -416,28 +403,22 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload selector to Terraform value, got error: %s", err))
 		return
 	}
-	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector to Terraform value, got error: %s", err))
-		return
-	}
 
 	updateWorkloadPolicyTargetReq := &apiv1.UpdateWorkloadPolicyTargetRequest{
-		TeamId:             r.client.TeamId,
-		TargetId:           data.Id.ValueString(),
-		PolicyId:           data.PolicyId.ValueStringPointer(),
-		Name:               data.Name.ValueString(),
-		Description:        data.Description.ValueString(),
-		Priority:           data.Priority.ValueInt32(),
-		Enabled:            data.Enabled.ValueBool(),
-		NamespaceSelector:  namespaceSelector,
-		WorkloadSelector:   workloadSelector,
-		KindFilter:         kindFilters,
-		NamePattern:        data.NamePattern.toProto(),
-		AnnotationSelector: annotationSelector,
-		WorkloadNames:      workloadNames,
-		NodeGroupNames:     nodeGroupNames,
-		ClusterIds:         clusterIds,
+		TeamId:            r.client.TeamId,
+		TargetId:          data.Id.ValueString(),
+		PolicyId:          data.PolicyId.ValueStringPointer(),
+		Name:              data.Name.ValueString(),
+		Description:       data.Description.ValueString(),
+		Priority:          data.Priority.ValueInt32(),
+		Enabled:           data.Enabled.ValueBool(),
+		NamespaceSelector: namespaceSelector,
+		WorkloadSelector:  workloadSelector,
+		KindFilter:        kindFilters,
+		NamePattern:       data.NamePattern.toProto(),
+		WorkloadNames:     workloadNames,
+		NodeGroupNames:    nodeGroupNames,
+		ClusterIds:        clusterIds,
 	}
 
 	updateWorkloadPolicyTargetResp, err := r.client.RecommendationClient.UpdateWorkloadPolicyTarget(ctx, connect.NewRequest(updateWorkloadPolicyTargetReq))
@@ -606,7 +587,6 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 	m.WorkloadSelector.fromProto(target.WorkloadSelector)
 	m.KindFilter = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilter))
 	m.NamePattern.fromProto(target.NamePattern)
-	m.AnnotationSelector.fromProto(target.AnnotationSelector)
 	m.WorkloadNames = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNames))
 	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames))
 	m.ClusterIds = types.ListValueMust(types.StringType, fromStringList(target.ClusterIds))

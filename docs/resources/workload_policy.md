@@ -26,7 +26,6 @@ resource "devzero_workload_policy" "workload_policy" {
   action_triggers          = ["on_detection", "on_schedule"]
   cron_schedule            = "*/15 * * * *" # Every 15th minute
   detection_triggers       = ["pod_creation", "pod_update"]
-  recommendation_mode      = "balanced"
   loopback_period_seconds  = 3600 # 1 hour
   startup_period_seconds   = 60   # 1 minute
   live_migration_enabled   = true
@@ -80,11 +79,11 @@ resource "devzero_workload_policy" "workload_policy" {
 
 ### Required
 
-- `action_triggers` (List of String) Action triggers for when to apply the workload policy. Only one of `on_schedule` or `on_detection` is allowed.The `on_schedule` trigger is used to apply the workload policy on a schedule configured with the `cron_schedule` attribute.The `on_detection` trigger is used to apply the workload policy when a detection trigger event occurs, configured with the `detection_triggers` attribute.
 - `name` (String) Human-friendly name for the policy. Used for display in the DevZero UI.
 
 ### Optional
 
+- `action_triggers` (List of String) Action triggers for when to apply the workload policy. Only one of `on_schedule` or `on_detection` is allowed.The `on_schedule` trigger is used to apply the workload policy on a schedule configured with the `cron_schedule` attribute.The `on_detection` trigger is used to apply the workload policy when a detection trigger event occurs, configured with the `detection_triggers` attribute.
 - `cooldown_minutes` (Number) Minutes to wait between applying recommendations
 - `cpu_vertical_scaling` (Attributes) CPU vertical scaling options (see [below for nested schema](#nestedatt--cpu_vertical_scaling))
 - `cron_schedule` (String) Cron expression for scheduled application. Uses standard 5-field cron format in the cluster timezone.

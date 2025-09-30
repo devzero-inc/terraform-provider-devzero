@@ -57,12 +57,6 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
       app = "terraform-example"
     }
   }
-
-  annotation_selector = {
-    match_labels = {
-      app = "terraform-example"
-    }
-  }
 }
 ```
 
@@ -77,7 +71,6 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
 
 ### Optional
 
-- `annotation_selector` (Attributes) Select workloads by annotations. Works like `namespace_selector` and `workload_selector` but against annotations. (see [below for nested schema](#nestedatt--annotation_selector))
 - `description` (String) Free-form description of the target to help others understand its purpose.
 - `enabled` (Boolean) Enable or disable this target. When disabled, the associated policy will not apply to the selected workloads.
 - `kind_filter` (List of String) Restrict matching to specific Kubernetes kinds. Allowed values: `Pod`, `Job`, `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`, `CronJob`, `ReplicationController`, `Rollout`.
@@ -91,25 +84,6 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
 ### Read-Only
 
 - `id` (String) Unique identifier of the workload policy target. Managed by the provider.
-
-<a id="nestedatt--annotation_selector"></a>
-### Nested Schema for `annotation_selector`
-
-Optional:
-
-- `match_expressions` (Attributes List) Advanced label selector requirements. Each expression supports operators `In`, `NotIn`, `Exists`, `DoesNotExist`. Use `values` only with `In`/`NotIn`. (see [below for nested schema](#nestedatt--annotation_selector--match_expressions))
-- `match_labels` (Map of String) Exact label key/value pairs that the target must match. Keys and values must be strings. Example: `{ "app": "api", "env": "prod" }`.
-
-<a id="nestedatt--annotation_selector--match_expressions"></a>
-### Nested Schema for `annotation_selector.match_expressions`
-
-Optional:
-
-- `key` (String) Label key to evaluate. Example: `app` or `kubernetes.io/name`.
-- `operator` (String) Label selection operator. One of `In`, `NotIn`, `Exists`, `DoesNotExist`.
-- `values` (List of String) Values to compare against the key. Required with `In`/`NotIn`; must be omitted with `Exists`/`DoesNotExist`.
-
-
 
 <a id="nestedatt--name_pattern"></a>
 ### Nested Schema for `name_pattern`

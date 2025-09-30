@@ -132,6 +132,8 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Description:         "Target percentile for resource sizing (0.0-1.0)",
 				MarkdownDescription: "Target percentile for resource sizing (e.g., 0.75 = P75).",
 				Optional:            true,
+				Computed:            true,
+				Default:             float32default.StaticFloat32(0.8),
 			},
 			"max_scale_up_percent": schema.Float32Attribute{
 				Description: "Maximum percent to scale up in one step",
@@ -145,10 +147,14 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Description:         "How much higher limits should be vs requests",
 				MarkdownDescription: "How much higher limits should be vs requests (e.g., 2.0 = 2x the request).",
 				Optional:            true,
+				Computed:            true,
+				Default:             float32default.StaticFloat32(2.0),
 			},
 			"min_data_points": schema.Int32Attribute{
 				Description: "Minimum data points required for VPA decisions",
 				Optional:    true,
+				Computed:    true,
+				Default:     int32default.StaticInt32(15),
 			},
 		}
 	}
@@ -183,7 +189,14 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				MarkdownDescription: "Action triggers for when to apply the workload policy. Only one of `on_schedule` or `on_detection` is allowed." +
 					"The `on_schedule` trigger is used to apply the workload policy on a schedule configured with the `cron_schedule` attribute." +
 					"The `on_detection` trigger is used to apply the workload policy when a detection trigger event occurs, configured with the `detection_triggers` attribute.",
-				Required:    true,
+				Optional: true,
+				Computed: true,
+				Default: listdefault.StaticValue(
+					types.ListValueMust(
+						types.StringType,
+						[]attr.Value{types.StringValue("on_schedule")},
+					),
+				),
 				ElementType: types.StringType,
 				Validators: []validator.List{
 					listvalidator.SizeAtLeast(1),
@@ -275,10 +288,14 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"target_utilization": schema.Float32Attribute{
 						Description: "Target utilization for primary metric (0.0-1.0)",
 						Optional:    true,
+						Computed:    true,
+						Default:     float32default.StaticFloat32(0.8),
 					},
 					"primary_metric": schema.StringAttribute{
 						Description: "Primary metric to use for HPA decisions",
 						Optional:    true,
+						Computed:    true,
+						Default:     stringdefault.StaticString("cpu"),
 						Validators: []validator.String{
 							stringvalidator.OneOf("cpu", "memory", "gpu", "network"),
 						},
@@ -286,6 +303,8 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"min_data_points": schema.Int32Attribute{
 						Description: "Minimum data points required for HPA decisions",
 						Optional:    true,
+						Computed:    true,
+						Default:     int32default.StaticInt32(15),
 					},
 					"max_replica_change_percent": schema.Float32Attribute{
 						Description: "Maximum percent replica change in one step",
@@ -307,7 +326,7 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Default: listdefault.StaticValue(
 					types.ListValueMust(
 						types.StringType,
-						[]attr.Value{types.StringValue("dz-scheduler")},
+						[]attr.Value{},
 					),
 				),
 				Validators: []validator.List{
@@ -326,30 +345,44 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 			"min_change_percent": schema.Float32Attribute{
 				Description: "Global minimum change threshold for applying recommendations",
 				Optional:    true,
+				Computed:    true,
+				Default:     float32default.StaticFloat32(0.1),
 			},
 			"min_data_points": schema.Int32Attribute{
 				Description: "Global minimum data points required for recommendations",
 				Optional:    true,
+				Computed:    true,
+				Default:     int32default.StaticInt32(15),
 			},
 			"stability_cv_max": schema.Float32Attribute{
 				Description: "Maximum coefficient of variation to consider stable",
 				Optional:    true,
+				Computed:    true,
+				Default:     float32default.StaticFloat32(0.3),
 			},
 			"hysteresis_vs_target": schema.Float32Attribute{
 				Description: "Hysteresis threshold vs target for HPA coordination",
 				Optional:    true,
+				Computed:    true,
+				Default:     float32default.StaticFloat32(0.5),
 			},
 			"drift_delta_percent": schema.Float32Attribute{
 				Description: "Percentage drift from baseline that triggers VPA refresh",
 				Optional:    true,
+				Computed:    true,
+				Default:     float32default.StaticFloat32(0.5),
 			},
 			"min_vpa_window_data_points": schema.Int32Attribute{
 				Description: "Minimum data points in VPA analysis window",
 				Optional:    true,
+				Computed:    true,
+				Default:     int32default.StaticInt32(15),
 			},
 			"cooldown_minutes": schema.Int32Attribute{
 				Description: "Minutes to wait between applying recommendations",
 				Optional:    true,
+				Computed:    true,
+				Default:     int32default.StaticInt32(30),
 			},
 		},
 	}

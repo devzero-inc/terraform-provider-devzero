@@ -11,7 +11,6 @@ resource "devzero_workload_policy" "workload_policy" {
   action_triggers          = ["on_detection", "on_schedule"]
   cron_schedule            = "*/15 * * * *" # Every 15th minute
   detection_triggers       = ["pod_creation", "pod_update"]
-  recommendation_mode      = "balanced"
   loopback_period_seconds  = 3600 # 1 hour
   startup_period_seconds   = 60   # 1 minute
   live_migration_enabled   = true

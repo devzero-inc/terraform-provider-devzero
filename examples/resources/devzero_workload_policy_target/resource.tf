@@ -42,10 +42,4 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
       app = "terraform-example"
     }
   }
-
-  annotation_selector = {
-    match_labels = {
-      app = "terraform-example"
-    }
-  }
 }
