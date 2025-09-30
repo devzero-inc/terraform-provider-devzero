@@ -1,0 +1,1 @@
+terraform import devzero_workload_policy_target.workload_policy_target <workload_policy_target_id>
