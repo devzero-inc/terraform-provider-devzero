@@ -607,7 +607,9 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	}
 	m.ActionTriggers = types.ListValueMust(types.StringType, actionTriggers)
 
-	m.CronSchedule = types.StringValue(*policy.CronSchedule)
+	if policy.CronSchedule != nil {
+		m.CronSchedule = types.StringValue(*policy.CronSchedule)
+	}
 
 	detectionTriggers := make([]attr.Value, 0)
 	for _, detectionTrigger := range policy.DetectionTriggers {
@@ -635,8 +637,9 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	}
 	m.SchedulerPlugins = types.ListValueMust(types.StringType, schedulerPlugins)
 
-	m.DefragmentationSchedule = types.StringValue(*policy.DefragmentationSchedule)
-
+	if policy.DefragmentationSchedule != nil {
+		m.DefragmentationSchedule = types.StringValue(*policy.DefragmentationSchedule)
+	}
 }
 
 func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTarget {
