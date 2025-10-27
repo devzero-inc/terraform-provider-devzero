@@ -90,6 +90,12 @@ service K8sRecommendationService {
     // Get attached workload policies
     rpc GetAttachedWorkloadPolicies(GetAttachedWorkloadPoliciesRequest) returns (GetAttachedWorkloadPoliciesResponse);
 
+    // Search resources by targeting filters
+    rpc SearchResourcesByTargetingFilters(SearchResourcesByTargetingFiltersRequest) returns (SearchResourcesByTargetingFiltersResponse);
+
+    // Get available kinds by targeting filters
+    rpc GetAvailableKindsByTargetingFilters(GetAvailableKindsByTargetingFiltersRequest) returns (GetAvailableKindsByTargetingFiltersResponse);
+
     // ListAttachedWorkloadPolicies retrieves all attached workload policies and workloads for a team
     rpc ListAttachedWorkloadPolicies(ListAttachedWorkloadPoliciesRequest) returns (ListAttachedWorkloadPoliciesResponse);
 
@@ -107,6 +113,19 @@ service K8sRecommendationService {
 
     // RetrieveSavingsForWorkload retrieves optimization information about workloads;
     rpc RetrieveSavingsForWorkload(RetrieveSavingsForWorkloadRequest) returns (RetrieveSavingsForWorkloadResponse);
+
+    rpc CreateNodePolicies(CreateNodePoliciesRequest) returns (CreateNodePoliciesResponse);
+    rpc ListNodePolicies(ListNodePoliciesRequest) returns (ListNodePoliciesResponse);
+    rpc UpdateNodePolicy(UpdateNodePolicyRequest) returns (UpdateNodePolicyResponse);
+    rpc SuggestedNodePolicy(SuggestedNodePolicyRequest) returns (SuggestedNodePolicyResponse);
+
+    rpc CreateNodePolicyTargets(CreateNodePolicyTargetsRequest) returns (CreateNodePolicyTargetsResponse);
+    rpc ListNodePolicyTargets(ListNodePolicyTargetsRequest) returns (ListNodePolicyTargetsResponse);
+    rpc UpdateNodePolicyTarget(UpdateNodePolicyTargetRequest) returns (UpdateNodePolicyTargetResponse);
+
+    rpc PreviewNodeRecommendationConfig(PreviewNodeRecommendationConfigRequest) returns (PreviewNodeRecommendationConfigResponse);
+    rpc GetInstanceFamilies(GetInstanceFamiliesRequest) returns (GetInstanceFamiliesResponse);
+    rpc GetInstanceSizes(GetInstanceSizesRequest) returns (GetInstanceSizesResponse);
 }
 
 message GetRecommendationsRequest {
@@ -930,6 +949,8 @@ message BalanceGetRecommendationsResponse {
         NodeGroupRecommendation node_group_recommendation = 1;
         WorkloadRecommendation workload_recommendation = 2;
 
+        NodeRecommendation node_recommendation = 6;
+
         // batch APIs
         BatchNodeGroupRecommendations batch_node_group_recommendations = 11;
         BatchWorkloadRecommendations batch_workload_recommendations = 12;
@@ -1280,6 +1301,9 @@ message VerticalScalingOptimizationTarget {
 
     // Minimum data points required for VPA on this specific resource
     optional int32 min_data_points = 31;
+
+    // default MPA behavior is to recommend not adjusting req if they are not set; this flag overrides that behavior.
+    bool adjust_req_even_if_not_set = 41;
 }
 
 message HorizontalScalingOptimizationTarget {
@@ -1304,6 +1328,11 @@ message HorizontalScalingOptimizationTarget {
 
     // Max % replica change in one step (e.g., 100 = can double or halve replicas)
     optional float max_replica_change_percent = 32;
+
+    // Network throughput configuration for HPA scaling
+    // Target network throughput per replica in bytes/sec
+    // 0 = auto-detect from P95 + 15% headroom based on selected metric direction (ingress/egress)
+    optional int64 network_target_throughput_bytes_per_sec = 41;
 }
 
 message WorkloadRecommendationPolicy {
@@ -1451,6 +1480,7 @@ message WorkloadRecommendation {
 
     // whether this recommendation should be applied using live migration
     bool use_live_migration = 21;
+    LiveMigDeletionPropagation del_prop = 22;
 
     optional string reasoning = 31; 
 
@@ -1466,6 +1496,13 @@ message WorkloadRecommendation {
     optional string policy_target_id = 72;
 
     ActionToTake replica_count_action = 81; // suggests if operator should set recommended_replica_count
+}
+
+enum LiveMigDeletionPropagation {
+  LIVE_MIG_DELETION_PROPAGATION_UNSPECIFIED = 0;
+  LIVE_MIG_DELETION_PROPAGATION_ORPHAN = 1;
+  LIVE_MIG_DELETION_PROPAGATION_BACKGROUND = 2;
+  LIVE_MIG_DELETION_PROPAGATION_FOREGROUND = 3;
 }
 
 enum RecommendationStatus {
@@ -1610,6 +1647,454 @@ message RetrieveSavingsForWorkloadResponse {
     optional GetWorkloadResponse get_workload_resp = 11;
 }
 
+message CreateNodePoliciesRequest {
+    string team_id = 1;
+
+    repeated NodePolicy policies = 11;
+}
+
+message CreateNodePoliciesResponse {
+    repeated NodePolicy policies = 1;
+}
+
+message SuggestedNodePolicyRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+}
+
+message SuggestedNodePolicyResponse {
+    NodePolicy policy = 1;
+}
+
+message ListNodePoliciesRequest {
+    string team_id = 1;
+}
+
+message ListNodePoliciesResponse {
+    repeated NodePolicy policies = 1;
+}
+
+message UpdateNodePolicyRequest {
+    string team_id = 1;
+
+    NodePolicy policy = 11;
+}
+
+message UpdateNodePolicyResponse {
+    NodePolicy policy = 1;
+}
+
+message NodePolicy {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string team_id = 4;
+
+  // Cross-cloud core
+  LabelSelector instance_categories = 10; // abstract, per-cloud mapping; UI: Family; e.g., D (Azure), m (AWS)
+  LabelSelector instance_families = 11; // abstract, per-cloud mapping (c5, m5d, r4, etc)
+  LabelSelector instance_cpus = 12; // cpu count in cores (4, 8, 1, 2, etc)
+  LabelSelector instance_hypervisors = 13; // self explanatory
+  LabelSelector instance_generations = 14; // self explanatory; UI: Generation; e.g., 4 (Azure), 5 (AWS)
+  LabelSelector instance_sizes = 15; // UI: Size; eg: Standard_D4s (Azure), large (AWS)
+
+  optional string instance_categories_tip = 26;
+  optional string instance_families_tip = 27;
+  optional string instance_cpus_tip = 28;
+  optional string instance_hypervisors_tip = 29;
+  optional string instance_generations_tip = 30;
+  optional string instance_sizes_tip = 31;
+
+  LabelSelector zones = 36; // abstract, per-cloud mapping
+  LabelSelector architectures = 37;    // amd64, arm64
+  LabelSelector capacity_types = 38; // spot, on-demand, reserved
+  LabelSelector operating_systems = 39; // linux, windows
+  int32 weight = 40; 
+
+  optional string zones_tip = 45;
+  optional string architectures_tip = 46;
+  optional string capacity_type_tip = 47;
+  optional string operating_systems_tip = 48;
+
+  map<string,string> labels = 51;
+  repeated Taint taints = 52;
+  DisruptionPolicy disruption = 53;
+  ResourceLimits limits = 54;
+
+  optional string taints_tip = 57;
+  optional string disruptions_tip = 58;
+  optional string limits_tip = 59;
+
+  string master_override_role_name = 61;
+
+  string node_pool_name = 71;
+  string node_class_name = 72;
+
+  // Provider-specific overrides
+  AWSNodeClassSpec aws = 81;
+  GCPNodeClassSpec gcp = 82;
+  AzureNodeClassSpec azure = 83;
+  OCINodeClassSpec oci = 84;
+
+  // Raw escape hatch for node pool
+  repeated RawKarpenterSpec raw = 100;
+
+  google.protobuf.Timestamp created_at = 110;
+  google.protobuf.Timestamp updated_at = 111;
+  google.protobuf.Timestamp deleted_at = 112;
+}
+
+message PreviewNodeRecommendationConfigRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+
+    repeated NodePolicy policies = 6;
+
+    repeated string policy_ids = 11; // if set, `repeated NodePolicy policies = 6;` is ignored
+}
+
+message PreviewNodeRecommendationConfigResponse {
+    NodeRecommendationConfig nrc = 1;
+}
+
+message NodeRecommendationConfig {
+  string id = 1;
+  string cluster_id = 2;
+  string policy_containers_json = 6;
+  string policy_containers_yaml = 7;
+
+  RecommendationStatus status = 11;
+  string error = 12;
+
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  google.protobuf.Timestamp deleted_at = 18;
+}
+
+
+message GetAvailableKindsByTargetingFiltersRequest {
+  string team_id = 1;
+  repeated string cluster_ids = 2;
+  TargetFilters target_filters = 3;
+}
+// SearchResourcesByTargetingFilters allows searching for resources that match targeting filter criteria
+message SearchResourcesByTargetingFiltersRequest {
+  string team_id = 1; // Unique identifier for the team.
+  repeated string cluster_ids = 2; // Unique identifiers for the clusters.
+  string search_query = 3; // Search term to match against resources.
+  TargetFilterType target_filter_type = 4; // Type of filter to apply.
+  TargetFilters target_filters = 5;
+}
+
+message TargetFilters {
+  repeated string namespace_names = 1;
+  // optional LabelSelector namespace_selector = 1;   // Target namespaces by labels
+  // optional LabelSelector annotation_selector = 2;   // Target workloads by annotations
+  repeated string workload_names = 2;
+  repeated string node_group_names = 3;
+  repeated string labels = 4;
+  repeated K8sObjectKind kind_filter = 5;          // Target specific workload kinds
+  optional RegexPattern name_pattern = 6;           // Target workloads by name pattern
+}
+
+
+message GetAvailableKindsByTargetingFiltersResponse {
+ repeated K8sObjectKind kinds = 1;
+}
+
+message SearchResourcesByTargetingFiltersResponse {
+  repeated NamespaceSearchResult namespaces = 1; 
+  repeated WorkloadSearchResult workloads = 2; 
+  repeated NodeGroupSearchResult node_groups = 3;
+  repeated LabelSearchResult labels = 4;
+}
+
+message NamespaceSearchResult {
+  string name = 1;
+}
+
+message WorkloadSearchResult {
+  string kind = 1;
+  string name = 2;
+}
+
+message NodeGroupSearchResult {
+  string name = 1;
+}
+
+message LabelSearchResult {
+  string key = 1;
+  string value = 2;
+}
+
+enum TargetFilterType {
+  TARGET_FILTER_TYPE_UNSPECIFIED = 0;
+  TARGET_FILTER_TYPE_NAMESPACE = 1;
+  TARGET_FILTER_TYPE_WORKLOAD = 2;
+  TARGET_FILTER_TYPE_NODE_GROUP = 3;
+  TARGET_FILTER_TYPE_LABEL = 4;
+  // TARGET_FILTER_TYPE_KIND = 5;
+  // TARGET_FILTER_TYPE_NAME_REGEX = 6;
+}
+
+message CreateNodePolicyTargetsRequest {
+    repeated NodePolicyTarget targets = 1;
+}
+
+message CreateNodePolicyTargetsResponse {
+    repeated NodePolicyTarget targets = 1;
+}
+
+message ListNodePolicyTargetsRequest {
+    string team_id = 1;
+}
+
+message ListNodePolicyTargetsResponse {
+    repeated NodePolicyTarget targets = 1;
+}
+
+message UpdateNodePolicyTargetRequest {
+    NodePolicyTarget target = 1;
+}
+
+message UpdateNodePolicyTargetResponse {
+    NodePolicyTarget target = 1;
+}
+
+message NodePolicyTarget {
+  string target_id = 1;
+  string name = 2;
+  string description = 3;
+
+  string team_id = 4;
+  repeated string cluster_ids = 5; // uuid[]
+  string policy_id = 6;
+
+  bool enabled = 11;
+
+  google.protobuf.Timestamp created_at = 110;
+  google.protobuf.Timestamp updated_at = 111;
+  google.protobuf.Timestamp deleted_at = 112;
+}
+
+message Taint {
+  string key = 1;
+  string value = 2;
+  string effect = 3; // NoSchedule, PreferNoSchedule, NoExecute
+}
+
+message DisruptionBudget {
+  repeated string reasons = 1;         // e.g. ["Underutilized", "Empty"]
+  string nodes = 2;                    // e.g. "10%" or "2"
+  string schedule = 3;                 // optional cron schedule
+  string duration = 4;                 // e.g. "1h30m"
+}
+
+message DisruptionPolicy {
+  string consolidate_after = 1;                  // required by Karpenter
+  string consolidation_policy = 2;              // WhenEmpty / WhenEmptyOrUnderutilized
+  string expire_after = 3;
+  int32 ttl_seconds_after_empty = 4;
+  int32 termination_grace_period_seconds = 5;
+  repeated DisruptionBudget budgets = 6;
+}
+
+message ResourceLimits {
+  string cpu = 1;
+  string memory = 2;
+}
+
+// Provider-specific stubs
+message AWSNodeClassSpec {
+  repeated SubnetSelectorTerm subnet_selector_terms = 1;
+  repeated SecurityGroupSelectorTerm security_group_selector_terms = 2;
+  repeated CapacityReservationSelectorTerm capacity_reservation_selector_terms = 3;
+
+  optional bool associate_public_ip_address = 4;
+  repeated AMISelectorTerm ami_selector_terms = 5;
+
+  optional string ami_family = 6;
+  optional string user_data = 7;
+  optional string role = 8;
+  optional string instance_profile = 9;
+
+  map<string, string> tags = 10;
+
+  optional KubeletConfiguration kubelet = 11;
+  repeated BlockDeviceMapping block_device_mappings = 12;
+
+  optional InstanceStorePolicy instance_store_policy = 13;
+  optional bool detailed_monitoring = 14;
+  optional MetadataOptions metadata_options = 15;
+  optional string context = 16;
+}
+
+message GetInstanceFamiliesRequest {
+  repeated string cloud_providers = 1; // Cloud provider names (e.g., "aws", "azure", "gcp")
+}
+
+message GetInstanceFamiliesResponse {
+ repeated InstanceFamily instance_families = 1;
+}
+
+message GetInstanceSizesRequest {
+  repeated string cloud_providers = 1; // Cloud provider names (e.g., "aws", "azure", "gcp")
+}
+
+message GetInstanceSizesResponse {
+ repeated InstanceSize instance_sizes = 1;
+}
+
+// -- Submessages --
+
+message InstanceFamily {
+  string name = 1;
+  string provider_name = 2;
+}
+
+message InstanceSize {
+  string name = 1;
+  string provider_name = 2;
+}
+
+message SubnetSelectorTerm {
+  map<string, string> tags = 1;
+  string id = 2;
+}
+
+message SecurityGroupSelectorTerm {
+  map<string, string> tags = 1;
+  string id = 2;
+  string name = 3;
+}
+
+message CapacityReservationSelectorTerm {
+  map<string, string> tags = 1;
+  string id = 2;
+  string owner_id = 3;
+}
+
+message AMISelectorTerm {
+  string alias = 1;
+  map<string, string> tags = 2;
+  string id = 3;
+  string name = 4;
+  string owner = 5;
+  string ssm_parameter = 6;
+}
+
+message KubeletConfiguration {
+  repeated string cluster_dns = 1;
+  optional int32 max_pods = 2;
+  optional int32 pods_per_core = 3;
+  map<string, string> system_reserved = 4;
+  map<string, string> kube_reserved = 5;
+  map<string, string> eviction_hard = 6;
+  map<string, string> eviction_soft = 7;
+  map<string, string> eviction_soft_grace_period = 8;
+  optional int32 eviction_max_pod_grace_period = 9;
+  optional int32 image_gc_high_threshold_percent = 10;
+  optional int32 image_gc_low_threshold_percent = 11;
+  optional bool cpu_cfs_quota = 12;
+}
+
+message BlockDeviceMapping {
+  optional string device_name = 1;
+  optional BlockDevice ebs = 2;
+  optional bool root_volume = 3;
+}
+
+message BlockDevice {
+  optional bool delete_on_termination = 1;
+  optional bool encrypted = 2;
+  optional int64 iops = 3;
+  optional string kms_key_id = 4;
+  optional string snapshot_id = 5;
+  optional int64 throughput = 6;
+  optional int32 volume_initialization_rate = 7;
+  optional string volume_size = 8;
+  optional string volume_type = 9;
+}
+
+enum InstanceStorePolicy {
+  INSTANCE_STORE_POLICY_RAID0 = 0;
+}
+
+message MetadataOptions {
+  optional string http_endpoint = 1;
+  optional string http_protocol_ipv6 = 2;
+  optional int64 http_put_response_hop_limit = 3;
+  optional string http_tokens = 4;
+}
+
+message GCPNodeClassSpec {
+  string service_account = 1;
+  repeated string image_selector_terms = 2;
+}
+
+message AzureNodeClassSpec {
+  optional string vnet_subnet_id = 1;
+  optional int32 os_disk_size_gb = 2;
+  optional string image_family = 3; // Ubuntu, Ubuntu2204, Ubuntu2404, AzureLinux
+  optional string fips_mode = 4;    // FIPS or Disabled
+  map<string, string> tags = 5;
+  optional AzureKubeletConfiguration kubelet = 6;
+  optional int32 max_pods = 7;
+}
+
+message AzureKubeletConfiguration {
+  optional string cpu_manager_policy = 1;               // none, static
+  optional bool cpu_cfs_quota = 2;
+  optional string cpu_cfs_quota_period = 3;             // e.g., "100ms"
+  optional int32 image_gc_high_threshold_percent = 4;
+  optional int32 image_gc_low_threshold_percent = 5;
+  optional string topology_manager_policy = 6;          // restricted, best-effort, none, single-numa-node
+  repeated string allowed_unsafe_sysctls = 7;
+  optional string container_log_max_size = 8;           // e.g., "50Mi"
+  optional int32 container_log_max_files = 9;
+  optional int64 pod_pids_limit = 10;
+}
+
+message OCINodeClassSpec {
+  string compartment = 1;
+  string subnet = 2;
+  string image = 3;
+}
+
+message RawKarpenterSpec {
+  string nodepool_yaml = 1;
+  string nodeclass_yaml = 2;
+}
+
+message NodeRecommendation {
+    AWSKarpenterSpec aws = 1;
+    AKSKarpenterSpec aks = 2;
+
+    string node_rec_cfg_id = 41;
+}
+
+message AWSKarpenterSpec {
+    repeated NodePool np = 1;
+    repeated EC2NodeClass ec2nc = 6;
+}
+
+message AKSKarpenterSpec {
+    repeated NodePool np = 1;
+    repeated AKSNodeClass aksnc = 6;
+}
+
+message NodePool {
+    bytes contents = 1; // can be marshaled into sigs.k8s.io/karpenter/pkg/apis/v1.NodePool 
+}
+
+message EC2NodeClass {
+    bytes contents = 1; // can be marshaled into github.com/aws/karpenter-provider-aws/pkg/apis/v1.EC2NodeClass 
+}
+
+message AKSNodeClass {
+    bytes contents = 1; // can be marshaled into github.com/Azure/karpenter-provider-azure/pkg/apis/v1beta1.AKSNodeClass 
+}
+
 // Enums
 
 enum ActionTrigger {
@@ -1650,6 +2135,7 @@ enum RecommendationType {
     RECOMMENDATION_TYPE_UNSPECIFIED = 0;
     RECOMMENDATION_TYPE_WORKLOAD = 1;
     RECOMMENDATION_TYPE_NODE_GROUP = 2;
+    RECOMMENDATION_TYPE_NODE_CRD = 3;
 }
 
 enum HPAMetricType {
@@ -1657,5 +2143,6 @@ enum HPAMetricType {
     HPA_METRIC_TYPE_CPU = 1;
     HPA_METRIC_TYPE_MEMORY = 2;
     HPA_METRIC_TYPE_GPU = 3;
-    HPA_METRIC_TYPE_NETWORK = 4;
+    HPA_METRIC_TYPE_NETWORK_INGRESS = 4;
+    HPA_METRIC_TYPE_NETWORK_EGRESS = 5;
 }

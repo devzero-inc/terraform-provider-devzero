@@ -167,6 +167,12 @@ const (
 	// K8SRecommendationServiceGetAttachedWorkloadPoliciesProcedure is the fully-qualified name of the
 	// K8sRecommendationService's GetAttachedWorkloadPolicies RPC.
 	K8SRecommendationServiceGetAttachedWorkloadPoliciesProcedure = "/api.v1.K8sRecommendationService/GetAttachedWorkloadPolicies"
+	// K8SRecommendationServiceSearchResourcesByTargetingFiltersProcedure is the fully-qualified name of
+	// the K8sRecommendationService's SearchResourcesByTargetingFilters RPC.
+	K8SRecommendationServiceSearchResourcesByTargetingFiltersProcedure = "/api.v1.K8sRecommendationService/SearchResourcesByTargetingFilters"
+	// K8SRecommendationServiceGetAvailableKindsByTargetingFiltersProcedure is the fully-qualified name
+	// of the K8sRecommendationService's GetAvailableKindsByTargetingFilters RPC.
+	K8SRecommendationServiceGetAvailableKindsByTargetingFiltersProcedure = "/api.v1.K8sRecommendationService/GetAvailableKindsByTargetingFilters"
 	// K8SRecommendationServiceListAttachedWorkloadPoliciesProcedure is the fully-qualified name of the
 	// K8sRecommendationService's ListAttachedWorkloadPolicies RPC.
 	K8SRecommendationServiceListAttachedWorkloadPoliciesProcedure = "/api.v1.K8sRecommendationService/ListAttachedWorkloadPolicies"
@@ -185,6 +191,36 @@ const (
 	// K8SRecommendationServiceRetrieveSavingsForWorkloadProcedure is the fully-qualified name of the
 	// K8sRecommendationService's RetrieveSavingsForWorkload RPC.
 	K8SRecommendationServiceRetrieveSavingsForWorkloadProcedure = "/api.v1.K8sRecommendationService/RetrieveSavingsForWorkload"
+	// K8SRecommendationServiceCreateNodePoliciesProcedure is the fully-qualified name of the
+	// K8sRecommendationService's CreateNodePolicies RPC.
+	K8SRecommendationServiceCreateNodePoliciesProcedure = "/api.v1.K8sRecommendationService/CreateNodePolicies"
+	// K8SRecommendationServiceListNodePoliciesProcedure is the fully-qualified name of the
+	// K8sRecommendationService's ListNodePolicies RPC.
+	K8SRecommendationServiceListNodePoliciesProcedure = "/api.v1.K8sRecommendationService/ListNodePolicies"
+	// K8SRecommendationServiceUpdateNodePolicyProcedure is the fully-qualified name of the
+	// K8sRecommendationService's UpdateNodePolicy RPC.
+	K8SRecommendationServiceUpdateNodePolicyProcedure = "/api.v1.K8sRecommendationService/UpdateNodePolicy"
+	// K8SRecommendationServiceSuggestedNodePolicyProcedure is the fully-qualified name of the
+	// K8sRecommendationService's SuggestedNodePolicy RPC.
+	K8SRecommendationServiceSuggestedNodePolicyProcedure = "/api.v1.K8sRecommendationService/SuggestedNodePolicy"
+	// K8SRecommendationServiceCreateNodePolicyTargetsProcedure is the fully-qualified name of the
+	// K8sRecommendationService's CreateNodePolicyTargets RPC.
+	K8SRecommendationServiceCreateNodePolicyTargetsProcedure = "/api.v1.K8sRecommendationService/CreateNodePolicyTargets"
+	// K8SRecommendationServiceListNodePolicyTargetsProcedure is the fully-qualified name of the
+	// K8sRecommendationService's ListNodePolicyTargets RPC.
+	K8SRecommendationServiceListNodePolicyTargetsProcedure = "/api.v1.K8sRecommendationService/ListNodePolicyTargets"
+	// K8SRecommendationServiceUpdateNodePolicyTargetProcedure is the fully-qualified name of the
+	// K8sRecommendationService's UpdateNodePolicyTarget RPC.
+	K8SRecommendationServiceUpdateNodePolicyTargetProcedure = "/api.v1.K8sRecommendationService/UpdateNodePolicyTarget"
+	// K8SRecommendationServicePreviewNodeRecommendationConfigProcedure is the fully-qualified name of
+	// the K8sRecommendationService's PreviewNodeRecommendationConfig RPC.
+	K8SRecommendationServicePreviewNodeRecommendationConfigProcedure = "/api.v1.K8sRecommendationService/PreviewNodeRecommendationConfig"
+	// K8SRecommendationServiceGetInstanceFamiliesProcedure is the fully-qualified name of the
+	// K8sRecommendationService's GetInstanceFamilies RPC.
+	K8SRecommendationServiceGetInstanceFamiliesProcedure = "/api.v1.K8sRecommendationService/GetInstanceFamilies"
+	// K8SRecommendationServiceGetInstanceSizesProcedure is the fully-qualified name of the
+	// K8sRecommendationService's GetInstanceSizes RPC.
+	K8SRecommendationServiceGetInstanceSizesProcedure = "/api.v1.K8sRecommendationService/GetInstanceSizes"
 )
 
 // K8SRecommendationServiceClient is a client for the api.v1.K8sRecommendationService service.
@@ -244,6 +280,10 @@ type K8SRecommendationServiceClient interface {
 	GetAttachedNodeGroupPolicies(context.Context, *connect.Request[v1.GetAttachedNodeGroupPoliciesRequest]) (*connect.Response[v1.GetAttachedNodeGroupPoliciesResponse], error)
 	// Get attached workload policies
 	GetAttachedWorkloadPolicies(context.Context, *connect.Request[v1.GetAttachedWorkloadPoliciesRequest]) (*connect.Response[v1.GetAttachedWorkloadPoliciesResponse], error)
+	// Search resources by targeting filters
+	SearchResourcesByTargetingFilters(context.Context, *connect.Request[v1.SearchResourcesByTargetingFiltersRequest]) (*connect.Response[v1.SearchResourcesByTargetingFiltersResponse], error)
+	// Get available kinds by targeting filters
+	GetAvailableKindsByTargetingFilters(context.Context, *connect.Request[v1.GetAvailableKindsByTargetingFiltersRequest]) (*connect.Response[v1.GetAvailableKindsByTargetingFiltersResponse], error)
 	// ListAttachedWorkloadPolicies retrieves all attached workload policies and workloads for a team
 	ListAttachedWorkloadPolicies(context.Context, *connect.Request[v1.ListAttachedWorkloadPoliciesRequest]) (*connect.Response[v1.ListAttachedWorkloadPoliciesResponse], error)
 	// ListAttachedNodeGroupPolicies retrieves all attached node group policies and node groups for a team
@@ -256,6 +296,16 @@ type K8SRecommendationServiceClient interface {
 	RecommendationApplied(context.Context, *connect.Request[v1.RecommendationAppliedRequest]) (*connect.Response[v1.RecommendationAppliedResponse], error)
 	// RetrieveSavingsForWorkload retrieves optimization information about workloads;
 	RetrieveSavingsForWorkload(context.Context, *connect.Request[v1.RetrieveSavingsForWorkloadRequest]) (*connect.Response[v1.RetrieveSavingsForWorkloadResponse], error)
+	CreateNodePolicies(context.Context, *connect.Request[v1.CreateNodePoliciesRequest]) (*connect.Response[v1.CreateNodePoliciesResponse], error)
+	ListNodePolicies(context.Context, *connect.Request[v1.ListNodePoliciesRequest]) (*connect.Response[v1.ListNodePoliciesResponse], error)
+	UpdateNodePolicy(context.Context, *connect.Request[v1.UpdateNodePolicyRequest]) (*connect.Response[v1.UpdateNodePolicyResponse], error)
+	SuggestedNodePolicy(context.Context, *connect.Request[v1.SuggestedNodePolicyRequest]) (*connect.Response[v1.SuggestedNodePolicyResponse], error)
+	CreateNodePolicyTargets(context.Context, *connect.Request[v1.CreateNodePolicyTargetsRequest]) (*connect.Response[v1.CreateNodePolicyTargetsResponse], error)
+	ListNodePolicyTargets(context.Context, *connect.Request[v1.ListNodePolicyTargetsRequest]) (*connect.Response[v1.ListNodePolicyTargetsResponse], error)
+	UpdateNodePolicyTarget(context.Context, *connect.Request[v1.UpdateNodePolicyTargetRequest]) (*connect.Response[v1.UpdateNodePolicyTargetResponse], error)
+	PreviewNodeRecommendationConfig(context.Context, *connect.Request[v1.PreviewNodeRecommendationConfigRequest]) (*connect.Response[v1.PreviewNodeRecommendationConfigResponse], error)
+	GetInstanceFamilies(context.Context, *connect.Request[v1.GetInstanceFamiliesRequest]) (*connect.Response[v1.GetInstanceFamiliesResponse], error)
+	GetInstanceSizes(context.Context, *connect.Request[v1.GetInstanceSizesRequest]) (*connect.Response[v1.GetInstanceSizesResponse], error)
 }
 
 // NewK8SRecommendationServiceClient constructs a client for the api.v1.K8sRecommendationService
@@ -488,6 +538,16 @@ func NewK8SRecommendationServiceClient(httpClient connect.HTTPClient, baseURL st
 			baseURL+K8SRecommendationServiceGetAttachedWorkloadPoliciesProcedure,
 			opts...,
 		),
+		searchResourcesByTargetingFilters: connect.NewClient[v1.SearchResourcesByTargetingFiltersRequest, v1.SearchResourcesByTargetingFiltersResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceSearchResourcesByTargetingFiltersProcedure,
+			opts...,
+		),
+		getAvailableKindsByTargetingFilters: connect.NewClient[v1.GetAvailableKindsByTargetingFiltersRequest, v1.GetAvailableKindsByTargetingFiltersResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceGetAvailableKindsByTargetingFiltersProcedure,
+			opts...,
+		),
 		listAttachedWorkloadPolicies: connect.NewClient[v1.ListAttachedWorkloadPoliciesRequest, v1.ListAttachedWorkloadPoliciesResponse](
 			httpClient,
 			baseURL+K8SRecommendationServiceListAttachedWorkloadPoliciesProcedure,
@@ -516,6 +576,56 @@ func NewK8SRecommendationServiceClient(httpClient connect.HTTPClient, baseURL st
 		retrieveSavingsForWorkload: connect.NewClient[v1.RetrieveSavingsForWorkloadRequest, v1.RetrieveSavingsForWorkloadResponse](
 			httpClient,
 			baseURL+K8SRecommendationServiceRetrieveSavingsForWorkloadProcedure,
+			opts...,
+		),
+		createNodePolicies: connect.NewClient[v1.CreateNodePoliciesRequest, v1.CreateNodePoliciesResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceCreateNodePoliciesProcedure,
+			opts...,
+		),
+		listNodePolicies: connect.NewClient[v1.ListNodePoliciesRequest, v1.ListNodePoliciesResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceListNodePoliciesProcedure,
+			opts...,
+		),
+		updateNodePolicy: connect.NewClient[v1.UpdateNodePolicyRequest, v1.UpdateNodePolicyResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceUpdateNodePolicyProcedure,
+			opts...,
+		),
+		suggestedNodePolicy: connect.NewClient[v1.SuggestedNodePolicyRequest, v1.SuggestedNodePolicyResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceSuggestedNodePolicyProcedure,
+			opts...,
+		),
+		createNodePolicyTargets: connect.NewClient[v1.CreateNodePolicyTargetsRequest, v1.CreateNodePolicyTargetsResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceCreateNodePolicyTargetsProcedure,
+			opts...,
+		),
+		listNodePolicyTargets: connect.NewClient[v1.ListNodePolicyTargetsRequest, v1.ListNodePolicyTargetsResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceListNodePolicyTargetsProcedure,
+			opts...,
+		),
+		updateNodePolicyTarget: connect.NewClient[v1.UpdateNodePolicyTargetRequest, v1.UpdateNodePolicyTargetResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceUpdateNodePolicyTargetProcedure,
+			opts...,
+		),
+		previewNodeRecommendationConfig: connect.NewClient[v1.PreviewNodeRecommendationConfigRequest, v1.PreviewNodeRecommendationConfigResponse](
+			httpClient,
+			baseURL+K8SRecommendationServicePreviewNodeRecommendationConfigProcedure,
+			opts...,
+		),
+		getInstanceFamilies: connect.NewClient[v1.GetInstanceFamiliesRequest, v1.GetInstanceFamiliesResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceGetInstanceFamiliesProcedure,
+			opts...,
+		),
+		getInstanceSizes: connect.NewClient[v1.GetInstanceSizesRequest, v1.GetInstanceSizesResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceGetInstanceSizesProcedure,
 			opts...,
 		),
 	}
@@ -567,12 +677,24 @@ type k8SRecommendationServiceClient struct {
 	getOptimalInstanceTypeForNodeGroup             *connect.Client[v1.GetOptimalInstanceTypeForNodeGroupRequest, v1.GetOptimalInstanceTypeForNodeGroupResponse]
 	getAttachedNodeGroupPolicies                   *connect.Client[v1.GetAttachedNodeGroupPoliciesRequest, v1.GetAttachedNodeGroupPoliciesResponse]
 	getAttachedWorkloadPolicies                    *connect.Client[v1.GetAttachedWorkloadPoliciesRequest, v1.GetAttachedWorkloadPoliciesResponse]
+	searchResourcesByTargetingFilters              *connect.Client[v1.SearchResourcesByTargetingFiltersRequest, v1.SearchResourcesByTargetingFiltersResponse]
+	getAvailableKindsByTargetingFilters            *connect.Client[v1.GetAvailableKindsByTargetingFiltersRequest, v1.GetAvailableKindsByTargetingFiltersResponse]
 	listAttachedWorkloadPolicies                   *connect.Client[v1.ListAttachedWorkloadPoliciesRequest, v1.ListAttachedWorkloadPoliciesResponse]
 	listAttachedNodeGroupPolicies                  *connect.Client[v1.ListAttachedNodeGroupPoliciesRequest, v1.ListAttachedNodeGroupPoliciesResponse]
 	recommendationEvents                           *connect.Client[v1.RecommendationEventsRequest, v1.RecommendationEventsResponse]
 	applyRecommendation                            *connect.Client[v1.ApplyRecommendationRequest, v1.ApplyRecommendationResponse]
 	recommendationApplied                          *connect.Client[v1.RecommendationAppliedRequest, v1.RecommendationAppliedResponse]
 	retrieveSavingsForWorkload                     *connect.Client[v1.RetrieveSavingsForWorkloadRequest, v1.RetrieveSavingsForWorkloadResponse]
+	createNodePolicies                             *connect.Client[v1.CreateNodePoliciesRequest, v1.CreateNodePoliciesResponse]
+	listNodePolicies                               *connect.Client[v1.ListNodePoliciesRequest, v1.ListNodePoliciesResponse]
+	updateNodePolicy                               *connect.Client[v1.UpdateNodePolicyRequest, v1.UpdateNodePolicyResponse]
+	suggestedNodePolicy                            *connect.Client[v1.SuggestedNodePolicyRequest, v1.SuggestedNodePolicyResponse]
+	createNodePolicyTargets                        *connect.Client[v1.CreateNodePolicyTargetsRequest, v1.CreateNodePolicyTargetsResponse]
+	listNodePolicyTargets                          *connect.Client[v1.ListNodePolicyTargetsRequest, v1.ListNodePolicyTargetsResponse]
+	updateNodePolicyTarget                         *connect.Client[v1.UpdateNodePolicyTargetRequest, v1.UpdateNodePolicyTargetResponse]
+	previewNodeRecommendationConfig                *connect.Client[v1.PreviewNodeRecommendationConfigRequest, v1.PreviewNodeRecommendationConfigResponse]
+	getInstanceFamilies                            *connect.Client[v1.GetInstanceFamiliesRequest, v1.GetInstanceFamiliesResponse]
+	getInstanceSizes                               *connect.Client[v1.GetInstanceSizesRequest, v1.GetInstanceSizesResponse]
 }
 
 // GetNodeGroupStats calls api.v1.K8sRecommendationService.GetNodeGroupStats.
@@ -820,6 +942,18 @@ func (c *k8SRecommendationServiceClient) GetAttachedWorkloadPolicies(ctx context
 	return c.getAttachedWorkloadPolicies.CallUnary(ctx, req)
 }
 
+// SearchResourcesByTargetingFilters calls
+// api.v1.K8sRecommendationService.SearchResourcesByTargetingFilters.
+func (c *k8SRecommendationServiceClient) SearchResourcesByTargetingFilters(ctx context.Context, req *connect.Request[v1.SearchResourcesByTargetingFiltersRequest]) (*connect.Response[v1.SearchResourcesByTargetingFiltersResponse], error) {
+	return c.searchResourcesByTargetingFilters.CallUnary(ctx, req)
+}
+
+// GetAvailableKindsByTargetingFilters calls
+// api.v1.K8sRecommendationService.GetAvailableKindsByTargetingFilters.
+func (c *k8SRecommendationServiceClient) GetAvailableKindsByTargetingFilters(ctx context.Context, req *connect.Request[v1.GetAvailableKindsByTargetingFiltersRequest]) (*connect.Response[v1.GetAvailableKindsByTargetingFiltersResponse], error) {
+	return c.getAvailableKindsByTargetingFilters.CallUnary(ctx, req)
+}
+
 // ListAttachedWorkloadPolicies calls api.v1.K8sRecommendationService.ListAttachedWorkloadPolicies.
 func (c *k8SRecommendationServiceClient) ListAttachedWorkloadPolicies(ctx context.Context, req *connect.Request[v1.ListAttachedWorkloadPoliciesRequest]) (*connect.Response[v1.ListAttachedWorkloadPoliciesResponse], error) {
 	return c.listAttachedWorkloadPolicies.CallUnary(ctx, req)
@@ -849,6 +983,57 @@ func (c *k8SRecommendationServiceClient) RecommendationApplied(ctx context.Conte
 // RetrieveSavingsForWorkload calls api.v1.K8sRecommendationService.RetrieveSavingsForWorkload.
 func (c *k8SRecommendationServiceClient) RetrieveSavingsForWorkload(ctx context.Context, req *connect.Request[v1.RetrieveSavingsForWorkloadRequest]) (*connect.Response[v1.RetrieveSavingsForWorkloadResponse], error) {
 	return c.retrieveSavingsForWorkload.CallUnary(ctx, req)
+}
+
+// CreateNodePolicies calls api.v1.K8sRecommendationService.CreateNodePolicies.
+func (c *k8SRecommendationServiceClient) CreateNodePolicies(ctx context.Context, req *connect.Request[v1.CreateNodePoliciesRequest]) (*connect.Response[v1.CreateNodePoliciesResponse], error) {
+	return c.createNodePolicies.CallUnary(ctx, req)
+}
+
+// ListNodePolicies calls api.v1.K8sRecommendationService.ListNodePolicies.
+func (c *k8SRecommendationServiceClient) ListNodePolicies(ctx context.Context, req *connect.Request[v1.ListNodePoliciesRequest]) (*connect.Response[v1.ListNodePoliciesResponse], error) {
+	return c.listNodePolicies.CallUnary(ctx, req)
+}
+
+// UpdateNodePolicy calls api.v1.K8sRecommendationService.UpdateNodePolicy.
+func (c *k8SRecommendationServiceClient) UpdateNodePolicy(ctx context.Context, req *connect.Request[v1.UpdateNodePolicyRequest]) (*connect.Response[v1.UpdateNodePolicyResponse], error) {
+	return c.updateNodePolicy.CallUnary(ctx, req)
+}
+
+// SuggestedNodePolicy calls api.v1.K8sRecommendationService.SuggestedNodePolicy.
+func (c *k8SRecommendationServiceClient) SuggestedNodePolicy(ctx context.Context, req *connect.Request[v1.SuggestedNodePolicyRequest]) (*connect.Response[v1.SuggestedNodePolicyResponse], error) {
+	return c.suggestedNodePolicy.CallUnary(ctx, req)
+}
+
+// CreateNodePolicyTargets calls api.v1.K8sRecommendationService.CreateNodePolicyTargets.
+func (c *k8SRecommendationServiceClient) CreateNodePolicyTargets(ctx context.Context, req *connect.Request[v1.CreateNodePolicyTargetsRequest]) (*connect.Response[v1.CreateNodePolicyTargetsResponse], error) {
+	return c.createNodePolicyTargets.CallUnary(ctx, req)
+}
+
+// ListNodePolicyTargets calls api.v1.K8sRecommendationService.ListNodePolicyTargets.
+func (c *k8SRecommendationServiceClient) ListNodePolicyTargets(ctx context.Context, req *connect.Request[v1.ListNodePolicyTargetsRequest]) (*connect.Response[v1.ListNodePolicyTargetsResponse], error) {
+	return c.listNodePolicyTargets.CallUnary(ctx, req)
+}
+
+// UpdateNodePolicyTarget calls api.v1.K8sRecommendationService.UpdateNodePolicyTarget.
+func (c *k8SRecommendationServiceClient) UpdateNodePolicyTarget(ctx context.Context, req *connect.Request[v1.UpdateNodePolicyTargetRequest]) (*connect.Response[v1.UpdateNodePolicyTargetResponse], error) {
+	return c.updateNodePolicyTarget.CallUnary(ctx, req)
+}
+
+// PreviewNodeRecommendationConfig calls
+// api.v1.K8sRecommendationService.PreviewNodeRecommendationConfig.
+func (c *k8SRecommendationServiceClient) PreviewNodeRecommendationConfig(ctx context.Context, req *connect.Request[v1.PreviewNodeRecommendationConfigRequest]) (*connect.Response[v1.PreviewNodeRecommendationConfigResponse], error) {
+	return c.previewNodeRecommendationConfig.CallUnary(ctx, req)
+}
+
+// GetInstanceFamilies calls api.v1.K8sRecommendationService.GetInstanceFamilies.
+func (c *k8SRecommendationServiceClient) GetInstanceFamilies(ctx context.Context, req *connect.Request[v1.GetInstanceFamiliesRequest]) (*connect.Response[v1.GetInstanceFamiliesResponse], error) {
+	return c.getInstanceFamilies.CallUnary(ctx, req)
+}
+
+// GetInstanceSizes calls api.v1.K8sRecommendationService.GetInstanceSizes.
+func (c *k8SRecommendationServiceClient) GetInstanceSizes(ctx context.Context, req *connect.Request[v1.GetInstanceSizesRequest]) (*connect.Response[v1.GetInstanceSizesResponse], error) {
+	return c.getInstanceSizes.CallUnary(ctx, req)
 }
 
 // K8SRecommendationServiceHandler is an implementation of the api.v1.K8sRecommendationService
@@ -909,6 +1094,10 @@ type K8SRecommendationServiceHandler interface {
 	GetAttachedNodeGroupPolicies(context.Context, *connect.Request[v1.GetAttachedNodeGroupPoliciesRequest]) (*connect.Response[v1.GetAttachedNodeGroupPoliciesResponse], error)
 	// Get attached workload policies
 	GetAttachedWorkloadPolicies(context.Context, *connect.Request[v1.GetAttachedWorkloadPoliciesRequest]) (*connect.Response[v1.GetAttachedWorkloadPoliciesResponse], error)
+	// Search resources by targeting filters
+	SearchResourcesByTargetingFilters(context.Context, *connect.Request[v1.SearchResourcesByTargetingFiltersRequest]) (*connect.Response[v1.SearchResourcesByTargetingFiltersResponse], error)
+	// Get available kinds by targeting filters
+	GetAvailableKindsByTargetingFilters(context.Context, *connect.Request[v1.GetAvailableKindsByTargetingFiltersRequest]) (*connect.Response[v1.GetAvailableKindsByTargetingFiltersResponse], error)
 	// ListAttachedWorkloadPolicies retrieves all attached workload policies and workloads for a team
 	ListAttachedWorkloadPolicies(context.Context, *connect.Request[v1.ListAttachedWorkloadPoliciesRequest]) (*connect.Response[v1.ListAttachedWorkloadPoliciesResponse], error)
 	// ListAttachedNodeGroupPolicies retrieves all attached node group policies and node groups for a team
@@ -921,6 +1110,16 @@ type K8SRecommendationServiceHandler interface {
 	RecommendationApplied(context.Context, *connect.Request[v1.RecommendationAppliedRequest]) (*connect.Response[v1.RecommendationAppliedResponse], error)
 	// RetrieveSavingsForWorkload retrieves optimization information about workloads;
 	RetrieveSavingsForWorkload(context.Context, *connect.Request[v1.RetrieveSavingsForWorkloadRequest]) (*connect.Response[v1.RetrieveSavingsForWorkloadResponse], error)
+	CreateNodePolicies(context.Context, *connect.Request[v1.CreateNodePoliciesRequest]) (*connect.Response[v1.CreateNodePoliciesResponse], error)
+	ListNodePolicies(context.Context, *connect.Request[v1.ListNodePoliciesRequest]) (*connect.Response[v1.ListNodePoliciesResponse], error)
+	UpdateNodePolicy(context.Context, *connect.Request[v1.UpdateNodePolicyRequest]) (*connect.Response[v1.UpdateNodePolicyResponse], error)
+	SuggestedNodePolicy(context.Context, *connect.Request[v1.SuggestedNodePolicyRequest]) (*connect.Response[v1.SuggestedNodePolicyResponse], error)
+	CreateNodePolicyTargets(context.Context, *connect.Request[v1.CreateNodePolicyTargetsRequest]) (*connect.Response[v1.CreateNodePolicyTargetsResponse], error)
+	ListNodePolicyTargets(context.Context, *connect.Request[v1.ListNodePolicyTargetsRequest]) (*connect.Response[v1.ListNodePolicyTargetsResponse], error)
+	UpdateNodePolicyTarget(context.Context, *connect.Request[v1.UpdateNodePolicyTargetRequest]) (*connect.Response[v1.UpdateNodePolicyTargetResponse], error)
+	PreviewNodeRecommendationConfig(context.Context, *connect.Request[v1.PreviewNodeRecommendationConfigRequest]) (*connect.Response[v1.PreviewNodeRecommendationConfigResponse], error)
+	GetInstanceFamilies(context.Context, *connect.Request[v1.GetInstanceFamiliesRequest]) (*connect.Response[v1.GetInstanceFamiliesResponse], error)
+	GetInstanceSizes(context.Context, *connect.Request[v1.GetInstanceSizesRequest]) (*connect.Response[v1.GetInstanceSizesResponse], error)
 }
 
 // NewK8SRecommendationServiceHandler builds an HTTP handler from the service implementation. It
@@ -1149,6 +1348,16 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 		svc.GetAttachedWorkloadPolicies,
 		opts...,
 	)
+	k8SRecommendationServiceSearchResourcesByTargetingFiltersHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceSearchResourcesByTargetingFiltersProcedure,
+		svc.SearchResourcesByTargetingFilters,
+		opts...,
+	)
+	k8SRecommendationServiceGetAvailableKindsByTargetingFiltersHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceGetAvailableKindsByTargetingFiltersProcedure,
+		svc.GetAvailableKindsByTargetingFilters,
+		opts...,
+	)
 	k8SRecommendationServiceListAttachedWorkloadPoliciesHandler := connect.NewUnaryHandler(
 		K8SRecommendationServiceListAttachedWorkloadPoliciesProcedure,
 		svc.ListAttachedWorkloadPolicies,
@@ -1177,6 +1386,56 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 	k8SRecommendationServiceRetrieveSavingsForWorkloadHandler := connect.NewUnaryHandler(
 		K8SRecommendationServiceRetrieveSavingsForWorkloadProcedure,
 		svc.RetrieveSavingsForWorkload,
+		opts...,
+	)
+	k8SRecommendationServiceCreateNodePoliciesHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceCreateNodePoliciesProcedure,
+		svc.CreateNodePolicies,
+		opts...,
+	)
+	k8SRecommendationServiceListNodePoliciesHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceListNodePoliciesProcedure,
+		svc.ListNodePolicies,
+		opts...,
+	)
+	k8SRecommendationServiceUpdateNodePolicyHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceUpdateNodePolicyProcedure,
+		svc.UpdateNodePolicy,
+		opts...,
+	)
+	k8SRecommendationServiceSuggestedNodePolicyHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceSuggestedNodePolicyProcedure,
+		svc.SuggestedNodePolicy,
+		opts...,
+	)
+	k8SRecommendationServiceCreateNodePolicyTargetsHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceCreateNodePolicyTargetsProcedure,
+		svc.CreateNodePolicyTargets,
+		opts...,
+	)
+	k8SRecommendationServiceListNodePolicyTargetsHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceListNodePolicyTargetsProcedure,
+		svc.ListNodePolicyTargets,
+		opts...,
+	)
+	k8SRecommendationServiceUpdateNodePolicyTargetHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceUpdateNodePolicyTargetProcedure,
+		svc.UpdateNodePolicyTarget,
+		opts...,
+	)
+	k8SRecommendationServicePreviewNodeRecommendationConfigHandler := connect.NewUnaryHandler(
+		K8SRecommendationServicePreviewNodeRecommendationConfigProcedure,
+		svc.PreviewNodeRecommendationConfig,
+		opts...,
+	)
+	k8SRecommendationServiceGetInstanceFamiliesHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceGetInstanceFamiliesProcedure,
+		svc.GetInstanceFamilies,
+		opts...,
+	)
+	k8SRecommendationServiceGetInstanceSizesHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceGetInstanceSizesProcedure,
+		svc.GetInstanceSizes,
 		opts...,
 	)
 	return "/api.v1.K8sRecommendationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1269,6 +1528,10 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 			k8SRecommendationServiceGetAttachedNodeGroupPoliciesHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceGetAttachedWorkloadPoliciesProcedure:
 			k8SRecommendationServiceGetAttachedWorkloadPoliciesHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceSearchResourcesByTargetingFiltersProcedure:
+			k8SRecommendationServiceSearchResourcesByTargetingFiltersHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceGetAvailableKindsByTargetingFiltersProcedure:
+			k8SRecommendationServiceGetAvailableKindsByTargetingFiltersHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceListAttachedWorkloadPoliciesProcedure:
 			k8SRecommendationServiceListAttachedWorkloadPoliciesHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceListAttachedNodeGroupPoliciesProcedure:
@@ -1281,6 +1544,26 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 			k8SRecommendationServiceRecommendationAppliedHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceRetrieveSavingsForWorkloadProcedure:
 			k8SRecommendationServiceRetrieveSavingsForWorkloadHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceCreateNodePoliciesProcedure:
+			k8SRecommendationServiceCreateNodePoliciesHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceListNodePoliciesProcedure:
+			k8SRecommendationServiceListNodePoliciesHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceUpdateNodePolicyProcedure:
+			k8SRecommendationServiceUpdateNodePolicyHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceSuggestedNodePolicyProcedure:
+			k8SRecommendationServiceSuggestedNodePolicyHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceCreateNodePolicyTargetsProcedure:
+			k8SRecommendationServiceCreateNodePolicyTargetsHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceListNodePolicyTargetsProcedure:
+			k8SRecommendationServiceListNodePolicyTargetsHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceUpdateNodePolicyTargetProcedure:
+			k8SRecommendationServiceUpdateNodePolicyTargetHandler.ServeHTTP(w, r)
+		case K8SRecommendationServicePreviewNodeRecommendationConfigProcedure:
+			k8SRecommendationServicePreviewNodeRecommendationConfigHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceGetInstanceFamiliesProcedure:
+			k8SRecommendationServiceGetInstanceFamiliesHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceGetInstanceSizesProcedure:
+			k8SRecommendationServiceGetInstanceSizesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1466,6 +1749,14 @@ func (UnimplementedK8SRecommendationServiceHandler) GetAttachedWorkloadPolicies(
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetAttachedWorkloadPolicies is not implemented"))
 }
 
+func (UnimplementedK8SRecommendationServiceHandler) SearchResourcesByTargetingFilters(context.Context, *connect.Request[v1.SearchResourcesByTargetingFiltersRequest]) (*connect.Response[v1.SearchResourcesByTargetingFiltersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.SearchResourcesByTargetingFilters is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) GetAvailableKindsByTargetingFilters(context.Context, *connect.Request[v1.GetAvailableKindsByTargetingFiltersRequest]) (*connect.Response[v1.GetAvailableKindsByTargetingFiltersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetAvailableKindsByTargetingFilters is not implemented"))
+}
+
 func (UnimplementedK8SRecommendationServiceHandler) ListAttachedWorkloadPolicies(context.Context, *connect.Request[v1.ListAttachedWorkloadPoliciesRequest]) (*connect.Response[v1.ListAttachedWorkloadPoliciesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.ListAttachedWorkloadPolicies is not implemented"))
 }
@@ -1488,4 +1779,44 @@ func (UnimplementedK8SRecommendationServiceHandler) RecommendationApplied(contex
 
 func (UnimplementedK8SRecommendationServiceHandler) RetrieveSavingsForWorkload(context.Context, *connect.Request[v1.RetrieveSavingsForWorkloadRequest]) (*connect.Response[v1.RetrieveSavingsForWorkloadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.RetrieveSavingsForWorkload is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) CreateNodePolicies(context.Context, *connect.Request[v1.CreateNodePoliciesRequest]) (*connect.Response[v1.CreateNodePoliciesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.CreateNodePolicies is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) ListNodePolicies(context.Context, *connect.Request[v1.ListNodePoliciesRequest]) (*connect.Response[v1.ListNodePoliciesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.ListNodePolicies is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) UpdateNodePolicy(context.Context, *connect.Request[v1.UpdateNodePolicyRequest]) (*connect.Response[v1.UpdateNodePolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.UpdateNodePolicy is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) SuggestedNodePolicy(context.Context, *connect.Request[v1.SuggestedNodePolicyRequest]) (*connect.Response[v1.SuggestedNodePolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.SuggestedNodePolicy is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) CreateNodePolicyTargets(context.Context, *connect.Request[v1.CreateNodePolicyTargetsRequest]) (*connect.Response[v1.CreateNodePolicyTargetsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.CreateNodePolicyTargets is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) ListNodePolicyTargets(context.Context, *connect.Request[v1.ListNodePolicyTargetsRequest]) (*connect.Response[v1.ListNodePolicyTargetsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.ListNodePolicyTargets is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) UpdateNodePolicyTarget(context.Context, *connect.Request[v1.UpdateNodePolicyTargetRequest]) (*connect.Response[v1.UpdateNodePolicyTargetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.UpdateNodePolicyTarget is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) PreviewNodeRecommendationConfig(context.Context, *connect.Request[v1.PreviewNodeRecommendationConfigRequest]) (*connect.Response[v1.PreviewNodeRecommendationConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.PreviewNodeRecommendationConfig is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) GetInstanceFamilies(context.Context, *connect.Request[v1.GetInstanceFamiliesRequest]) (*connect.Response[v1.GetInstanceFamiliesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetInstanceFamilies is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) GetInstanceSizes(context.Context, *connect.Request[v1.GetInstanceSizesRequest]) (*connect.Response[v1.GetInstanceSizesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetInstanceSizes is not implemented"))
 }

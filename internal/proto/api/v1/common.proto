@@ -40,6 +40,7 @@ enum K8sObjectKind {
     K8S_OBJECT_KIND_KARPENTER_RESOURCE = 26;
     K8S_OBJECT_KIND_POD_DISRUPTION_BUDGET = 27;
     K8S_OBJECT_KIND_RESOURCE_QUOTA = 28;
+    K8S_OBJECT_KIND_KUBEFLOW_NOTEBOOK = 29;
 }
 
 // Represents a single audit log entry
@@ -385,6 +386,8 @@ enum LabelSelectorOperator {
     LABEL_SELECTOR_OPERATOR_NOT_IN = 2;         // NotIn  
     LABEL_SELECTOR_OPERATOR_EXISTS = 3;         // Exists
     LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST = 4; // DoesNotExist
+    LABEL_SELECTOR_OPERATOR_GT = 5; // GreaterThan
+    LABEL_SELECTOR_OPERATOR_LT = 6; // LessThan
 }
 
 // LabelSelectorRequirement is a selector that contains values, a key, and an operator that
@@ -1442,9 +1445,24 @@ message Event {
   string created_at_age = 44;
   string updated_at_age = 45;
   string last_seen_age = 46;
-
+  google.protobuf.Timestamp deleted_at = 47;
 }
 
+message EventDatapointInfo {
+  string name = 1; // Event name
+  string message = 2; // Event message
+  string owner_uid = 3; // Event owner name
+  string owner_kind = 4; // Event owner kind
+  string owner_name = 5; // Event owner name
+  string type = 6; // Event type
+  string reason = 7; // Event reason
+}
+
+message EventDatapoint {
+  string utc_time = 1;
+  int32 count = 2; // Number of events in this time bucket
+  repeated EventDatapointInfo events = 3; // Details of events in this bucket
+}
 // message InvolvedObject {
 //   string uid = 1;
 //   string kind = 2;
