@@ -199,6 +199,8 @@ func (p *DevzeroProvider) Resources(ctx context.Context) []func() resource.Resou
 		NewClusterResource,
 		NewWorkloadPolicyResource,
 		NewWorkloadPolicyTargetResource,
+		NewNodePolicyResource,
+		NewNodePolicyTargetResource,
 	}
 }
 
