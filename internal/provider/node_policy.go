@@ -23,9 +23,11 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &NodePolicyResource{}
-var _ resource.ResourceWithConfigure = &NodePolicyResource{}
-var _ resource.ResourceWithImportState = &NodePolicyResource{}
+var (
+	_ resource.Resource                = &NodePolicyResource{}
+	_ resource.ResourceWithConfigure   = &NodePolicyResource{}
+	_ resource.ResourceWithImportState = &NodePolicyResource{}
+)
 
 func NewNodePolicyResource() resource.Resource {
 	return &NodePolicyResource{}
@@ -38,53 +40,53 @@ type NodePolicyResource struct {
 
 // NodePolicyResourceModel describes the resource data model.
 type NodePolicyResourceModel struct {
-	Id                     types.String     `tfsdk:"id"`
-	Name                   types.String     `tfsdk:"name"`
-	Description            types.String     `tfsdk:"description"`
-	Weight                 types.Int32      `tfsdk:"weight"`
-	InstanceCategories     *LabelSelector   `tfsdk:"instance_categories"`
-	InstanceFamilies       *LabelSelector   `tfsdk:"instance_families"`
-	InstanceCpus           *LabelSelector   `tfsdk:"instance_cpus"`
-	InstanceHypervisors    *LabelSelector   `tfsdk:"instance_hypervisors"`
-	InstanceGenerations    *LabelSelector   `tfsdk:"instance_generations"`
-	InstanceSizes          *LabelSelector   `tfsdk:"instance_sizes"`
-	InstanceCategoriesTip  types.String     `tfsdk:"instance_categories_tip"`
-	InstanceFamiliesTip    types.String     `tfsdk:"instance_families_tip"`
-	InstanceCpusTip        types.String     `tfsdk:"instance_cpus_tip"`
-	InstanceHypervisorsTip types.String     `tfsdk:"instance_hypervisors_tip"`
-	InstanceGenerationsTip types.String     `tfsdk:"instance_generations_tip"`
-	InstanceSizesTip       types.String     `tfsdk:"instance_sizes_tip"`
-	Zones                  *LabelSelector   `tfsdk:"zones"`
-	Architectures          *LabelSelector   `tfsdk:"architectures"`
-	CapacityTypes          *LabelSelector   `tfsdk:"capacity_types"`
-	OperatingSystems       *LabelSelector   `tfsdk:"operating_systems"`
-	ZonesTip               types.String     `tfsdk:"zones_tip"`
-	ArchitecturesTip       types.String     `tfsdk:"architectures_tip"`
-	CapacityTypeTip        types.String     `tfsdk:"capacity_type_tip"`
-	OperatingSystemsTip    types.String     `tfsdk:"operating_systems_tip"`
-	Labels                 types.Map        `tfsdk:"labels"`
-	Taints                 types.List       `tfsdk:"taints"` // List of Taint objects
+	Id                     types.String      `tfsdk:"id"`
+	Name                   types.String      `tfsdk:"name"`
+	Description            types.String      `tfsdk:"description"`
+	Weight                 types.Int32       `tfsdk:"weight"`
+	InstanceCategories     *LabelSelector    `tfsdk:"instance_categories"`
+	InstanceFamilies       *LabelSelector    `tfsdk:"instance_families"`
+	InstanceCpus           *LabelSelector    `tfsdk:"instance_cpus"`
+	InstanceHypervisors    *LabelSelector    `tfsdk:"instance_hypervisors"`
+	InstanceGenerations    *LabelSelector    `tfsdk:"instance_generations"`
+	InstanceSizes          *LabelSelector    `tfsdk:"instance_sizes"`
+	InstanceCategoriesTip  types.String      `tfsdk:"instance_categories_tip"`
+	InstanceFamiliesTip    types.String      `tfsdk:"instance_families_tip"`
+	InstanceCpusTip        types.String      `tfsdk:"instance_cpus_tip"`
+	InstanceHypervisorsTip types.String      `tfsdk:"instance_hypervisors_tip"`
+	InstanceGenerationsTip types.String      `tfsdk:"instance_generations_tip"`
+	InstanceSizesTip       types.String      `tfsdk:"instance_sizes_tip"`
+	Zones                  *LabelSelector    `tfsdk:"zones"`
+	Architectures          *LabelSelector    `tfsdk:"architectures"`
+	CapacityTypes          *LabelSelector    `tfsdk:"capacity_types"`
+	OperatingSystems       *LabelSelector    `tfsdk:"operating_systems"`
+	ZonesTip               types.String      `tfsdk:"zones_tip"`
+	ArchitecturesTip       types.String      `tfsdk:"architectures_tip"`
+	CapacityTypeTip        types.String      `tfsdk:"capacity_type_tip"`
+	OperatingSystemsTip    types.String      `tfsdk:"operating_systems_tip"`
+	Labels                 types.Map         `tfsdk:"labels"`
+	Taints                 types.List        `tfsdk:"taints"` // List of Taint objects
 	Disruption             *DisruptionPolicy `tfsdk:"disruption"`
-	Limits                 *ResourceLimits  `tfsdk:"limits"`
-	TaintsTip              types.String     `tfsdk:"taints_tip"`
-	DisruptionsTip         types.String     `tfsdk:"disruptions_tip"`
-	LimitsTip              types.String     `tfsdk:"limits_tip"`
-	MasterOverrideRoleName types.String     `tfsdk:"master_override_role_name"`
-	NodePoolName           types.String     `tfsdk:"node_pool_name"`
-	NodeClassName          types.String     `tfsdk:"node_class_name"`
-	Aws                    *AWSNodeClass    `tfsdk:"aws"`
-	Azure                  *AzureNodeClass  `tfsdk:"azure"`
-	Raw                    types.List       `tfsdk:"raw"` // List of RawKarpenterSpec objects
+	Limits                 *ResourceLimits   `tfsdk:"limits"`
+	TaintsTip              types.String      `tfsdk:"taints_tip"`
+	DisruptionsTip         types.String      `tfsdk:"disruptions_tip"`
+	LimitsTip              types.String      `tfsdk:"limits_tip"`
+	MasterOverrideRoleName types.String      `tfsdk:"master_override_role_name"`
+	NodePoolName           types.String      `tfsdk:"node_pool_name"`
+	NodeClassName          types.String      `tfsdk:"node_class_name"`
+	Aws                    *AWSNodeClass     `tfsdk:"aws"`
+	Azure                  *AzureNodeClass   `tfsdk:"azure"`
+	Raw                    types.List        `tfsdk:"raw"` // List of RawKarpenterSpec objects
 }
 
-// Taint defines Kubernetes taints
+// Taint defines Kubernetes taints.
 type Taint struct {
 	Key    types.String `tfsdk:"key"`
 	Value  types.String `tfsdk:"value"`
 	Effect types.String `tfsdk:"effect"`
 }
 
-// DisruptionPolicy defines node disruption policy
+// DisruptionPolicy defines node disruption policy.
 type DisruptionPolicy struct {
 	ConsolidateAfter              types.String `tfsdk:"consolidate_after"`
 	ConsolidationPolicy           types.String `tfsdk:"consolidation_policy"`
@@ -94,7 +96,7 @@ type DisruptionPolicy struct {
 	Budgets                       types.List   `tfsdk:"budgets"` // List of DisruptionBudget
 }
 
-// DisruptionBudget defines disruption budget constraints
+// DisruptionBudget defines disruption budget constraints.
 type DisruptionBudget struct {
 	Reasons  types.List   `tfsdk:"reasons"` // List of strings
 	Nodes    types.String `tfsdk:"nodes"`
@@ -102,38 +104,38 @@ type DisruptionBudget struct {
 	Duration types.String `tfsdk:"duration"`
 }
 
-// ResourceLimits defines resource limits for nodes
+// ResourceLimits defines resource limits for nodes.
 type ResourceLimits struct {
 	Cpu    types.String `tfsdk:"cpu"`
 	Memory types.String `tfsdk:"memory"`
 }
 
-// MetadataOptions defines EC2 instance metadata service options
+// MetadataOptions defines EC2 instance metadata service options.
 type MetadataOptions struct {
-	HttpEndpoint              types.String `tfsdk:"http_endpoint"`
-	HttpProtocolIpv6          types.String `tfsdk:"http_protocol_ipv6"`
-	HttpPutResponseHopLimit   types.Int64  `tfsdk:"http_put_response_hop_limit"`
-	HttpTokens                types.String `tfsdk:"http_tokens"`
+	HttpEndpoint            types.String `tfsdk:"http_endpoint"`
+	HttpProtocolIpv6        types.String `tfsdk:"http_protocol_ipv6"`
+	HttpPutResponseHopLimit types.Int64  `tfsdk:"http_put_response_hop_limit"`
+	HttpTokens              types.String `tfsdk:"http_tokens"`
 }
 
-// AWSNodeClass defines AWS-specific node configuration
+// AWSNodeClass defines AWS-specific node configuration.
 type AWSNodeClass struct {
-	SubnetSelectorTerms              types.List   `tfsdk:"subnet_selector_terms"`
-	SecurityGroupSelectorTerms       types.List   `tfsdk:"security_group_selector_terms"`
-	AmiSelectorTerms                 types.List   `tfsdk:"ami_selector_terms"`
-	AmiFamily                        types.String `tfsdk:"ami_family"`
-	UserData                         types.String `tfsdk:"user_data"`
-	Role                             types.String `tfsdk:"role"`
-	InstanceProfile                  types.String `tfsdk:"instance_profile"`
-	Tags                             types.Map    `tfsdk:"tags"`
-	BlockDeviceMappings              types.List   `tfsdk:"block_device_mappings"`
-	InstanceStorePolicy              types.String `tfsdk:"instance_store_policy"`
-	DetailedMonitoring               types.Bool   `tfsdk:"detailed_monitoring"`
-	AssociatePublicIpAddress         types.Bool   `tfsdk:"associate_public_ip_address"`
-	MetadataOptions                  *MetadataOptions `tfsdk:"metadata_options"`
+	SubnetSelectorTerms        types.List       `tfsdk:"subnet_selector_terms"`
+	SecurityGroupSelectorTerms types.List       `tfsdk:"security_group_selector_terms"`
+	AmiSelectorTerms           types.List       `tfsdk:"ami_selector_terms"`
+	AmiFamily                  types.String     `tfsdk:"ami_family"`
+	UserData                   types.String     `tfsdk:"user_data"`
+	Role                       types.String     `tfsdk:"role"`
+	InstanceProfile            types.String     `tfsdk:"instance_profile"`
+	Tags                       types.Map        `tfsdk:"tags"`
+	BlockDeviceMappings        types.List       `tfsdk:"block_device_mappings"`
+	InstanceStorePolicy        types.String     `tfsdk:"instance_store_policy"`
+	DetailedMonitoring         types.Bool       `tfsdk:"detailed_monitoring"`
+	AssociatePublicIpAddress   types.Bool       `tfsdk:"associate_public_ip_address"`
+	MetadataOptions            *MetadataOptions `tfsdk:"metadata_options"`
 }
 
-// AzureNodeClass defines Azure-specific node configuration
+// AzureNodeClass defines Azure-specific node configuration.
 type AzureNodeClass struct {
 	VnetSubnetId types.String `tfsdk:"vnet_subnet_id"`
 	OsDiskSizeGb types.Int32  `tfsdk:"os_disk_size_gb"`
@@ -143,7 +145,7 @@ type AzureNodeClass struct {
 	MaxPods      types.Int32  `tfsdk:"max_pods"`
 }
 
-// RawKarpenterSpec defines raw Karpenter YAML specs
+// RawKarpenterSpec defines raw Karpenter YAML specs.
 type RawKarpenterSpec struct {
 	NodepoolYaml  types.String `tfsdk:"nodepool_yaml"`
 	NodeclassYaml types.String `tfsdk:"nodeclass_yaml"`
@@ -186,9 +188,9 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Default:             int32default.StaticInt32(10),
 			},
 			// Instance selector fields with LabelSelector
-			"instance_categories": labelSelectorAttribute("Instance categories selector (e.g., D for Azure, m for AWS)"),
-			"instance_families":   labelSelectorAttribute("Instance families selector (e.g., c5, m5d, r4)"),
-			"instance_cpus":       labelSelectorAttribute("Instance CPU count selector (e.g., 4, 8, 16)"),
+			"instance_categories":  labelSelectorAttribute("Instance categories selector (e.g., D for Azure, m for AWS)"),
+			"instance_families":    labelSelectorAttribute("Instance families selector (e.g., c5, m5d, r4)"),
+			"instance_cpus":        labelSelectorAttribute("Instance CPU count selector (e.g., 4, 8, 16)"),
 			"instance_hypervisors": labelSelectorAttribute("Instance hypervisors selector"),
 			"instance_generations": labelSelectorAttribute("Instance generations selector (e.g., 4 for Azure, 5 for AWS)"),
 			"instance_sizes":       labelSelectorAttribute("Instance sizes selector (e.g., Standard_D4s for Azure, large for AWS)"),
@@ -205,10 +207,10 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"capacity_types":    labelSelectorAttribute("Capacity types selector (e.g., spot, on-demand, reserved)"),
 			"operating_systems": labelSelectorAttribute("Operating systems selector (e.g., linux, windows)"),
 			// Tooltips for additional selectors
-			"zones_tip":              tooltipAttribute("Tooltip for zones"),
-			"architectures_tip":      tooltipAttribute("Tooltip for architectures"),
-			"capacity_type_tip":      tooltipAttribute("Tooltip for capacity types"),
-			"operating_systems_tip":  tooltipAttribute("Tooltip for operating systems"),
+			"zones_tip":             tooltipAttribute("Tooltip for zones"),
+			"architectures_tip":     tooltipAttribute("Tooltip for architectures"),
+			"capacity_type_tip":     tooltipAttribute("Tooltip for capacity types"),
+			"operating_systems_tip": tooltipAttribute("Tooltip for operating systems"),
 			// Node configuration
 			"labels": schema.MapAttribute{
 				Description:         "Kubernetes labels to apply to nodes",
@@ -594,7 +596,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 	}
 }
 
-// Helper function to create label selector attributes
+// Helper function to create label selector attributes.
 func labelSelectorAttribute(description string) schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Description: description,
@@ -631,7 +633,7 @@ func labelSelectorAttribute(description string) schema.SingleNestedAttribute {
 	}
 }
 
-// Helper function to create tooltip attributes
+// Helper function to create tooltip attributes.
 func tooltipAttribute(description string) schema.StringAttribute {
 	return schema.StringAttribute{
 		Description: description,
@@ -794,7 +796,7 @@ func (r *NodePolicyResource) ImportState(ctx context.Context, req resource.Impor
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-// toProto converts Terraform model to protobuf message
+// toProto converts Terraform model to protobuf message.
 func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagnostics, teamId string) *apiv1.NodePolicy {
 	policy := &apiv1.NodePolicy{
 		Id:          m.Id.ValueString(),
@@ -1018,7 +1020,7 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 	return policy
 }
 
-// fromProto converts protobuf message to Terraform model
+// fromProto converts protobuf message to Terraform model.
 func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	m.Id = types.StringValue(policy.Id)
 	m.Name = types.StringValue(policy.Name)
@@ -1184,7 +1186,7 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	}
 }
 
-// Helper function for converting string pointers
+// Helper function for converting string pointers.
 func stringPointerValue(val *string) types.String {
 	if val == nil {
 		return types.StringNull()
@@ -1192,7 +1194,7 @@ func stringPointerValue(val *string) types.String {
 	return types.StringValue(*val)
 }
 
-// Helper function for label selector from proto
+// Helper function for label selector from proto.
 func labelSelectorFromProto(selector *apiv1.LabelSelector) *LabelSelector {
 	ls := &LabelSelector{}
 
@@ -1241,7 +1243,7 @@ func labelSelectorFromProto(selector *apiv1.LabelSelector) *LabelSelector {
 	return ls
 }
 
-// Helper function for disruption policy from proto
+// Helper function for disruption policy from proto.
 func disruptionPolicyFromProto(disruption *apiv1.DisruptionPolicy) *DisruptionPolicy {
 	dp := &DisruptionPolicy{
 		ConsolidateAfter:              types.StringValue(disruption.ConsolidateAfter),
@@ -1294,7 +1296,7 @@ func disruptionPolicyFromProto(disruption *apiv1.DisruptionPolicy) *DisruptionPo
 	return dp
 }
 
-// toProto for DisruptionPolicy
+// toProto for DisruptionPolicy.
 func (dp *DisruptionPolicy) toProto(ctx context.Context, diags *diag.Diagnostics) *apiv1.DisruptionPolicy {
 	disruption := &apiv1.DisruptionPolicy{
 		ConsolidateAfter:              dp.ConsolidateAfter.ValueString(),
@@ -1327,7 +1329,7 @@ func (dp *DisruptionPolicy) toProto(ctx context.Context, diags *diag.Diagnostics
 	return disruption
 }
 
-// AWS Node Class conversion functions
+// AWS Node Class conversion functions.
 func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *apiv1.AWSNodeClassSpec {
 	spec := &apiv1.AWSNodeClassSpec{}
 
@@ -1836,7 +1838,7 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 	return aws
 }
 
-// Azure Node Class conversion functions
+// Azure Node Class conversion functions.
 func (azure *AzureNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *apiv1.AzureNodeClassSpec {
 	spec := &apiv1.AzureNodeClassSpec{}
 
@@ -1903,7 +1905,9 @@ func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {
 	return azure
 }
 
-// Helper functions for enum conversions
+// Helper functions for enum conversions.
+//
+//nolint:unparam // Only RAID0 is currently supported, but function provides extensibility
 func instanceStorePolicyFromString(s string) apiv1.InstanceStorePolicy {
 	switch s {
 	case "RAID0":

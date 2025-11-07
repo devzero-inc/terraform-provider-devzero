@@ -247,7 +247,7 @@ func (r *NodePolicyTargetResource) ImportState(ctx context.Context, req resource
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-// toProto converts Terraform model to protobuf message
+// toProto converts Terraform model to protobuf message.
 func (m *NodePolicyTargetResourceModel) toProto(ctx context.Context, diags *diag.Diagnostics, teamId string) *apiv1.NodePolicyTarget {
 	clusterIds, err := getStringList(ctx, m.ClusterIds.Elements())
 	if err != nil {
@@ -266,7 +266,7 @@ func (m *NodePolicyTargetResourceModel) toProto(ctx context.Context, diags *diag
 	}
 }
 
-// fromProto converts protobuf message to Terraform model
+// fromProto converts protobuf message to Terraform model.
 func (m *NodePolicyTargetResourceModel) fromProto(target *apiv1.NodePolicyTarget) {
 	m.Id = types.StringValue(target.TargetId)
 	m.PolicyId = types.StringValue(target.PolicyId)

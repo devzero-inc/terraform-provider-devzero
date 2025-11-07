@@ -114,18 +114,18 @@ func TestNodePolicyResourceModel(t *testing.T) {
 	// Test AWSNodeClass
 	t.Run("AWSNodeClass", func(t *testing.T) {
 		awsConfig := &AWSNodeClass{
-			AmiFamily:                types.StringValue("AL2"),
-			UserData:                 types.StringValue("#!/bin/bash\necho 'test'"),
-			Role:                     types.StringValue("KarpenterNodeRole"),
-			InstanceProfile:          types.StringValue("KarpenterNodeInstanceProfile"),
-			Tags:                     types.MapValueMust(types.StringType, map[string]attr.Value{"Environment": types.StringValue("production")}),
-			InstanceStorePolicy:      types.StringValue("RAID0"),
-			DetailedMonitoring:       types.BoolValue(true),
-			AssociatePublicIpAddress: types.BoolValue(false),
-			SubnetSelectorTerms:      types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			AmiFamily:                  types.StringValue("AL2"),
+			UserData:                   types.StringValue("#!/bin/bash\necho 'test'"),
+			Role:                       types.StringValue("KarpenterNodeRole"),
+			InstanceProfile:            types.StringValue("KarpenterNodeInstanceProfile"),
+			Tags:                       types.MapValueMust(types.StringType, map[string]attr.Value{"Environment": types.StringValue("production")}),
+			InstanceStorePolicy:        types.StringValue("RAID0"),
+			DetailedMonitoring:         types.BoolValue(true),
+			AssociatePublicIpAddress:   types.BoolValue(false),
+			SubnetSelectorTerms:        types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
 			SecurityGroupSelectorTerms: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
-			AmiSelectorTerms:         types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
-			BlockDeviceMappings:      types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			AmiSelectorTerms:           types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			BlockDeviceMappings:        types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
 		}
 
 		if awsConfig.AmiFamily.ValueString() != "AL2" {
