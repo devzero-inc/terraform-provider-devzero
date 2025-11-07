@@ -62,6 +62,67 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 		}
 	})
 
+	// Test LabelSelector with MatchExpressions (as they come from Terraform)
+	t.Run("LabelSelector_WithMatchExpressions", func(t *testing.T) {
+		selector := &LabelSelector{
+			MatchLabels: types.MapValueMust(types.StringType, map[string]attr.Value{
+				"app": types.StringValue("api"),
+			}),
+			MatchExpressions: types.ListValueMust(
+				types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"key":      types.StringType,
+						"operator": types.StringType,
+						"values":   types.ListType{ElemType: types.StringType},
+					},
+				},
+				[]attr.Value{
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("tier"),
+							"operator": types.StringValue("In"),
+							"values":   types.ListValueMust(types.StringType, []attr.Value{types.StringValue("frontend"), types.StringValue("backend")}),
+						},
+					),
+				},
+			),
+		}
+
+		// Test toProto
+		ctx := context.Background()
+		proto, err := selector.toProto(ctx)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if proto == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if len(proto.MatchLabels) != 1 {
+			t.Errorf("Expected 1 match label, got %d", len(proto.MatchLabels))
+		}
+		if proto.MatchLabels["app"] != "api" {
+			t.Errorf("Expected app=api, got %s", proto.MatchLabels["app"])
+		}
+		if len(proto.MatchExpressions) != 1 {
+			t.Fatalf("Expected 1 match expression, got %d", len(proto.MatchExpressions))
+		}
+		expr := proto.MatchExpressions[0]
+		if expr.Key != "tier" {
+			t.Errorf("Expected key=tier, got %s", expr.Key)
+		}
+		if expr.Operator != 1 { // IN = 1
+			t.Errorf("Expected operator=IN (1), got %d", expr.Operator)
+		}
+		if len(expr.Values) != 2 {
+			t.Errorf("Expected 2 values, got %d", len(expr.Values))
+		}
+	})
+
 	// Test RegexPattern
 	t.Run("RegexPattern", func(t *testing.T) {
 		pattern := &RegexPattern{
