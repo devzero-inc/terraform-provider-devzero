@@ -26,9 +26,8 @@ The document generation tool looks for files in the following locations by defau
 The `devzero_node_policy` resource includes several comprehensive examples:
 
 * **resource.tf** - Basic and comprehensive examples showing minimal and full configurations
-* **aws-cost-optimized.tf** - Cost-optimized configuration for batch workloads (spot instances, aggressive consolidation)
-* **aws-production-stable.tf** - Production-stable configuration prioritizing reliability (on-demand, conservative consolidation)
-* **azure-complete.tf** - Complete Azure examples including GPU workloads
+* **aws.tf** - Cost-optimized configuration for batch workloads (spot instances, aggressive consolidation)
+* **azure.tf** - Complete Azure examples including GPU workloads
 * **complete-multi-policy.tf** - Real-world setup with multiple policies for different workload types
 
 ### Key Features Demonstrated
