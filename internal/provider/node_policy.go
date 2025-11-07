@@ -471,6 +471,14 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 											Description: "Throughput in MiB/s for gp3 volumes",
 											Optional:    true,
 										},
+										"kms_key_id": schema.StringAttribute{
+											Description: "KMS key ID for encryption",
+											Optional:    true,
+										},
+										"snapshot_id": schema.StringAttribute{
+											Description: "Snapshot ID to create volume from",
+											Optional:    true,
+										},
 										"delete_on_termination": schema.BoolAttribute{
 											Description: "Delete volume on instance termination",
 											Optional:    true,
@@ -1755,6 +1763,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 				ebsAttrs := map[string]attr.Value{
 					"volume_size": stringPointerValue(mapping.Ebs.VolumeSize),
 					"volume_type": stringPointerValue(mapping.Ebs.VolumeType),
+					"kms_key_id":  stringPointerValue(mapping.Ebs.KmsKeyId),
+					"snapshot_id": stringPointerValue(mapping.Ebs.SnapshotId),
 				}
 
 				if mapping.Ebs.Iops != nil {
@@ -1784,6 +1794,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 						"volume_type":           types.StringType,
 						"iops":                  types.Int64Type,
 						"throughput":            types.Int64Type,
+						"kms_key_id":            types.StringType,
+						"snapshot_id":           types.StringType,
 						"delete_on_termination": types.BoolType,
 						"encrypted":             types.BoolType,
 					},
@@ -1795,6 +1807,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 					"volume_type":           types.StringType,
 					"iops":                  types.Int64Type,
 					"throughput":            types.Int64Type,
+					"kms_key_id":            types.StringType,
+					"snapshot_id":           types.StringType,
 					"delete_on_termination": types.BoolType,
 					"encrypted":             types.BoolType,
 				})
@@ -1809,6 +1823,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 							"volume_type":           types.StringType,
 							"iops":                  types.Int64Type,
 							"throughput":            types.Int64Type,
+							"kms_key_id":            types.StringType,
+							"snapshot_id":           types.StringType,
 							"delete_on_termination": types.BoolType,
 							"encrypted":             types.BoolType,
 						},
@@ -1827,6 +1843,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 							"volume_type":           types.StringType,
 							"iops":                  types.Int64Type,
 							"throughput":            types.Int64Type,
+							"kms_key_id":            types.StringType,
+							"snapshot_id":           types.StringType,
 							"delete_on_termination": types.BoolType,
 							"encrypted":             types.BoolType,
 						},
@@ -1845,6 +1863,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 						"volume_type":           types.StringType,
 						"iops":                  types.Int64Type,
 						"throughput":            types.Int64Type,
+						"kms_key_id":            types.StringType,
+						"snapshot_id":           types.StringType,
 						"delete_on_termination": types.BoolType,
 						"encrypted":             types.BoolType,
 					},
