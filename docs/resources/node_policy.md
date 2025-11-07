@@ -396,6 +396,8 @@ Optional:
 - `delete_on_termination` (Boolean) Delete volume on instance termination
 - `encrypted` (Boolean) Encrypt the volume
 - `iops` (Number) IOPS for io1/io2 volumes
+- `kms_key_id` (String) KMS key ID for encryption
+- `snapshot_id` (String) Snapshot ID to create volume from
 - `throughput` (Number) Throughput in MiB/s for gp3 volumes
 - `volume_size` (String) Volume size (e.g., '100Gi')
 - `volume_type` (String) Volume type (gp2, gp3, io1, io2, sc1, st1)
