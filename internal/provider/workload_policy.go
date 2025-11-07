@@ -751,7 +751,12 @@ func (o *HorizontalScalingOptions) toHPAMetric() *apiv1.HPAMetricType {
 	case "gpu":
 		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU
 	case "network":
-		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK
+		// Backwards compatibility: "network" maps to network_ingress
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS
+	case "network_ingress":
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS
+	case "network_egress":
+		metric = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_EGRESS
 	default:
 		return nil
 	}
@@ -766,8 +771,11 @@ func (o *HorizontalScalingOptions) fromHPAMetric(metric apiv1.HPAMetricType) str
 		return "memory"
 	case apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU:
 		return "gpu"
-	case apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK:
+	case apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS:
+		// Backwards compatibility: return "network" for existing users
 		return "network"
+	case apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_EGRESS:
+		return "network_egress"
 	default:
 		return ""
 	}

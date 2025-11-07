@@ -115,6 +115,18 @@ const (
 	// K8SServiceGetClustersNodeInfoProcedure is the fully-qualified name of the K8SService's
 	// GetClustersNodeInfo RPC.
 	K8SServiceGetClustersNodeInfoProcedure = "/api.v1.K8SService/GetClustersNodeInfo"
+	// K8SServiceSearchK8SResourcesProcedure is the fully-qualified name of the K8SService's
+	// SearchK8sResources RPC.
+	K8SServiceSearchK8SResourcesProcedure = "/api.v1.K8SService/SearchK8sResources"
+	// K8SServiceSearchK8SWorkloadsProcedure is the fully-qualified name of the K8SService's
+	// SearchK8sWorkloads RPC.
+	K8SServiceSearchK8SWorkloadsProcedure = "/api.v1.K8SService/SearchK8sWorkloads"
+	// K8SServiceGetClusterTypeProcedure is the fully-qualified name of the K8SService's GetClusterType
+	// RPC.
+	K8SServiceGetClusterTypeProcedure = "/api.v1.K8SService/GetClusterType"
+	// K8SServiceGetRelationsForKindProcedure is the fully-qualified name of the K8SService's
+	// GetRelationsForKind RPC.
+	K8SServiceGetRelationsForKindProcedure = "/api.v1.K8SService/GetRelationsForKind"
 	// ClusterMutationServiceCreateClusterProcedure is the fully-qualified name of the
 	// ClusterMutationService's CreateCluster RPC.
 	ClusterMutationServiceCreateClusterProcedure = "/api.v1.ClusterMutationService/CreateCluster"
@@ -188,6 +200,14 @@ type K8SServiceClient interface {
 	SendWorkloadEmail(context.Context, *connect.Request[v1.SendWorkloadEmailRequest]) (*connect.Response[v1.SendWorkloadEmailResponse], error)
 	SendWeeklySummaryEmail(context.Context, *connect.Request[v1.SendWeeklySummaryEmailRequest]) (*connect.Response[v1.SendWeeklySummaryEmailResponse], error)
 	GetClustersNodeInfo(context.Context, *connect.Request[v1.GetClustersNodeInfoRequest]) (*connect.Response[v1.GetClustersNodeInfoResponse], error)
+	// SearchK8sResources searches across all k8s resource types for a specific cluster.
+	SearchK8SResources(context.Context, *connect.Request[v1.SearchK8SResourcesRequest]) (*connect.Response[v1.SearchK8SResourcesResponse], error)
+	// SearchK8sWorkloads searches across all k8s workload types returning only kind and name.
+	SearchK8SWorkloads(context.Context, *connect.Request[v1.SearchK8SWorkloadsRequest]) (*connect.Response[v1.SearchK8SWorkloadsResponse], error)
+	// GetClusterType determines the cluster type based on kubelet version
+	GetClusterType(context.Context, *connect.Request[v1.GetClusterTypeRequest]) (*connect.Response[v1.GetClusterTypeResponse], error)
+	// GetDeploymentRelations retrieves all relations for a specific deployment.
+	GetRelationsForKind(context.Context, *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error)
 }
 
 // NewK8SServiceClient constructs a client for the api.v1.K8SService service. By default, it uses
@@ -345,6 +365,26 @@ func NewK8SServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			baseURL+K8SServiceGetClustersNodeInfoProcedure,
 			opts...,
 		),
+		searchK8SResources: connect.NewClient[v1.SearchK8SResourcesRequest, v1.SearchK8SResourcesResponse](
+			httpClient,
+			baseURL+K8SServiceSearchK8SResourcesProcedure,
+			opts...,
+		),
+		searchK8SWorkloads: connect.NewClient[v1.SearchK8SWorkloadsRequest, v1.SearchK8SWorkloadsResponse](
+			httpClient,
+			baseURL+K8SServiceSearchK8SWorkloadsProcedure,
+			opts...,
+		),
+		getClusterType: connect.NewClient[v1.GetClusterTypeRequest, v1.GetClusterTypeResponse](
+			httpClient,
+			baseURL+K8SServiceGetClusterTypeProcedure,
+			opts...,
+		),
+		getRelationsForKind: connect.NewClient[v1.GetRelatedResourcesRequest, v1.GetRelatedResourcesResponse](
+			httpClient,
+			baseURL+K8SServiceGetRelationsForKindProcedure,
+			opts...,
+		),
 	}
 }
 
@@ -379,6 +419,10 @@ type k8SServiceClient struct {
 	sendWorkloadEmail            *connect.Client[v1.SendWorkloadEmailRequest, v1.SendWorkloadEmailResponse]
 	sendWeeklySummaryEmail       *connect.Client[v1.SendWeeklySummaryEmailRequest, v1.SendWeeklySummaryEmailResponse]
 	getClustersNodeInfo          *connect.Client[v1.GetClustersNodeInfoRequest, v1.GetClustersNodeInfoResponse]
+	searchK8SResources           *connect.Client[v1.SearchK8SResourcesRequest, v1.SearchK8SResourcesResponse]
+	searchK8SWorkloads           *connect.Client[v1.SearchK8SWorkloadsRequest, v1.SearchK8SWorkloadsResponse]
+	getClusterType               *connect.Client[v1.GetClusterTypeRequest, v1.GetClusterTypeResponse]
+	getRelationsForKind          *connect.Client[v1.GetRelatedResourcesRequest, v1.GetRelatedResourcesResponse]
 }
 
 // GetClusters calls api.v1.K8SService.GetClusters.
@@ -526,6 +570,26 @@ func (c *k8SServiceClient) GetClustersNodeInfo(ctx context.Context, req *connect
 	return c.getClustersNodeInfo.CallUnary(ctx, req)
 }
 
+// SearchK8SResources calls api.v1.K8SService.SearchK8sResources.
+func (c *k8SServiceClient) SearchK8SResources(ctx context.Context, req *connect.Request[v1.SearchK8SResourcesRequest]) (*connect.Response[v1.SearchK8SResourcesResponse], error) {
+	return c.searchK8SResources.CallUnary(ctx, req)
+}
+
+// SearchK8SWorkloads calls api.v1.K8SService.SearchK8sWorkloads.
+func (c *k8SServiceClient) SearchK8SWorkloads(ctx context.Context, req *connect.Request[v1.SearchK8SWorkloadsRequest]) (*connect.Response[v1.SearchK8SWorkloadsResponse], error) {
+	return c.searchK8SWorkloads.CallUnary(ctx, req)
+}
+
+// GetClusterType calls api.v1.K8SService.GetClusterType.
+func (c *k8SServiceClient) GetClusterType(ctx context.Context, req *connect.Request[v1.GetClusterTypeRequest]) (*connect.Response[v1.GetClusterTypeResponse], error) {
+	return c.getClusterType.CallUnary(ctx, req)
+}
+
+// GetRelationsForKind calls api.v1.K8SService.GetRelationsForKind.
+func (c *k8SServiceClient) GetRelationsForKind(ctx context.Context, req *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error) {
+	return c.getRelationsForKind.CallUnary(ctx, req)
+}
+
 // K8SServiceHandler is an implementation of the api.v1.K8SService service.
 type K8SServiceHandler interface {
 	// GetClusters retrieves all clusters for a team.
@@ -576,6 +640,14 @@ type K8SServiceHandler interface {
 	SendWorkloadEmail(context.Context, *connect.Request[v1.SendWorkloadEmailRequest]) (*connect.Response[v1.SendWorkloadEmailResponse], error)
 	SendWeeklySummaryEmail(context.Context, *connect.Request[v1.SendWeeklySummaryEmailRequest]) (*connect.Response[v1.SendWeeklySummaryEmailResponse], error)
 	GetClustersNodeInfo(context.Context, *connect.Request[v1.GetClustersNodeInfoRequest]) (*connect.Response[v1.GetClustersNodeInfoResponse], error)
+	// SearchK8sResources searches across all k8s resource types for a specific cluster.
+	SearchK8SResources(context.Context, *connect.Request[v1.SearchK8SResourcesRequest]) (*connect.Response[v1.SearchK8SResourcesResponse], error)
+	// SearchK8sWorkloads searches across all k8s workload types returning only kind and name.
+	SearchK8SWorkloads(context.Context, *connect.Request[v1.SearchK8SWorkloadsRequest]) (*connect.Response[v1.SearchK8SWorkloadsResponse], error)
+	// GetClusterType determines the cluster type based on kubelet version
+	GetClusterType(context.Context, *connect.Request[v1.GetClusterTypeRequest]) (*connect.Response[v1.GetClusterTypeResponse], error)
+	// GetDeploymentRelations retrieves all relations for a specific deployment.
+	GetRelationsForKind(context.Context, *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error)
 }
 
 // NewK8SServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -729,6 +801,26 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 		svc.GetClustersNodeInfo,
 		opts...,
 	)
+	k8SServiceSearchK8SResourcesHandler := connect.NewUnaryHandler(
+		K8SServiceSearchK8SResourcesProcedure,
+		svc.SearchK8SResources,
+		opts...,
+	)
+	k8SServiceSearchK8SWorkloadsHandler := connect.NewUnaryHandler(
+		K8SServiceSearchK8SWorkloadsProcedure,
+		svc.SearchK8SWorkloads,
+		opts...,
+	)
+	k8SServiceGetClusterTypeHandler := connect.NewUnaryHandler(
+		K8SServiceGetClusterTypeProcedure,
+		svc.GetClusterType,
+		opts...,
+	)
+	k8SServiceGetRelationsForKindHandler := connect.NewUnaryHandler(
+		K8SServiceGetRelationsForKindProcedure,
+		svc.GetRelationsForKind,
+		opts...,
+	)
 	return "/api.v1.K8SService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case K8SServiceGetClustersProcedure:
@@ -789,6 +881,14 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 			k8SServiceSendWeeklySummaryEmailHandler.ServeHTTP(w, r)
 		case K8SServiceGetClustersNodeInfoProcedure:
 			k8SServiceGetClustersNodeInfoHandler.ServeHTTP(w, r)
+		case K8SServiceSearchK8SResourcesProcedure:
+			k8SServiceSearchK8SResourcesHandler.ServeHTTP(w, r)
+		case K8SServiceSearchK8SWorkloadsProcedure:
+			k8SServiceSearchK8SWorkloadsHandler.ServeHTTP(w, r)
+		case K8SServiceGetClusterTypeProcedure:
+			k8SServiceGetClusterTypeHandler.ServeHTTP(w, r)
+		case K8SServiceGetRelationsForKindProcedure:
+			k8SServiceGetRelationsForKindHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -912,6 +1012,22 @@ func (UnimplementedK8SServiceHandler) SendWeeklySummaryEmail(context.Context, *c
 
 func (UnimplementedK8SServiceHandler) GetClustersNodeInfo(context.Context, *connect.Request[v1.GetClustersNodeInfoRequest]) (*connect.Response[v1.GetClustersNodeInfoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetClustersNodeInfo is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) SearchK8SResources(context.Context, *connect.Request[v1.SearchK8SResourcesRequest]) (*connect.Response[v1.SearchK8SResourcesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.SearchK8sResources is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) SearchK8SWorkloads(context.Context, *connect.Request[v1.SearchK8SWorkloadsRequest]) (*connect.Response[v1.SearchK8SWorkloadsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.SearchK8sWorkloads is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) GetClusterType(context.Context, *connect.Request[v1.GetClusterTypeRequest]) (*connect.Response[v1.GetClusterTypeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetClusterType is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) GetRelationsForKind(context.Context, *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetRelationsForKind is not implemented"))
 }
 
 // ClusterMutationServiceClient is a client for the api.v1.ClusterMutationService service.

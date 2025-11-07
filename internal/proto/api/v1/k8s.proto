@@ -15,7 +15,8 @@ option java_package = "gen.api.v1";
 message GetNodeRequest {
   string team_id = 1; // Unique identifier for the team.
   string cluster_id = 2; // Unique identifier for the cluster.
-  string node_id = 3; // Unique identifier for the node.
+  optional string node_id = 3; // Unique identifier for the node. 
+  optional string node_uid = 4; // alternatively -> Unique identifier for the node. !!!should be oneof
   bool with_details = 11; // Optional flag to include additional resource details 
   bool with_metadata = 12; // Optional flag to include metadata 
 
@@ -33,6 +34,11 @@ message GetNodeGroupRequest {
   string team_id = 1; // Unique identifier for the team.
   string cluster_id = 2; // Unique identifier for the cluster.
   string node_group_name = 3; // Identifier for node group.
+
+  bool show_deleted = 11;
+
+  optional google.protobuf.Timestamp start_time = 21;
+  optional google.protobuf.Timestamp end_time = 22;
 }
 
 // GetWorkloadsRequest is used to fetch workloads for a specific cluster.
@@ -191,6 +197,8 @@ message GetNodeGroupsRequest {
   optional google.protobuf.Timestamp start_time = 11;
   optional google.protobuf.Timestamp end_time = 12;
   optional int32 bucket_size = 13;
+
+  bool show_deleted = 21;
 }
 
 // GetAllNodeGroupsRequest is used to fetch all node groups for a specific team.
@@ -228,6 +236,9 @@ message GetNodeGroupsUtilizationResponse {
     repeated NodeGroupMetric node_group_metrics = 1;
   }
   map<string, ListNodeGroupMetrics> node_group_to_util_metrics = 1;
+  map<string, ListNodeGroupMetrics> instance_type_to_util_metrics = 6;
+  map<string, ListNodeGroupMetrics> reservation_type_to_util_metrics = 11;
+  map<string, ListNodeGroupMetrics> logical_az_to_util_metrics = 16;
 }
 
 message NodeGroupMetric {
@@ -692,6 +703,40 @@ message GetClustersNodeInfoResponse {
   Node most_underutilized_node = 4; // The most underutilized node across all clusters.
 }
 
+message SearchK8sResourcesRequest {
+  string team_id = 1; // Unique identifier for the team.
+  string cluster_id = 2; // Unique identifier for the cluster.
+  string search_query = 3; // Search term to match against name, uid, and namespace.
+  bool include_deleted = 4; // Include soft-deleted resources in results.
+}
+
+message SearchK8sResourcesResponse {
+  repeated K8sSearchResult results = 1; // List of matching resources.
+}
+
+message K8sSearchResult {
+  string uid = 1; // Unique identifier of the resource.
+  string name = 2; // Name of the resource.
+  string kind = 3; // Kind of the resource (e.g., Deployment, StatefulSet).
+  string matched_field = 4; // Field that matched the search query (name, uid, or namespace).
+  string namespace = 5; // Namespace of the resource.
+}
+
+message SearchK8sWorkloadsRequest {
+  string team_id = 1; // Unique identifier for the team.
+  repeated string cluster_ids = 2; // Unique identifier for the cluster.
+  string search_query = 3; // Search term to match against name, uid, and namespace.
+}
+
+message SearchK8sWorkloadsResponse {
+  repeated K8sWorkloadSearchResult results = 1; // List of matching workloads.
+}
+
+message K8sWorkloadSearchResult {
+  string kind = 1; // Kind of the workload (e.g., Deployment, StatefulSet).
+  string name = 2; // Name of the workload.
+}
+
 message MetadataForWorkloadsRequest {
   string team_id = 1;
   string cluster_id = 2;
@@ -706,22 +751,22 @@ message MetadataForWorkloadsResponse {
 message WorkloadMetadata {
   map<string, NodeMetadata> pod_uid_to_node_metadata = 1;
   map<string, PodMetadata> pod_uid_to_pod_metadata = 2;
-  string label = 6; 
-  string annotation = 7; 
-  string spec = 8; 
-  string status = 9; 
-  string metadata = 10; 
+  string label = 6;
+  string annotation = 7;
+  string spec = 8;
+  string status = 9;
+  string metadata = 10;
   K8sObjectKind kind = 11;
 }
 
 message PodMetadata {
   string name = 1;
-  
-  string label = 6; 
-  string annotation = 7; 
-  string spec = 8; 
-  string status = 9; 
-  string metadata = 10; 
+
+  string label = 6;
+  string annotation = 7;
+  string spec = 8;
+  string status = 9;
+  string metadata = 10;
 }
 
 message NodeMetadata {
@@ -730,11 +775,72 @@ message NodeMetadata {
   string node_group_type = 3;
   string cloud_inst_type_name = 4;
 
-  string label = 6; 
-  string annotation = 7; 
-  string spec = 8; 
-  string status = 9; 
-  string metadata = 10; 
+  string label = 6;
+  string annotation = 7;
+  string spec = 8;
+  string status = 9;
+  string metadata = 10;
+}
+
+// GetRelatedResourcesRequest is used to fetch relations for a specific kind
+message GetRelatedResourcesRequest {
+  string team_id = 1; // Unique identifier for the team.
+  string cluster_id = 2; // Unique identifier for the cluster.
+  K8sObjectKind kind = 3; // Type of object to get.
+  string uid = 4; // Unique identifier for the workload.
+}
+
+// GetRelatedResourcesResponse contains all relations for a specific kind
+message GetRelatedResourcesResponse {
+  repeated K8sRelatedResource relations = 1; // List of resource relations.
+  repeated K8sResourceNode nodes = 2; // List of unique nodes (resources) in the graph.
+  repeated K8sResourceEdge edges = 3; // List of edges for the graph.
+}
+
+// K8sRelatedResource represents a relationship between two Kubernetes resources
+message K8sRelatedResource {
+  string source_kind = 1; // Kind of the source resource (e.g., Deployment, ReplicaSet).
+  string source_uid = 2; // UID of the source resource.
+  string source_name = 3; // Name of the source resource.
+  string target_kind = 4; // Kind of the target resource (e.g., ReplicaSet, Pod).
+  string target_uid = 5; // UID of the target resource.
+  string target_name = 6; // Name of the target resource.
+  string relationship_type = 7; // Type of relationship (e.g., owns, controls, selects).
+}
+
+// K8sResourceNode represents a node in the resource graph
+message K8sResourceNode {
+  string id = 1; // Unique identifier (UID) of the resource.
+  string kind = 2; // Kind of the resource (e.g., Deployment, ReplicaSet, Pod).
+  string name = 3; // Name of the resource.
+}
+
+// K8sResourceEdge represents an edge in the resource graph
+message K8sResourceEdge {
+  string id = 1; // Unique identifier for the edge.
+  string source = 2; // UID of the source resource.
+  string target = 3; // UID of the target resource.
+  string label = 4; // Label for the edge (relationship type).
+}
+
+// GetClusterTypeRequest is used to determine the cluster type based on kubelet version
+message GetClusterTypeRequest {
+  string team_id = 1; // Unique identifier for the team.
+  string cluster_id = 2; // Unique identifier for the cluster.
+}
+
+// GetClusterTypeResponse returns the determined cluster type
+message GetClusterTypeResponse {
+  ClusterType cluster_type = 1; // Detected cluster type
+  string kubelet_version = 2; // The raw kubelet version string
+}
+
+// ClusterType represents different Kubernetes distribution types
+enum ClusterType {
+  CLUSTER_TYPE_UNSPECIFIED = 0;
+  CLUSTER_TYPE_K3S = 1; // K3s cluster
+  CLUSTER_TYPE_RKE2 = 2; // RKE2 cluster
+  CLUSTER_TYPE_CONTAINERD = 3; // Standard containerd-based cluster (default)
 }
 
 // Defines the K8SService RPC methods for Kubernetes cluster management and monitoring.
@@ -815,6 +921,17 @@ service K8SService {
   rpc SendWeeklySummaryEmail(SendWeeklySummaryEmailRequest) returns (SendWeeklySummaryEmailResponse);
 
   rpc GetClustersNodeInfo(GetClustersNodeInfoRequest) returns (GetClustersNodeInfoResponse);
+
+  // SearchK8sResources searches across all k8s resource types for a specific cluster.
+  rpc SearchK8sResources(SearchK8sResourcesRequest) returns (SearchK8sResourcesResponse);
+
+  // SearchK8sWorkloads searches across all k8s workload types returning only kind and name.
+  rpc SearchK8sWorkloads(SearchK8sWorkloadsRequest) returns (SearchK8sWorkloadsResponse);
+
+  // GetClusterType determines the cluster type based on kubelet version
+  rpc GetClusterType(GetClusterTypeRequest) returns (GetClusterTypeResponse);
+  // GetDeploymentRelations retrieves all relations for a specific deployment.
+  rpc GetRelationsForKind(GetRelatedResourcesRequest) returns (GetRelatedResourcesResponse);
 }
 
 // ClusterMutationService manages mutating cluster resources.
@@ -908,4 +1025,3 @@ message DailyUtilizationNodeTypeResponse {
   map<string, Datapoints> cluster_id_to_datapoints = 1;
   map<string, Cluster> cluster_id_to_meta = 11;
 }
-
