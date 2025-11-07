@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -107,6 +108,14 @@ type ResourceLimits struct {
 	Memory types.String `tfsdk:"memory"`
 }
 
+// MetadataOptions defines EC2 instance metadata service options
+type MetadataOptions struct {
+	HttpEndpoint              types.String `tfsdk:"http_endpoint"`
+	HttpProtocolIpv6          types.String `tfsdk:"http_protocol_ipv6"`
+	HttpPutResponseHopLimit   types.Int64  `tfsdk:"http_put_response_hop_limit"`
+	HttpTokens                types.String `tfsdk:"http_tokens"`
+}
+
 // AWSNodeClass defines AWS-specific node configuration
 type AWSNodeClass struct {
 	SubnetSelectorTerms              types.List   `tfsdk:"subnet_selector_terms"`
@@ -121,6 +130,7 @@ type AWSNodeClass struct {
 	InstanceStorePolicy              types.String `tfsdk:"instance_store_policy"`
 	DetailedMonitoring               types.Bool   `tfsdk:"detailed_monitoring"`
 	AssociatePublicIpAddress         types.Bool   `tfsdk:"associate_public_ip_address"`
+	MetadataOptions                  *MetadataOptions `tfsdk:"metadata_options"`
 }
 
 // AzureNodeClass defines Azure-specific node configuration
@@ -170,10 +180,10 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 			},
 			"weight": schema.Int32Attribute{
 				Description:         "Priority weight for this node policy",
-				MarkdownDescription: "Priority weight for this node policy. Higher weights are preferred when multiple policies match.",
+				MarkdownDescription: "Priority weight for this node policy. Higher weights are preferred when multiple policies match. Default: 10 (medium priority).",
 				Optional:            true,
 				Computed:            true,
-				Default:             int32default.StaticInt32(0),
+				Default:             int32default.StaticInt32(10),
 			},
 			// Instance selector fields with LabelSelector
 			"instance_categories": labelSelectorAttribute("Instance categories selector (e.g., D for Azure, m for AWS)"),
@@ -235,18 +245,24 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Attributes: map[string]schema.Attribute{
 					"consolidate_after": schema.StringAttribute{
 						Description:         "Duration after which to consolidate nodes",
-						MarkdownDescription: "Duration string (e.g., '5m', '1h') after which nodes can be consolidated.",
+						MarkdownDescription: "Duration string (e.g., '5m', '1h') after which nodes can be consolidated. Default: '15m' (balance between cost optimization and stability).",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("15m"),
 					},
 					"consolidation_policy": schema.StringAttribute{
 						Description:         "Consolidation policy (WhenEmpty, WhenEmptyOrUnderutilized)",
-						MarkdownDescription: "Consolidation policy. Valid values: `WhenEmpty`, `WhenEmptyOrUnderutilized`.",
+						MarkdownDescription: "Consolidation policy. Valid values: `WhenEmpty`, `WhenEmptyOrUnderutilized`. Default: 'WhenEmptyOrUnderutilized' (best for cost optimization).",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("WhenEmptyOrUnderutilized"),
 					},
 					"expire_after": schema.StringAttribute{
 						Description:         "Duration after which nodes expire",
-						MarkdownDescription: "Duration string (e.g., '720h') after which nodes expire and are replaced.",
+						MarkdownDescription: "Duration string (e.g., '720h') after which nodes expire and are replaced. Default: '720h' (30 days, balances security and stability).",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("720h"),
 					},
 					"ttl_seconds_after_empty": schema.Int32Attribute{
 						Description: "Seconds to wait before terminating empty nodes",
@@ -478,6 +494,42 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
+					},
+					"metadata_options": schema.SingleNestedAttribute{
+						Description:         "EC2 instance metadata service (IMDS) options",
+						MarkdownDescription: "Configuration for EC2 instance metadata service. Defaults provide secure IMDS v2 configuration.",
+						Optional:            true,
+						Computed:            true,
+						Attributes: map[string]schema.Attribute{
+							"http_endpoint": schema.StringAttribute{
+								Description:         "Enable or disable the HTTP metadata endpoint",
+								MarkdownDescription: "Enable or disable the HTTP metadata endpoint. Valid values: `enabled`, `disabled`. Default: `enabled`.",
+								Optional:            true,
+								Computed:            true,
+								Default:             stringdefault.StaticString("enabled"),
+							},
+							"http_protocol_ipv6": schema.StringAttribute{
+								Description:         "Enable or disable IPv6 endpoint",
+								MarkdownDescription: "Enable or disable the IPv6 endpoint for the instance metadata service. Valid values: `enabled`, `disabled`. Default: `disabled`.",
+								Optional:            true,
+								Computed:            true,
+								Default:             stringdefault.StaticString("disabled"),
+							},
+							"http_put_response_hop_limit": schema.Int64Attribute{
+								Description:         "Desired HTTP PUT response hop limit for instance metadata requests",
+								MarkdownDescription: "The desired HTTP PUT response hop limit for instance metadata requests. Default: 2 (secure for containers).",
+								Optional:            true,
+								Computed:            true,
+								Default:             int64default.StaticInt64(2),
+							},
+							"http_tokens": schema.StringAttribute{
+								Description:         "Whether or not the metadata service requires session tokens (IMDSv2)",
+								MarkdownDescription: "Whether the metadata service requires session tokens (IMDSv2). Valid values: `required`, `optional`. Default: `required` (enforces IMDSv2 for security).",
+								Optional:            true,
+								Computed:            true,
+								Default:             stringdefault.StaticString("required"),
+							},
+						},
 					},
 				},
 			},
@@ -1458,6 +1510,28 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 		spec.AssociatePublicIpAddress = &val
 	}
 
+	// Metadata options
+	if aws.MetadataOptions != nil {
+		metadataOpts := &apiv1.MetadataOptions{}
+		if !aws.MetadataOptions.HttpEndpoint.IsNull() {
+			val := aws.MetadataOptions.HttpEndpoint.ValueString()
+			metadataOpts.HttpEndpoint = &val
+		}
+		if !aws.MetadataOptions.HttpProtocolIpv6.IsNull() {
+			val := aws.MetadataOptions.HttpProtocolIpv6.ValueString()
+			metadataOpts.HttpProtocolIpv6 = &val
+		}
+		if !aws.MetadataOptions.HttpPutResponseHopLimit.IsNull() {
+			val := aws.MetadataOptions.HttpPutResponseHopLimit.ValueInt64()
+			metadataOpts.HttpPutResponseHopLimit = &val
+		}
+		if !aws.MetadataOptions.HttpTokens.IsNull() {
+			val := aws.MetadataOptions.HttpTokens.ValueString()
+			metadataOpts.HttpTokens = &val
+		}
+		spec.MetadataOptions = metadataOpts
+	}
+
 	return spec
 }
 
@@ -1731,6 +1805,32 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		aws.AssociatePublicIpAddress = types.BoolValue(*spec.AssociatePublicIpAddress)
 	} else {
 		aws.AssociatePublicIpAddress = types.BoolNull()
+	}
+
+	// Metadata options
+	if spec.MetadataOptions != nil {
+		metadataOpts := &MetadataOptions{}
+		if spec.MetadataOptions.HttpEndpoint != nil {
+			metadataOpts.HttpEndpoint = types.StringValue(*spec.MetadataOptions.HttpEndpoint)
+		} else {
+			metadataOpts.HttpEndpoint = types.StringNull()
+		}
+		if spec.MetadataOptions.HttpProtocolIpv6 != nil {
+			metadataOpts.HttpProtocolIpv6 = types.StringValue(*spec.MetadataOptions.HttpProtocolIpv6)
+		} else {
+			metadataOpts.HttpProtocolIpv6 = types.StringNull()
+		}
+		if spec.MetadataOptions.HttpPutResponseHopLimit != nil {
+			metadataOpts.HttpPutResponseHopLimit = types.Int64Value(*spec.MetadataOptions.HttpPutResponseHopLimit)
+		} else {
+			metadataOpts.HttpPutResponseHopLimit = types.Int64Null()
+		}
+		if spec.MetadataOptions.HttpTokens != nil {
+			metadataOpts.HttpTokens = types.StringValue(*spec.MetadataOptions.HttpTokens)
+		} else {
+			metadataOpts.HttpTokens = types.StringNull()
+		}
+		aws.MetadataOptions = metadataOpts
 	}
 
 	return aws
