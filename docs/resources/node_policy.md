@@ -373,6 +373,7 @@ Optional:
 
 Optional:
 
+- `alias` (String) AMI alias
 - `id` (String) AMI ID
 - `name` (String) AMI name
 - `owner` (String) AMI owner

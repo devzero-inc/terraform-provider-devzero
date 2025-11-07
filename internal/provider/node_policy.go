@@ -1939,7 +1939,7 @@ func (azure *AzureNodeClass) toProto(ctx context.Context, diags *diag.Diagnostic
 	return spec
 }
 
-// Helper to check if AWS spec is empty (all fields are nil/empty)
+// Helper to check if AWS spec is empty (all fields are nil/empty).
 func isAWSSpecEmpty(spec *apiv1.AWSNodeClassSpec) bool {
 	if spec == nil {
 		return true
@@ -1959,7 +1959,7 @@ func isAWSSpecEmpty(spec *apiv1.AWSNodeClassSpec) bool {
 		spec.MetadataOptions == nil
 }
 
-// Helper to check if Azure spec is empty (all fields are nil)
+// Helper to check if Azure spec is empty (all fields are nil).
 func isAzureSpecEmpty(spec *apiv1.AzureNodeClassSpec) bool {
 	if spec == nil {
 		return true
