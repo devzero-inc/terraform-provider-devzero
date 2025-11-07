@@ -473,11 +473,55 @@ func (l *LabelSelector) toProto(ctx context.Context) (*apiv1.LabelSelector, erro
 		return nil, err
 	}
 
-	matchExpressions, err := getElementList(ctx, l.MatchExpressions.Elements(), func(ctx context.Context, value *MatchExpression) (*apiv1.LabelSelectorRequirement, error) {
-		return value.toProto(ctx)
-	})
-	if err != nil {
-		return nil, err
+	// Manually extract match expressions from types.Object (can't use getElementList due to nested types.List)
+	var matchExpressions []*apiv1.LabelSelectorRequirement
+	for _, elem := range l.MatchExpressions.Elements() {
+		objVal, ok := elem.(types.Object)
+		if !ok {
+			continue
+		}
+
+		attrs := objVal.Attributes()
+
+		key := ""
+		if keyAttr, ok := attrs["key"].(types.String); ok && !keyAttr.IsNull() {
+			key = keyAttr.ValueString()
+		}
+
+		operatorStr := ""
+		if opAttr, ok := attrs["operator"].(types.String); ok && !opAttr.IsNull() {
+			operatorStr = opAttr.ValueString()
+		}
+
+		var operator apiv1.LabelSelectorOperator
+		switch operatorStr {
+		case "In":
+			operator = apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_IN
+		case "NotIn":
+			operator = apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_NOT_IN
+		case "Exists":
+			operator = apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_EXISTS
+		case "DoesNotExist":
+			operator = apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST
+		case "Gt":
+			operator = apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_GT
+		case "Lt":
+			operator = apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_LT
+		}
+
+		values := []string{}
+		if valuesAttr, ok := attrs["values"].(types.List); ok && !valuesAttr.IsNull() {
+			values, err = getStringList(ctx, valuesAttr.Elements())
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		matchExpressions = append(matchExpressions, &apiv1.LabelSelectorRequirement{
+			Key:      key,
+			Operator: operator,
+			Values:   values,
+		})
 	}
 
 	return &apiv1.LabelSelector{

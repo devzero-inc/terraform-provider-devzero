@@ -409,6 +409,10 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 									Description: "AMI owner",
 									Optional:    true,
 								},
+								"alias": schema.StringAttribute{
+									Description: "AMI alias",
+									Optional:    true,
+								},
 								"tags": schema.MapAttribute{
 									Description: "AMI tags selector",
 									Optional:    true,
@@ -1143,12 +1147,12 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	m.NodeClassName = types.StringValue(policy.NodeClassName)
 
 	// AWS configuration
-	if policy.Aws != nil {
+	if policy.Aws != nil && !isAWSSpecEmpty(policy.Aws) {
 		m.Aws = awsNodeClassFromProto(policy.Aws)
 	}
 
 	// Azure configuration
-	if policy.Azure != nil {
+	if policy.Azure != nil && !isAzureSpecEmpty(policy.Azure) {
 		m.Azure = azureNodeClassFromProto(policy.Azure)
 	}
 
@@ -1192,6 +1196,14 @@ func stringPointerValue(val *string) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(*val)
+}
+
+// Helper function to convert a string to types.String, returning null for empty strings.
+func stringValue(val string) types.String {
+	if val == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(val)
 }
 
 // Helper function for label selector from proto.
@@ -1265,9 +1277,9 @@ func disruptionPolicyFromProto(disruption *apiv1.DisruptionPolicy) *DisruptionPo
 				},
 				map[string]attr.Value{
 					"reasons":  types.ListValueMust(types.StringType, fromStringList(budget.Reasons)),
-					"nodes":    types.StringValue(budget.Nodes),
-					"schedule": types.StringValue(budget.Schedule),
-					"duration": types.StringValue(budget.Duration),
+					"nodes":    stringValue(budget.Nodes),
+					"schedule": stringValue(budget.Schedule),
+					"duration": stringValue(budget.Duration),
 				},
 			))
 		}
@@ -1307,21 +1319,46 @@ func (dp *DisruptionPolicy) toProto(ctx context.Context, diags *diag.Diagnostics
 	}
 
 	if !dp.Budgets.IsNull() && !dp.Budgets.IsUnknown() {
-		budgets, err := getElementList(ctx, dp.Budgets.Elements(), func(ctx context.Context, value DisruptionBudget) (*apiv1.DisruptionBudget, error) {
-			reasons, err := getStringList(ctx, value.Reasons.Elements())
-			if err != nil {
-				return nil, err
+		// Manually extract budgets from types.Object (can't use getElementList due to nested types.List)
+		var budgets []*apiv1.DisruptionBudget
+		for _, elem := range dp.Budgets.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
 			}
-			return &apiv1.DisruptionBudget{
+			attrs := objVal.Attributes()
+
+			var reasons []string
+			if reasonsAttr, ok := attrs["reasons"].(types.List); ok && !reasonsAttr.IsNull() {
+				var err error
+				reasons, err = getStringList(ctx, reasonsAttr.Elements())
+				if err != nil {
+					diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert budget reasons: %s", err))
+					return nil
+				}
+			}
+
+			nodes := ""
+			if nodesAttr, ok := attrs["nodes"].(types.String); ok && !nodesAttr.IsNull() {
+				nodes = nodesAttr.ValueString()
+			}
+
+			schedule := ""
+			if scheduleAttr, ok := attrs["schedule"].(types.String); ok && !scheduleAttr.IsNull() {
+				schedule = scheduleAttr.ValueString()
+			}
+
+			duration := ""
+			if durationAttr, ok := attrs["duration"].(types.String); ok && !durationAttr.IsNull() {
+				duration = durationAttr.ValueString()
+			}
+
+			budgets = append(budgets, &apiv1.DisruptionBudget{
 				Reasons:  reasons,
-				Nodes:    value.Nodes.ValueString(),
-				Schedule: value.Schedule.ValueString(),
-				Duration: value.Duration.ValueString(),
-			}, nil
-		})
-		if err != nil {
-			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert disruption budgets: %s", err))
-			return nil
+				Nodes:    nodes,
+				Schedule: schedule,
+				Duration: duration,
+			})
 		}
 		disruption.Budgets = budgets
 	}
@@ -1335,8 +1372,14 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 
 	// Subnet selector terms
 	if !aws.SubnetSelectorTerms.IsNull() && !aws.SubnetSelectorTerms.IsUnknown() {
-		terms, err := getElementList(ctx, aws.SubnetSelectorTerms.Elements(), func(ctx context.Context, value types.Object) (*apiv1.SubnetSelectorTerm, error) {
-			attrs := value.Attributes()
+		// Manually iterate (can't use getElementList with types.Object due to pointer issues)
+		var terms []*apiv1.SubnetSelectorTerm
+		for _, elem := range aws.SubnetSelectorTerms.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
 			term := &apiv1.SubnetSelectorTerm{}
 			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
 				term.Id = id.ValueString()
@@ -1344,23 +1387,26 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 			if tags, ok := attrs["tags"].(types.Map); ok && !tags.IsNull() {
 				tagMap, err := getStringMap(ctx, tags.Elements())
 				if err != nil {
-					return nil, err
+					diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert subnet selector tags: %s", err))
+					return nil
 				}
 				term.Tags = tagMap
 			}
-			return term, nil
-		})
-		if err != nil {
-			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert subnet selector terms: %s", err))
-			return nil
+			terms = append(terms, term)
 		}
 		spec.SubnetSelectorTerms = terms
 	}
 
 	// Security group selector terms
 	if !aws.SecurityGroupSelectorTerms.IsNull() && !aws.SecurityGroupSelectorTerms.IsUnknown() {
-		terms, err := getElementList(ctx, aws.SecurityGroupSelectorTerms.Elements(), func(ctx context.Context, value types.Object) (*apiv1.SecurityGroupSelectorTerm, error) {
-			attrs := value.Attributes()
+		// Manually iterate (can't use getElementList with types.Object due to pointer issues)
+		var terms []*apiv1.SecurityGroupSelectorTerm
+		for _, elem := range aws.SecurityGroupSelectorTerms.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
 			term := &apiv1.SecurityGroupSelectorTerm{}
 			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
 				term.Id = id.ValueString()
@@ -1371,23 +1417,26 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 			if tags, ok := attrs["tags"].(types.Map); ok && !tags.IsNull() {
 				tagMap, err := getStringMap(ctx, tags.Elements())
 				if err != nil {
-					return nil, err
+					diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert security group selector tags: %s", err))
+					return nil
 				}
 				term.Tags = tagMap
 			}
-			return term, nil
-		})
-		if err != nil {
-			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert security group selector terms: %s", err))
-			return nil
+			terms = append(terms, term)
 		}
 		spec.SecurityGroupSelectorTerms = terms
 	}
 
 	// AMI selector terms
 	if !aws.AmiSelectorTerms.IsNull() && !aws.AmiSelectorTerms.IsUnknown() {
-		terms, err := getElementList(ctx, aws.AmiSelectorTerms.Elements(), func(ctx context.Context, value types.Object) (*apiv1.AMISelectorTerm, error) {
-			attrs := value.Attributes()
+		// Manually iterate (can't use getElementList with types.Object due to pointer issues)
+		var terms []*apiv1.AMISelectorTerm
+		for _, elem := range aws.AmiSelectorTerms.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
 			term := &apiv1.AMISelectorTerm{}
 			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
 				term.Id = id.ValueString()
@@ -1398,18 +1447,18 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 			if owner, ok := attrs["owner"].(types.String); ok && !owner.IsNull() {
 				term.Owner = owner.ValueString()
 			}
+			if alias, ok := attrs["alias"].(types.String); ok && !alias.IsNull() {
+				term.Alias = alias.ValueString()
+			}
 			if tags, ok := attrs["tags"].(types.Map); ok && !tags.IsNull() {
 				tagMap, err := getStringMap(ctx, tags.Elements())
 				if err != nil {
-					return nil, err
+					diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert AMI selector tags: %s", err))
+					return nil
 				}
 				term.Tags = tagMap
 			}
-			return term, nil
-		})
-		if err != nil {
-			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert AMI selector terms: %s", err))
-			return nil
+			terms = append(terms, term)
 		}
 		spec.AmiSelectorTerms = terms
 	}
@@ -1444,8 +1493,14 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 
 	// Block device mappings
 	if !aws.BlockDeviceMappings.IsNull() && !aws.BlockDeviceMappings.IsUnknown() {
-		mappings, err := getElementList(ctx, aws.BlockDeviceMappings.Elements(), func(ctx context.Context, value types.Object) (*apiv1.BlockDeviceMapping, error) {
-			attrs := value.Attributes()
+		// Manually iterate (can't use getElementList with types.Object due to pointer issues)
+		var mappings []*apiv1.BlockDeviceMapping
+		for _, elem := range aws.BlockDeviceMappings.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
 			mapping := &apiv1.BlockDeviceMapping{}
 
 			// Device name (pointer)
@@ -1475,6 +1530,14 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 					val := throughput.ValueInt64()
 					ebs.Throughput = &val
 				}
+				if kmsKeyId, ok := ebsAttrs["kms_key_id"].(types.String); ok && !kmsKeyId.IsNull() {
+					val := kmsKeyId.ValueString()
+					ebs.KmsKeyId = &val
+				}
+				if snapshotId, ok := ebsAttrs["snapshot_id"].(types.String); ok && !snapshotId.IsNull() {
+					val := snapshotId.ValueString()
+					ebs.SnapshotId = &val
+				}
 				if deleteOnTermination, ok := ebsAttrs["delete_on_termination"].(types.Bool); ok && !deleteOnTermination.IsNull() {
 					val := deleteOnTermination.ValueBool()
 					ebs.DeleteOnTermination = &val
@@ -1487,11 +1550,7 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 				mapping.Ebs = ebs
 			}
 
-			return mapping, nil
-		})
-		if err != nil {
-			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert block device mappings: %s", err))
-			return nil
+			mappings = append(mappings, mapping)
 		}
 		spec.BlockDeviceMappings = mappings
 	}
@@ -1545,7 +1604,7 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		terms := make([]attr.Value, 0, len(spec.SubnetSelectorTerms))
 		for _, term := range spec.SubnetSelectorTerms {
 			termAttrs := map[string]attr.Value{
-				"id": types.StringValue(term.Id),
+				"id": stringValue(term.Id),
 			}
 			if term.Tags != nil {
 				termAttrs["tags"] = types.MapValueMust(types.StringType, fromStringMap(term.Tags))
@@ -1583,8 +1642,8 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		terms := make([]attr.Value, 0, len(spec.SecurityGroupSelectorTerms))
 		for _, term := range spec.SecurityGroupSelectorTerms {
 			termAttrs := map[string]attr.Value{
-				"id":   types.StringValue(term.Id),
-				"name": types.StringValue(term.Name),
+				"id":   stringValue(term.Id),
+				"name": stringValue(term.Name),
 			}
 			if term.Tags != nil {
 				termAttrs["tags"] = types.MapValueMust(types.StringType, fromStringMap(term.Tags))
@@ -1625,9 +1684,10 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		terms := make([]attr.Value, 0, len(spec.AmiSelectorTerms))
 		for _, term := range spec.AmiSelectorTerms {
 			termAttrs := map[string]attr.Value{
-				"id":    types.StringValue(term.Id),
-				"name":  types.StringValue(term.Name),
-				"owner": types.StringValue(term.Owner),
+				"id":    stringValue(term.Id),
+				"name":  stringValue(term.Name),
+				"owner": stringValue(term.Owner),
+				"alias": stringValue(term.Alias),
 			}
 			if term.Tags != nil {
 				termAttrs["tags"] = types.MapValueMust(types.StringType, fromStringMap(term.Tags))
@@ -1639,6 +1699,7 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 					"id":    types.StringType,
 					"name":  types.StringType,
 					"owner": types.StringType,
+					"alias": types.StringType,
 					"tags":  types.MapType{ElemType: types.StringType},
 				},
 				termAttrs,
@@ -1650,6 +1711,7 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 					"id":    types.StringType,
 					"name":  types.StringType,
 					"owner": types.StringType,
+					"alias": types.StringType,
 					"tags":  types.MapType{ElemType: types.StringType},
 				},
 			},
@@ -1661,6 +1723,7 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 				"id":    types.StringType,
 				"name":  types.StringType,
 				"owner": types.StringType,
+				"alias": types.StringType,
 				"tags":  types.MapType{ElemType: types.StringType},
 			},
 		})
@@ -1874,6 +1937,39 @@ func (azure *AzureNodeClass) toProto(ctx context.Context, diags *diag.Diagnostic
 	}
 
 	return spec
+}
+
+// Helper to check if AWS spec is empty (all fields are nil/empty).
+func isAWSSpecEmpty(spec *apiv1.AWSNodeClassSpec) bool {
+	if spec == nil {
+		return true
+	}
+	return len(spec.SubnetSelectorTerms) == 0 &&
+		len(spec.SecurityGroupSelectorTerms) == 0 &&
+		len(spec.AmiSelectorTerms) == 0 &&
+		spec.AmiFamily == nil &&
+		spec.UserData == nil &&
+		spec.Role == nil &&
+		spec.InstanceProfile == nil &&
+		spec.Tags == nil &&
+		len(spec.BlockDeviceMappings) == 0 &&
+		spec.InstanceStorePolicy == nil &&
+		spec.DetailedMonitoring == nil &&
+		spec.AssociatePublicIpAddress == nil &&
+		spec.MetadataOptions == nil
+}
+
+// Helper to check if Azure spec is empty (all fields are nil).
+func isAzureSpecEmpty(spec *apiv1.AzureNodeClassSpec) bool {
+	if spec == nil {
+		return true
+	}
+	return spec.VnetSubnetId == nil &&
+		spec.OsDiskSizeGb == nil &&
+		spec.ImageFamily == nil &&
+		spec.FipsMode == nil &&
+		spec.Tags == nil &&
+		spec.MaxPods == nil
 }
 
 func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {
