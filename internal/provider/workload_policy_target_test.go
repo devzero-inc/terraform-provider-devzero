@@ -304,6 +304,94 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 			t.Errorf("Expected 2 values, got %d", len(proto.Values))
 		}
 	})
+
+	// Test LabelSelector round-trip conversion (toProto -> fromProto)
+	t.Run("LabelSelector_RoundTrip", func(t *testing.T) {
+		original := &LabelSelector{
+			MatchLabels: types.MapValueMust(types.StringType, map[string]attr.Value{
+				"app": types.StringValue("web"),
+				"env": types.StringValue("prod"),
+			}),
+			MatchExpressions: types.ListValueMust(
+				types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"key":      types.StringType,
+						"operator": types.StringType,
+						"values":   types.ListType{ElemType: types.StringType},
+					},
+				},
+				[]attr.Value{
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("tier"),
+							"operator": types.StringValue("In"),
+							"values":   types.ListValueMust(types.StringType, []attr.Value{types.StringValue("frontend"), types.StringValue("backend")}),
+						},
+					),
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("region"),
+							"operator": types.StringValue("NotIn"),
+							"values":   types.ListValueMust(types.StringType, []attr.Value{types.StringValue("us-east-1")}),
+						},
+					),
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("version"),
+							"operator": types.StringValue("Exists"),
+							"values":   types.ListValueMust(types.StringType, []attr.Value{}),
+						},
+					),
+				},
+			),
+		}
+
+		// Convert to proto
+		ctx := context.Background()
+		proto, err := original.toProto(ctx)
+		if err != nil {
+			t.Fatalf("toProto failed: %v", err)
+		}
+
+		// Convert back from proto
+		converted := &LabelSelector{}
+		converted.fromProto(proto)
+
+		// Verify match labels
+		if !original.MatchLabels.Equal(converted.MatchLabels) {
+			t.Errorf("Match labels don't match after round-trip")
+		}
+
+		// Verify match expressions count
+		if len(original.MatchExpressions.Elements()) != len(converted.MatchExpressions.Elements()) {
+			t.Fatalf("Expected %d match expressions, got %d", len(original.MatchExpressions.Elements()), len(converted.MatchExpressions.Elements()))
+		}
+
+		// Verify each match expression
+		for i, origElem := range original.MatchExpressions.Elements() {
+			origObj := origElem.(types.Object)
+			convObj := converted.MatchExpressions.Elements()[i].(types.Object)
+
+			if !origObj.Equal(convObj) {
+				t.Errorf("Match expression %d doesn't match after round-trip", i)
+			}
+		}
+	})
 }
 
 func validateTargetSchema(t *testing.T, schema schema.Schema) {
