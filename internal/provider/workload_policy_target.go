@@ -644,8 +644,55 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 	if m == nil {
 		m = &LabelSelector{}
 	}
-	m.MatchLabels = types.MapValueMust(types.StringType, fromStringMap(selector.MatchLabels))
-	m.MatchExpressions = types.ListValueMust(types.StringType, fromElementList(selector.MatchExpressions, MatchExpression{}.AttrTypes()))
+
+	// Handle match_labels: if empty, set to null instead of empty map
+	if len(selector.MatchLabels) == 0 {
+		m.MatchLabels = types.MapNull(types.StringType)
+	} else {
+		m.MatchLabels = types.MapValueMust(types.StringType, fromStringMap(selector.MatchLabels))
+	}
+
+	// Manually convert match expressions from proto to Terraform types
+	var matchExpressions []attr.Value
+	for _, expr := range selector.MatchExpressions {
+		// Convert operator enum to string
+		var operatorStr string
+		switch expr.Operator {
+		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_IN:
+			operatorStr = "In"
+		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_NOT_IN:
+			operatorStr = "NotIn"
+		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_EXISTS:
+			operatorStr = "Exists"
+		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST:
+			operatorStr = "DoesNotExist"
+		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_GT:
+			operatorStr = "Gt"
+		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_LT:
+			operatorStr = "Lt"
+		}
+
+		// Convert values to Terraform list
+		values := types.ListValueMust(types.StringType, fromStringList(expr.Values))
+
+		// Build the match expression object
+		matchExpr := types.ObjectValueMust(
+			MatchExpression{}.AttrTypes(),
+			map[string]attr.Value{
+				"key":      types.StringValue(expr.Key),
+				"operator": types.StringValue(operatorStr),
+				"values":   values,
+			},
+		)
+		matchExpressions = append(matchExpressions, matchExpr)
+	}
+
+	// Handle match_expressions: if empty, set to null instead of empty list
+	if len(matchExpressions) == 0 {
+		m.MatchExpressions = types.ListNull(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()})
+	} else {
+		m.MatchExpressions = types.ListValueMust(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()}, matchExpressions)
+	}
 }
 
 func (m *RegexPattern) fromProto(pattern *apiv1.RegexPattern) {
