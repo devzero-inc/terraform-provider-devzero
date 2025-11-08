@@ -123,6 +123,140 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 		}
 	})
 
+	// Test LabelSelector with multiple MatchExpressions and multiple values
+	t.Run("LabelSelector_WithMultipleMatchExpressions", func(t *testing.T) {
+		selector := &LabelSelector{
+			MatchLabels: types.MapValueMust(types.StringType, map[string]attr.Value{
+				"app":         types.StringValue("web"),
+				"environment": types.StringValue("production"),
+			}),
+			MatchExpressions: types.ListValueMust(
+				types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"key":      types.StringType,
+						"operator": types.StringType,
+						"values":   types.ListType{ElemType: types.StringType},
+					},
+				},
+				[]attr.Value{
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("tier"),
+							"operator": types.StringValue("In"),
+							"values": types.ListValueMust(types.StringType, []attr.Value{
+								types.StringValue("frontend"),
+								types.StringValue("backend"),
+								types.StringValue("middleware"),
+							}),
+						},
+					),
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("region"),
+							"operator": types.StringValue("NotIn"),
+							"values": types.ListValueMust(types.StringType, []attr.Value{
+								types.StringValue("us-east-1"),
+								types.StringValue("us-west-1"),
+							}),
+						},
+					),
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("version"),
+							"operator": types.StringValue("Exists"),
+							"values":   types.ListValueMust(types.StringType, []attr.Value{}),
+						},
+					),
+				},
+			),
+		}
+
+		// Test toProto
+		ctx := context.Background()
+		proto, err := selector.toProto(ctx)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if proto == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if len(proto.MatchLabels) != 2 {
+			t.Errorf("Expected 2 match labels, got %d", len(proto.MatchLabels))
+		}
+		if proto.MatchLabels["app"] != "web" {
+			t.Errorf("Expected app=web, got %s", proto.MatchLabels["app"])
+		}
+		if proto.MatchLabels["environment"] != "production" {
+			t.Errorf("Expected environment=production, got %s", proto.MatchLabels["environment"])
+		}
+		if len(proto.MatchExpressions) != 3 {
+			t.Fatalf("Expected 3 match expressions, got %d", len(proto.MatchExpressions))
+		}
+
+		// Check first expression (In with multiple values)
+		expr1 := proto.MatchExpressions[0]
+		if expr1.Key != "tier" {
+			t.Errorf("Expected key=tier, got %s", expr1.Key)
+		}
+		if expr1.Operator != 1 { // IN = 1
+			t.Errorf("Expected operator=IN (1), got %d", expr1.Operator)
+		}
+		if len(expr1.Values) != 3 {
+			t.Errorf("Expected 3 values, got %d", len(expr1.Values))
+		}
+		expectedTiers := []string{"frontend", "backend", "middleware"}
+		for i, expected := range expectedTiers {
+			if expr1.Values[i] != expected {
+				t.Errorf("Expected value[%d]='%s', got '%s'", i, expected, expr1.Values[i])
+			}
+		}
+
+		// Check second expression (NotIn with multiple values)
+		expr2 := proto.MatchExpressions[1]
+		if expr2.Key != "region" {
+			t.Errorf("Expected key=region, got %s", expr2.Key)
+		}
+		if expr2.Operator != 2 { // NOT_IN = 2
+			t.Errorf("Expected operator=NOT_IN (2), got %d", expr2.Operator)
+		}
+		if len(expr2.Values) != 2 {
+			t.Errorf("Expected 2 values, got %d", len(expr2.Values))
+		}
+		expectedRegions := []string{"us-east-1", "us-west-1"}
+		for i, expected := range expectedRegions {
+			if expr2.Values[i] != expected {
+				t.Errorf("Expected value[%d]='%s', got '%s'", i, expected, expr2.Values[i])
+			}
+		}
+
+		// Check third expression (Exists with no values)
+		expr3 := proto.MatchExpressions[2]
+		if expr3.Key != "version" {
+			t.Errorf("Expected key=version, got %s", expr3.Key)
+		}
+		if expr3.Operator != 3 { // EXISTS = 3
+			t.Errorf("Expected operator=EXISTS (3), got %d", expr3.Operator)
+		}
+		if len(expr3.Values) != 0 {
+			t.Errorf("Expected 0 values for Exists operator, got %d", len(expr3.Values))
+		}
+	})
+
 	// Test RegexPattern
 	t.Run("RegexPattern", func(t *testing.T) {
 		pattern := &RegexPattern{
