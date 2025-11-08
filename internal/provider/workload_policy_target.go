@@ -645,7 +645,7 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 		m = &LabelSelector{}
 	}
 	m.MatchLabels = types.MapValueMust(types.StringType, fromStringMap(selector.MatchLabels))
-	m.MatchExpressions = types.ListValueMust(types.StringType, fromElementList(selector.MatchExpressions, MatchExpression{}.AttrTypes()))
+	m.MatchExpressions = types.ListValueMust(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()}, fromElementList(selector.MatchExpressions, MatchExpression{}.AttrTypes()))
 }
 
 func (m *RegexPattern) fromProto(pattern *apiv1.RegexPattern) {

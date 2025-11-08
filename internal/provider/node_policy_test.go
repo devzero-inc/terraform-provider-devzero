@@ -296,6 +296,143 @@ func TestNodePolicyResourceModel(t *testing.T) {
 		}
 	})
 
+	// Test LabelSelector with multiple MatchExpressions and multiple values
+	t.Run("LabelSelector_WithMultipleMatchExpressions", func(t *testing.T) {
+		selector := &LabelSelector{
+			MatchLabels: types.MapValueMust(types.StringType, map[string]attr.Value{
+				"app": types.StringValue("api"),
+				"env": types.StringValue("prod"),
+			}),
+			MatchExpressions: types.ListValueMust(
+				types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"key":      types.StringType,
+						"operator": types.StringType,
+						"values":   types.ListType{ElemType: types.StringType},
+					},
+				},
+				[]attr.Value{
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("instanceGenerations"),
+							"operator": types.StringValue("Gt"),
+							"values":   types.ListValueMust(types.StringType, []attr.Value{types.StringValue("4")}),
+						},
+					),
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("instanceFamily"),
+							"operator": types.StringValue("In"),
+							"values": types.ListValueMust(types.StringType, []attr.Value{
+								types.StringValue("m5"),
+								types.StringValue("m6i"),
+								types.StringValue("m7i"),
+							}),
+						},
+					),
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"key":      types.StringType,
+							"operator": types.StringType,
+							"values":   types.ListType{ElemType: types.StringType},
+						},
+						map[string]attr.Value{
+							"key":      types.StringValue("zone"),
+							"operator": types.StringValue("NotIn"),
+							"values": types.ListValueMust(types.StringType, []attr.Value{
+								types.StringValue("us-west-2a"),
+								types.StringValue("us-west-2b"),
+							}),
+						},
+					),
+				},
+			),
+		}
+
+		// Test toProto
+		ctx := context.Background()
+		proto, err := selector.toProto(ctx)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if proto == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if len(proto.MatchLabels) != 2 {
+			t.Errorf("Expected 2 match labels, got %d", len(proto.MatchLabels))
+		}
+		if proto.MatchLabels["app"] != "api" {
+			t.Errorf("Expected app=api, got %s", proto.MatchLabels["app"])
+		}
+		if proto.MatchLabels["env"] != "prod" {
+			t.Errorf("Expected env=prod, got %s", proto.MatchLabels["env"])
+		}
+		if len(proto.MatchExpressions) != 3 {
+			t.Fatalf("Expected 3 match expressions, got %d", len(proto.MatchExpressions))
+		}
+
+		// Check first expression (Gt with single value)
+		expr1 := proto.MatchExpressions[0]
+		if expr1.Key != "instanceGenerations" {
+			t.Errorf("Expected key=instanceGenerations, got %s", expr1.Key)
+		}
+		if expr1.Operator != 5 { // GT = 5
+			t.Errorf("Expected operator=GT (5), got %d", expr1.Operator)
+		}
+		if len(expr1.Values) != 1 {
+			t.Errorf("Expected 1 value, got %d", len(expr1.Values))
+		}
+		if expr1.Values[0] != "4" {
+			t.Errorf("Expected value '4', got %s", expr1.Values[0])
+		}
+
+		// Check second expression (In with multiple values)
+		expr2 := proto.MatchExpressions[1]
+		if expr2.Key != "instanceFamily" {
+			t.Errorf("Expected key=instanceFamily, got %s", expr2.Key)
+		}
+		if expr2.Operator != 1 { // IN = 1
+			t.Errorf("Expected operator=IN (1), got %d", expr2.Operator)
+		}
+		if len(expr2.Values) != 3 {
+			t.Errorf("Expected 3 values, got %d", len(expr2.Values))
+		}
+		expectedValues := []string{"m5", "m6i", "m7i"}
+		for i, expected := range expectedValues {
+			if expr2.Values[i] != expected {
+				t.Errorf("Expected value[%d]='%s', got '%s'", i, expected, expr2.Values[i])
+			}
+		}
+
+		// Check third expression (NotIn with multiple values)
+		expr3 := proto.MatchExpressions[2]
+		if expr3.Key != "zone" {
+			t.Errorf("Expected key=zone, got %s", expr3.Key)
+		}
+		if expr3.Operator != 2 { // NOT_IN = 2
+			t.Errorf("Expected operator=NOT_IN (2), got %d", expr3.Operator)
+		}
+		if len(expr3.Values) != 2 {
+			t.Errorf("Expected 2 values, got %d", len(expr3.Values))
+		}
+		expectedZones := []string{"us-west-2a", "us-west-2b"}
+		for i, expected := range expectedZones {
+			if expr3.Values[i] != expected {
+				t.Errorf("Expected value[%d]='%s', got '%s'", i, expected, expr3.Values[i])
+			}
+		}
+	})
+
 	// Test DisruptionPolicy with nested budgets (full toProto conversion)
 	t.Run("DisruptionPolicy_WithBudgets", func(t *testing.T) {
 		policy := &DisruptionPolicy{
