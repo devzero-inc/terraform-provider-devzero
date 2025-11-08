@@ -49,7 +49,7 @@ type WorkloadPolicyResourceModel struct {
 	CronSchedule            types.String              `tfsdk:"cron_schedule"`
 	DetectionTriggers       types.List                `tfsdk:"detection_triggers"`
 	LoopbackPeriodSeconds   types.Int32               `tfsdk:"loopback_period_seconds"`
-	StartupPeriodSeconds    types.Int32               `tfsdk:"startup_period_seconds"`
+	StartupPeriodSeconds    types.Int64               `tfsdk:"startup_period_seconds"`
 	CPUVerticalScaling      *VerticalScalingOptions   `tfsdk:"cpu_vertical_scaling"`
 	MemoryVerticalScaling   *VerticalScalingOptions   `tfsdk:"memory_vertical_scaling"`
 	GPUVerticalScaling      *VerticalScalingOptions   `tfsdk:"gpu_vertical_scaling"`
@@ -240,12 +240,10 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Computed:            true,
 				Default:             int32default.StaticInt32(86400),
 			},
-			"startup_period_seconds": schema.Int32Attribute{
+			"startup_period_seconds": schema.Int64Attribute{
 				Description:         "Ignore early-life metrics for this duration",
 				MarkdownDescription: "Startup period seconds of the workload policy. The startup period is the period of time to ignore resource usage data after the workload is started.",
 				Optional:            true,
-				Computed:            true,
-				Default:             int32default.StaticInt32(0),
 			},
 			"cpu_vertical_scaling": schema.SingleNestedAttribute{
 				Description: "CPU vertical scaling options",
@@ -578,6 +576,8 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		ActionTriggers:          actionTriggers,
 		CronSchedule:            m.CronSchedule.ValueStringPointer(),
 		DetectionTriggers:       detectionTriggers,
+		LoopbackPeriodSeconds:   m.LoopbackPeriodSeconds.ValueInt32Pointer(),
+		StartupPeriodSeconds:    m.StartupPeriodSeconds.ValueInt64Pointer(),
 		CpuVerticalScaling:      m.CPUVerticalScaling.toProto(),
 		MemoryVerticalScaling:   m.MemoryVerticalScaling.toProto(),
 		GpuVerticalScaling:      m.GPUVerticalScaling.toProto(),
@@ -586,6 +586,13 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		LiveMigrationEnabled:    m.LiveMigrationEnabled.ValueBool(),
 		SchedulerPlugins:        schedulerPlugins,
 		DefragmentationSchedule: m.DefragmentationSchedule.ValueStringPointer(),
+		MinChangePercent:        m.MinChangePercent.ValueFloat32Pointer(),
+		MinDataPoints:           m.MinDataPoints.ValueInt32Pointer(),
+		StabilityCvMax:          m.StabilityCvMax.ValueFloat32Pointer(),
+		HysteresisVsTarget:      m.HysteresisVsTarget.ValueFloat32Pointer(),
+		DriftDeltaPercent:       m.DriftDeltaPercent.ValueFloat32Pointer(),
+		MinVpaWindowDataPoints:  m.MinVpaWindowDataPoints.ValueInt32Pointer(),
+		CooldownMinutes:         m.CooldownMinutes.ValueInt32Pointer(),
 	}
 }
 
@@ -624,6 +631,13 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	}
 	m.DetectionTriggers = types.ListValueMust(types.StringType, detectionTriggers)
 
+	if policy.LoopbackPeriodSeconds != nil {
+		m.LoopbackPeriodSeconds = types.Int32Value(*policy.LoopbackPeriodSeconds)
+	}
+	if policy.StartupPeriodSeconds != nil {
+		m.StartupPeriodSeconds = types.Int64Value(*policy.StartupPeriodSeconds)
+	}
+
 	m.CPUVerticalScaling.fromProto(policy.CpuVerticalScaling)
 	m.MemoryVerticalScaling.fromProto(policy.MemoryVerticalScaling)
 	m.GPUVerticalScaling.fromProto(policy.GpuVerticalScaling)
@@ -639,6 +653,28 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 
 	if policy.DefragmentationSchedule != nil {
 		m.DefragmentationSchedule = types.StringValue(*policy.DefragmentationSchedule)
+	}
+
+	if policy.MinChangePercent != nil {
+		m.MinChangePercent = types.Float32Value(*policy.MinChangePercent)
+	}
+	if policy.MinDataPoints != nil {
+		m.MinDataPoints = types.Int32Value(*policy.MinDataPoints)
+	}
+	if policy.StabilityCvMax != nil {
+		m.StabilityCvMax = types.Float32Value(*policy.StabilityCvMax)
+	}
+	if policy.HysteresisVsTarget != nil {
+		m.HysteresisVsTarget = types.Float32Value(*policy.HysteresisVsTarget)
+	}
+	if policy.DriftDeltaPercent != nil {
+		m.DriftDeltaPercent = types.Float32Value(*policy.DriftDeltaPercent)
+	}
+	if policy.MinVpaWindowDataPoints != nil {
+		m.MinVpaWindowDataPoints = types.Int32Value(*policy.MinVpaWindowDataPoints)
+	}
+	if policy.CooldownMinutes != nil {
+		m.CooldownMinutes = types.Int32Value(*policy.CooldownMinutes)
 	}
 }
 
