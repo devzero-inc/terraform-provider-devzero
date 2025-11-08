@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	apiv1 "github.com/devzero-inc/terraform-provider-devzero/internal/gen/api/v1"
 )
 
 func TestWorkloadPolicyTargetResourceSchema(t *testing.T) {
@@ -302,6 +304,27 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 		}
 		if len(proto.Values) != 2 {
 			t.Errorf("Expected 2 values, got %d", len(proto.Values))
+		}
+	})
+
+	// Test LabelSelector with empty collections returns null
+	t.Run("LabelSelector_EmptyCollectionsToNull", func(t *testing.T) {
+		// Create a proto selector with empty match labels and expressions
+		proto := &apiv1.LabelSelector{
+			MatchLabels:      map[string]string{},
+			MatchExpressions: []*apiv1.LabelSelectorRequirement{},
+		}
+
+		// Convert from proto
+		selector := &LabelSelector{}
+		selector.fromProto(proto)
+
+		// Verify that empty collections are converted to null
+		if !selector.MatchLabels.IsNull() {
+			t.Errorf("Expected match_labels to be null, got %v", selector.MatchLabels)
+		}
+		if !selector.MatchExpressions.IsNull() {
+			t.Errorf("Expected match_expressions to be null, got %v", selector.MatchExpressions)
 		}
 	})
 

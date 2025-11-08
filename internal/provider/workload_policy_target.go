@@ -644,7 +644,13 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 	if m == nil {
 		m = &LabelSelector{}
 	}
-	m.MatchLabels = types.MapValueMust(types.StringType, fromStringMap(selector.MatchLabels))
+
+	// Handle match_labels: if empty, set to null instead of empty map
+	if len(selector.MatchLabels) == 0 {
+		m.MatchLabels = types.MapNull(types.StringType)
+	} else {
+		m.MatchLabels = types.MapValueMust(types.StringType, fromStringMap(selector.MatchLabels))
+	}
 
 	// Manually convert match expressions from proto to Terraform types
 	var matchExpressions []attr.Value
@@ -681,7 +687,12 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 		matchExpressions = append(matchExpressions, matchExpr)
 	}
 
-	m.MatchExpressions = types.ListValueMust(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()}, matchExpressions)
+	// Handle match_expressions: if empty, set to null instead of empty list
+	if len(matchExpressions) == 0 {
+		m.MatchExpressions = types.ListNull(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()})
+	} else {
+		m.MatchExpressions = types.ListValueMust(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()}, matchExpressions)
+	}
 }
 
 func (m *RegexPattern) fromProto(pattern *apiv1.RegexPattern) {
