@@ -384,8 +384,14 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 
 		// Verify each match expression
 		for i, origElem := range original.MatchExpressions.Elements() {
-			origObj := origElem.(types.Object)
-			convObj := converted.MatchExpressions.Elements()[i].(types.Object)
+			origObj, ok := origElem.(types.Object)
+			if !ok {
+				t.Fatalf("Expected original match expression %d to be types.Object", i)
+			}
+			convObj, ok := converted.MatchExpressions.Elements()[i].(types.Object)
+			if !ok {
+				t.Fatalf("Expected converted match expression %d to be types.Object", i)
+			}
 
 			if !origObj.Equal(convObj) {
 				t.Errorf("Match expression %d doesn't match after round-trip", i)
