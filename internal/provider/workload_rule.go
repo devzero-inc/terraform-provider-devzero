@@ -22,8 +22,8 @@ import (
 	apiv1 "github.com/devzero-inc/terraform-provider-devzero/internal/gen/api/v1"
 )
 
-var _ resource.Resource                = &WorkloadRuleResource{}
-var _ resource.ResourceWithConfigure   = &WorkloadRuleResource{}
+var _ resource.Resource = &WorkloadRuleResource{}
+var _ resource.ResourceWithConfigure = &WorkloadRuleResource{}
 var _ resource.ResourceWithImportState = &WorkloadRuleResource{}
 
 func NewWorkloadRuleResource() resource.Resource {
@@ -35,27 +35,27 @@ type WorkloadRuleResource struct {
 }
 
 type WorkloadRuleResourceModel struct {
-	Id                        types.String                `tfsdk:"id"`
-	ClusterId                 types.String                `tfsdk:"cluster_id"`
-	Namespace                 types.String                `tfsdk:"namespace"`
-	Kind                      types.String                `tfsdk:"kind"`
-	Name                      types.String                `tfsdk:"name"`
-	AutoGenerate              types.Bool                  `tfsdk:"auto_generate"`
-	CpuRule                   *ResourceRuleConfigModel    `tfsdk:"cpu_rule"`
-	MemoryRule                *ResourceRuleConfigModel    `tfsdk:"memory_rule"`
-	GpuRule                   *ResourceRuleConfigModel    `tfsdk:"gpu_rule"`
-	HpaRule                   *HPARuleConfigModel         `tfsdk:"hpa_rule"`
-	EmergencyResponse         *EmergencyResponseModel     `tfsdk:"emergency_response"`
-	ActionTriggers            types.List                  `tfsdk:"action_triggers"`
-	StartupPeriodSeconds      types.Int64                 `tfsdk:"startup_period_seconds"`
-	CronSchedule              types.String                `tfsdk:"cron_schedule"`
-	CooldownMinutes           types.Int32                 `tfsdk:"cooldown_minutes"`
-	DetectionTriggers         types.List                  `tfsdk:"detection_triggers"`
-	SchedulerPlugins          types.List                  `tfsdk:"scheduler_plugins"`
-	DefragmentationSchedule   types.String                `tfsdk:"defragmentation_schedule"`
-	LiveMigrationEnabled      types.Bool                  `tfsdk:"live_migration_enabled"`
-	UseInPlaceVerticalScaling types.Bool                  `tfsdk:"use_in_place_vertical_scaling"`
-	Containers                []ContainerRuleModel        `tfsdk:"containers"`
+	Id                        types.String             `tfsdk:"id"`
+	ClusterId                 types.String             `tfsdk:"cluster_id"`
+	Namespace                 types.String             `tfsdk:"namespace"`
+	Kind                      types.String             `tfsdk:"kind"`
+	Name                      types.String             `tfsdk:"name"`
+	AutoGenerate              types.Bool               `tfsdk:"auto_generate"`
+	CpuRule                   *ResourceRuleConfigModel `tfsdk:"cpu_rule"`
+	MemoryRule                *ResourceRuleConfigModel `tfsdk:"memory_rule"`
+	GpuRule                   *ResourceRuleConfigModel `tfsdk:"gpu_rule"`
+	HpaRule                   *HPARuleConfigModel      `tfsdk:"hpa_rule"`
+	EmergencyResponse         *EmergencyResponseModel  `tfsdk:"emergency_response"`
+	ActionTriggers            types.List               `tfsdk:"action_triggers"`
+	StartupPeriodSeconds      types.Int64              `tfsdk:"startup_period_seconds"`
+	CronSchedule              types.String             `tfsdk:"cron_schedule"`
+	CooldownMinutes           types.Int32              `tfsdk:"cooldown_minutes"`
+	DetectionTriggers         types.List               `tfsdk:"detection_triggers"`
+	SchedulerPlugins          types.List               `tfsdk:"scheduler_plugins"`
+	DefragmentationSchedule   types.String             `tfsdk:"defragmentation_schedule"`
+	LiveMigrationEnabled      types.Bool               `tfsdk:"live_migration_enabled"`
+	UseInPlaceVerticalScaling types.Bool               `tfsdk:"use_in_place_vertical_scaling"`
+	Containers                []ContainerRuleModel     `tfsdk:"containers"`
 }
 
 type ResourceRuleConfigModel struct {
