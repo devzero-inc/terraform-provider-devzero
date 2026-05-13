@@ -1,0 +1,212 @@
+syntax = "proto3";
+
+package api.v1;
+
+import "google/protobuf/timestamp.proto";
+import "api/v1/common.proto";
+
+option go_package = "github.com/devzero-inc/services/dakr/gen/api/v1;gen";
+option java_multiple_files = true;
+option java_package = "gen.api.v1";
+
+service ProfilingService {
+  rpc GetWorkloadProfiles(GetWorkloadProfilesRequest)
+    returns (GetWorkloadProfilesResponse);
+}
+
+message ProfilingWorkloadKey {
+  string kind = 1;
+  string uid = 2;
+}
+
+message GetWorkloadProfilesRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  repeated ProfilingWorkloadKey workloads = 3;
+
+  optional google.protobuf.Timestamp start_time = 11;
+  optional google.protobuf.Timestamp end_time = 12;
+}
+
+message GetWorkloadProfilesResponse {
+  repeated WorkloadProfileResult workload_profiles = 1;
+}
+
+message WorkloadProfileResult {
+  string kind = 1;
+  string uid = 2;
+  repeated ContainerProfileResult containers = 3;
+  ProfilingClassification classification = 4;
+  double confidence = 5;
+  ProfileDataQuality data_quality = 6;
+}
+
+message ContainerProfileResult {
+  string container_name = 1;
+  MetricPercentiles cpu_usage = 2;
+  MetricPercentiles memory_usage = 3;
+  MetricPercentiles gpu_usage = 4;
+  MetricPercentiles gpu_vram_usage = 5;
+  MetricPercentiles network_receive_bytes = 6;
+  MetricPercentiles network_transmit_bytes = 7;
+  MetricPercentiles fs_read_bytes = 8;
+  MetricPercentiles fs_write_bytes = 9;
+  ProfilingResourceRecommendation recommendation = 10;
+
+  // Signal-based rightsizing evidence (V1+).
+  ProfilingSignalValues signals = 11;
+  ProfilingAdjustmentEvidence adjustments = 12;
+  bool insufficient_data = 13;
+  int32 data_days = 14;
+
+  // throttle_risk is set when P50 CPU usage exceeds the container's CPU limit.
+  // This is observability-only — automation removes CPU limits.
+  bool throttle_risk = 15;
+
+  // Pre-classified behavioral conclusions. Frontend displays these directly
+  // without needing to know the engine's threshold constants.
+  ProfilingBehavior behavior = 16;
+
+  // Current configured resources for this container, as observed in the most
+  // recent hourly sample of the profiling window. Surfaced so the frontend
+  // can compare percentiles against per-container requests/limits without
+  // joining against workload-level aggregates.
+  int64 current_cpu_request_millicores = 17;
+  int64 current_cpu_limit_millicores = 18;
+  int64 current_memory_request_bytes = 19;
+  int64 current_memory_limit_bytes = 20;
+}
+
+// ProfilingBehavior holds engine-classified behavioral conclusions so the
+// frontend can display them without duplicating threshold logic.
+message ProfilingBehavior {
+  // CPU volatility: "flatline", "variable", or "volatile".
+  string cpu_volatility = 1;
+
+  // Two distinct operating modes detected (idle vs active).
+  bool bimodal = 2;
+
+  // Smooth, consistent memory growth detected (possible leak).
+  bool memory_leak_risk = 3;
+
+  // CPU recommendation strategy: "signal_based" or "compressibility".
+  string cpu_recommendation_strategy = 4;
+
+  // Good candidate for automated rightsizing (flatline + low saturation + sufficient data).
+  bool automation_ready = 5;
+}
+
+// ProfilingSignalValues carries the 7 behavioral signals computed per container.
+message ProfilingSignalValues {
+  double cv_cpu = 1;
+  double cv_memory = 2;
+  double confidence_score_cpu = 3;
+  double confidence_score_memory = 4;
+  double tip_cpu = 5;
+  double tip_memory = 6;
+  double p2a_cpu = 7;
+  double p2a_memory = 8;
+  double bimodality_cpu = 9;
+  double bimodality_memory = 10;
+  double memory_trend_slope = 11;
+  double memory_trend_r_squared = 12;
+  double saturation_cpu = 13;
+  double saturation_memory = 14;
+}
+
+// ProfilingAdjustmentEvidence records the percentile selection and multiplier
+// decisions so callers can understand exactly why a recommendation was made.
+message ProfilingAdjustmentEvidence {
+  int32 selected_cpu_percentile = 1;
+  int32 selected_memory_percentile = 2;
+  repeated ProfilingAdjustment percentile_overrides_applied = 3;
+
+  double base_cpu_multiplier = 4;
+  double base_memory_multiplier = 5;
+  repeated ProfilingAdjustment cpu_adjustments_applied = 6;
+  repeated ProfilingAdjustment memory_adjustments_applied = 7;
+  double total_cpu_multiplier = 8;
+  double total_memory_multiplier = 9;
+
+  int64 percentile_value_cpu = 10;    // raw value at selected percentile, in millicores
+  int64 percentile_value_memory = 11; // raw value at selected percentile, in bytes
+}
+
+// ProfilingAdjustment is a single additive multiplier adjustment.
+message ProfilingAdjustment {
+  string reason = 1;
+  double value = 2;
+}
+
+message ProfilingResourceRecommendation {
+  int64 cpu_request_millicores = 1;
+  // cpu_limit_millicores intentionally omitted — CPU is compressible, limits waste idle capacity
+  int64 memory_request_bytes = 3;
+  int64 memory_limit_bytes = 4;
+  int64 gpu_request = 5;
+  int64 gpu_limit = 6;
+}
+
+message ProfilingClassification {
+  string dominant_resource = 1;
+  double cpu_burstiness = 2;
+  double memory_burstiness = 3;
+}
+
+message ProfileDataQuality {
+  int32 total_data_points = 1;
+  double time_span_hours = 2;
+  int32 container_count = 3;
+}
+
+enum ProfileWindow {
+  PROFILE_WINDOW_UNSPECIFIED = 0;
+  PROFILE_WINDOW_1D = 1;
+  PROFILE_WINDOW_7D = 2;
+}
+
+message ProfileKey {
+  string kind = 1;
+  string workload_uid = 2;
+  string namespace = 3;
+  string name = 4;
+}
+
+message MetricPercentilesCompact {
+  double avg = 1;
+  double p0 = 2;
+  double p25 = 3;
+  double p50 = 4;
+  double p75 = 5;
+  double p90 = 6;
+  double p95 = 7;
+  double p99 = 8;
+  double p999 = 9;
+  double p100 = 10;
+}
+
+message ContainerProfileSnapshot {
+  string container_name = 1;
+  MetricPercentilesCompact cpu_usage = 2;
+  MetricPercentilesCompact memory_usage = 3;
+  MetricPercentilesCompact gpu_usage = 4;
+  MetricPercentilesCompact gpu_vram_usage = 5;
+  MetricPercentilesCompact network_receive_bytes = 6;
+  MetricPercentilesCompact network_transmit_bytes = 7;
+  MetricPercentilesCompact fs_read_bytes = 8;
+  MetricPercentilesCompact fs_write_bytes = 9;
+  ProfilingResourceRecommendation recommendation = 10;
+  int32 data_days = 11;
+  bool insufficient_data = 12;
+  int64 current_cpu_request_millicores = 13;
+  int64 current_memory_request_bytes = 14;
+}
+
+message WorkloadProfileSnapshot {
+  ProfileKey key = 1;
+  repeated ContainerProfileSnapshot containers = 2;
+  ProfilingBehavior behavior = 3;
+  ProfileDataQuality data_quality = 4;
+  google.protobuf.Timestamp computed_at = 5;
+  string ui_url = 6;
+}
