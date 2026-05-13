@@ -37,6 +37,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// K8SServiceGetWorkloadsStatsProcedure is the fully-qualified name of the K8SService's
+	// GetWorkloadsStats RPC.
+	K8SServiceGetWorkloadsStatsProcedure = "/api.v1.K8SService/GetWorkloadsStats"
 	// K8SServiceGetClustersProcedure is the fully-qualified name of the K8SService's GetClusters RPC.
 	K8SServiceGetClustersProcedure = "/api.v1.K8SService/GetClusters"
 	// K8SServiceListClustersProcedure is the fully-qualified name of the K8SService's ListClusters RPC.
@@ -49,6 +52,12 @@ const (
 	// K8SServiceGetAllNamespacesProcedure is the fully-qualified name of the K8SService's
 	// GetAllNamespaces RPC.
 	K8SServiceGetAllNamespacesProcedure = "/api.v1.K8SService/GetAllNamespaces"
+	// K8SServiceSearchNamespacesByClusterProcedure is the fully-qualified name of the K8SService's
+	// SearchNamespacesByCluster RPC.
+	K8SServiceSearchNamespacesByClusterProcedure = "/api.v1.K8SService/SearchNamespacesByCluster"
+	// K8SServiceListNamespacesByClusterProcedure is the fully-qualified name of the K8SService's
+	// ListNamespacesByCluster RPC.
+	K8SServiceListNamespacesByClusterProcedure = "/api.v1.K8SService/ListNamespacesByCluster"
 	// K8SServiceGetAllWorkloadNamesProcedure is the fully-qualified name of the K8SService's
 	// GetAllWorkloadNames RPC.
 	K8SServiceGetAllWorkloadNamesProcedure = "/api.v1.K8SService/GetAllWorkloadNames"
@@ -78,6 +87,15 @@ const (
 	K8SServiceGetWorkloadsProcedure = "/api.v1.K8SService/GetWorkloads"
 	// K8SServiceGetWorkloadProcedure is the fully-qualified name of the K8SService's GetWorkload RPC.
 	K8SServiceGetWorkloadProcedure = "/api.v1.K8SService/GetWorkload"
+	// K8SServiceGetWorkloadContainerPercentilesProcedure is the fully-qualified name of the
+	// K8SService's GetWorkloadContainerPercentiles RPC.
+	K8SServiceGetWorkloadContainerPercentilesProcedure = "/api.v1.K8SService/GetWorkloadContainerPercentiles"
+	// K8SServiceGetWorkloadContainerTimeSeriesProcedure is the fully-qualified name of the K8SService's
+	// GetWorkloadContainerTimeSeries RPC.
+	K8SServiceGetWorkloadContainerTimeSeriesProcedure = "/api.v1.K8SService/GetWorkloadContainerTimeSeries"
+	// K8SServiceGetLatestContainerRequestLimitsProcedure is the fully-qualified name of the
+	// K8SService's GetLatestContainerRequestLimits RPC.
+	K8SServiceGetLatestContainerRequestLimitsProcedure = "/api.v1.K8SService/GetLatestContainerRequestLimits"
 	// K8SServiceGetForecastWorkloadsProcedure is the fully-qualified name of the K8SService's
 	// GetForecastWorkloads RPC.
 	K8SServiceGetForecastWorkloadsProcedure = "/api.v1.K8SService/GetForecastWorkloads"
@@ -91,12 +109,6 @@ const (
 	// K8SServiceGetLatestOperatorVersionProcedure is the fully-qualified name of the K8SService's
 	// GetLatestOperatorVersion RPC.
 	K8SServiceGetLatestOperatorVersionProcedure = "/api.v1.K8SService/GetLatestOperatorVersion"
-	// K8SServiceGalaxyGetClusterPerspectiveProcedure is the fully-qualified name of the K8SService's
-	// GalaxyGetClusterPerspective RPC.
-	K8SServiceGalaxyGetClusterPerspectiveProcedure = "/api.v1.K8SService/GalaxyGetClusterPerspective"
-	// K8SServiceGalaxyGetNodePerspectiveProcedure is the fully-qualified name of the K8SService's
-	// GalaxyGetNodePerspective RPC.
-	K8SServiceGalaxyGetNodePerspectiveProcedure = "/api.v1.K8SService/GalaxyGetNodePerspective"
 	// K8SServiceGalaxyGetWorkloadPerspectiveProcedure is the fully-qualified name of the K8SService's
 	// GalaxyGetWorkloadPerspective RPC.
 	K8SServiceGalaxyGetWorkloadPerspectiveProcedure = "/api.v1.K8SService/GalaxyGetWorkloadPerspective"
@@ -127,6 +139,20 @@ const (
 	// K8SServiceGetRelationsForKindProcedure is the fully-qualified name of the K8SService's
 	// GetRelationsForKind RPC.
 	K8SServiceGetRelationsForKindProcedure = "/api.v1.K8SService/GetRelationsForKind"
+	// K8SServiceLookupNodeInstanceProcedure is the fully-qualified name of the K8SService's
+	// LookupNodeInstance RPC.
+	K8SServiceLookupNodeInstanceProcedure = "/api.v1.K8SService/LookupNodeInstance"
+	// K8SServiceGetWorkloadPodHistoryProcedure is the fully-qualified name of the K8SService's
+	// GetWorkloadPodHistory RPC.
+	K8SServiceGetWorkloadPodHistoryProcedure = "/api.v1.K8SService/GetWorkloadPodHistory"
+	// K8SServiceAddClusterTagsProcedure is the fully-qualified name of the K8SService's AddClusterTags
+	// RPC.
+	K8SServiceAddClusterTagsProcedure = "/api.v1.K8SService/AddClusterTags"
+	// K8SServiceRemoveClusterTagsProcedure is the fully-qualified name of the K8SService's
+	// RemoveClusterTags RPC.
+	K8SServiceRemoveClusterTagsProcedure = "/api.v1.K8SService/RemoveClusterTags"
+	// K8SServiceListTagsProcedure is the fully-qualified name of the K8SService's ListTags RPC.
+	K8SServiceListTagsProcedure = "/api.v1.K8SService/ListTags"
 	// ClusterMutationServiceCreateClusterProcedure is the fully-qualified name of the
 	// ClusterMutationService's CreateCluster RPC.
 	ClusterMutationServiceCreateClusterProcedure = "/api.v1.ClusterMutationService/CreateCluster"
@@ -152,9 +178,14 @@ const (
 
 // K8SServiceClient is a client for the api.v1.K8SService service.
 type K8SServiceClient interface {
+	// GetWorkloadsStats retrieves stats for workloads in a specific cluster.
+	GetWorkloadsStats(context.Context, *connect.Request[v1.GetWorkloadsStatsRequest]) (*connect.Response[v1.GetWorkloadsStatsResponse], error)
 	// GetClusters retrieves all clusters for a team.
 	GetClusters(context.Context, *connect.Request[v1.GetClustersRequest]) (*connect.Response[v1.GetClustersResponse], error)
 	// ListClusters retrieves clusters for a team with pagination.
+	// Deprecated: Use GetClusters instead.
+	//
+	// Deprecated: do not use.
 	ListClusters(context.Context, *connect.Request[v1.ListClustersRequest]) (*connect.Response[v1.ListClustersResponse], error)
 	// GetCluster retrieves detailed information for a specific cluster.
 	GetCluster(context.Context, *connect.Request[v1.GetClusterRequest]) (*connect.Response[v1.GetClusterResponse], error)
@@ -162,6 +193,10 @@ type K8SServiceClient interface {
 	GetClusterMetadata(context.Context, *connect.Request[v1.GetClusterMetadataRequest]) (*connect.Response[v1.GetClusterMetadataResponse], error)
 	// GetAllNamespaces returns a list of all namespaces for a teamID; if cluster list is empty, returns all.
 	GetAllNamespaces(context.Context, *connect.Request[v1.GetAllNamespacesRequest]) (*connect.Response[v1.GetAllNamespacesResponse], error)
+	// SearchNamespacesByCluster searches namespaces by name within a single cluster.
+	SearchNamespacesByCluster(context.Context, *connect.Request[v1.SearchNamespacesByClusterRequest]) (*connect.Response[v1.SearchNamespacesByClusterResponse], error)
+	// ListNamespacesByCluster lists namespaces (id and name) within a single cluster.
+	ListNamespacesByCluster(context.Context, *connect.Request[v1.ListNamespacesByClusterRequest]) (*connect.Response[v1.ListNamespacesByClusterResponse], error)
 	// GetAllWorkloadNames returns a list of all workload names for a team ID; if cluster list is empty, returns all.
 	GetAllWorkloadNames(context.Context, *connect.Request[v1.GetAllWorkloadNamesRequest]) (*connect.Response[v1.GetAllWorkloadNamesResponse], error)
 	// GetAllWorkloadLabels returns all workload labels for a team ID; if cluster list is empty, returns all.
@@ -183,17 +218,28 @@ type K8SServiceClient interface {
 	GetWorkloads(context.Context, *connect.Request[v1.GetWorkloadsRequest]) (*connect.Response[v1.GetWorkloadsResponse], error)
 	// GetWorkload retrieves detailed information for a specific workload.
 	GetWorkload(context.Context, *connect.Request[v1.GetWorkloadRequest]) (*connect.Response[v1.GetWorkloadResponse], error)
+	// GetWorkloadContainerPercentiles retrieves per-container percentile metrics for a workload.
+	//
+	// Note: fs_* and current_* fields in the response are no longer populated.
+	// Prefer GetLatestContainerRequestLimits for progressive loading of request/limit values.
+	GetWorkloadContainerPercentiles(context.Context, *connect.Request[v1.GetWorkloadContainerPercentilesRequest]) (*connect.Response[v1.GetWorkloadContainerPercentilesResponse], error)
+	// GetWorkloadContainerTimeSeries retrieves per-container time-series resource metrics for a workload.
+	GetWorkloadContainerTimeSeries(context.Context, *connect.Request[v1.GetWorkloadContainerTimeSeriesRequest]) (*connect.Response[v1.GetWorkloadContainerTimeSeriesResponse], error)
+	// GetLatestContainerRequestLimits retrieves the most recent request/limit values per container for a workload.
+	GetLatestContainerRequestLimits(context.Context, *connect.Request[v1.GetLatestContainerRequestLimitsRequest]) (*connect.Response[v1.GetLatestContainerRequestLimitsResponse], error)
 	// GetForecastWorkloads retrieves all workloads for a specific cluster.
+	//
+	// Deprecated: do not use.
 	GetForecastWorkloads(context.Context, *connect.Request[v1.GetForecastWorkloadsRequest]) (*connect.Response[v1.GetForecastWorkloadsResponse], error)
 	// GetForecastWorkload retrieves detailed information for a specific workload.
+	//
+	// Deprecated: do not use.
 	GetForecastWorkload(context.Context, *connect.Request[v1.GetForecastWorkloadRequest]) (*connect.Response[v1.GetForecastWorkloadResponse], error)
 	// GetResources retrivers specific resource and their details from db, simulating informer.
 	GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error)
 	// GetPods retrieves Pod resources and their details from db.
 	GetPods(context.Context, *connect.Request[v1.GetPodsRequest]) (*connect.Response[v1.GetPodsResponse], error)
 	GetLatestOperatorVersion(context.Context, *connect.Request[v1.GetLatestOperatorVersionRequest]) (*connect.Response[v1.GetLatestOperatorVersionResponse], error)
-	GalaxyGetClusterPerspective(context.Context, *connect.Request[v1.GalaxyGetClusterPerspectiveRequest]) (*connect.Response[v1.GalaxyGetClusterPerspectiveResponse], error)
-	GalaxyGetNodePerspective(context.Context, *connect.Request[v1.GalaxyGetNodePerspectiveRequest]) (*connect.Response[v1.GalaxyGetNodePerspectiveResponse], error)
 	GalaxyGetWorkloadPerspective(context.Context, *connect.Request[v1.GalaxyGetWorkloadPerspectiveRequest]) (*connect.Response[v1.GalaxyGetWorkloadPerspectiveResponse], error)
 	ListAuditLogs(context.Context, *connect.Request[v1.ListAuditLogsRequest]) (*connect.Response[v1.ListAuditLogsResponse], error)
 	ListAuditLogOriginators(context.Context, *connect.Request[v1.ListAuditLogOriginatorsRequest]) (*connect.Response[v1.ListAuditLogOriginatorsResponse], error)
@@ -208,6 +254,16 @@ type K8SServiceClient interface {
 	GetClusterType(context.Context, *connect.Request[v1.GetClusterTypeRequest]) (*connect.Response[v1.GetClusterTypeResponse], error)
 	// GetDeploymentRelations retrieves all relations for a specific deployment.
 	GetRelationsForKind(context.Context, *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error)
+	// LookupNodeInstance retrieves instance information for a node, including both dynamic cache lookup and cached instance data
+	LookupNodeInstance(context.Context, *connect.Request[v1.LookupNodeInstanceRequest]) (*connect.Response[v1.LookupNodeInstanceResponse], error)
+	// GetWorkloadPodHistory retrieves historical pods for a workload.
+	GetWorkloadPodHistory(context.Context, *connect.Request[v1.GetWorkloadPodHistoryRequest]) (*connect.Response[v1.GetWorkloadPodHistoryResponse], error)
+	// AddClusterTags adds tags to a cluster.
+	AddClusterTags(context.Context, *connect.Request[v1.AddClusterTagsRequest]) (*connect.Response[v1.AddClusterTagsResponse], error)
+	// RemoveClusterTags removes tags from a cluster.
+	RemoveClusterTags(context.Context, *connect.Request[v1.RemoveClusterTagsRequest]) (*connect.Response[v1.RemoveClusterTagsResponse], error)
+	// ListTags lists all tags for a team.
+	ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error)
 }
 
 // NewK8SServiceClient constructs a client for the api.v1.K8SService service. By default, it uses
@@ -220,6 +276,11 @@ type K8SServiceClient interface {
 func NewK8SServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) K8SServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &k8SServiceClient{
+		getWorkloadsStats: connect.NewClient[v1.GetWorkloadsStatsRequest, v1.GetWorkloadsStatsResponse](
+			httpClient,
+			baseURL+K8SServiceGetWorkloadsStatsProcedure,
+			opts...,
+		),
 		getClusters: connect.NewClient[v1.GetClustersRequest, v1.GetClustersResponse](
 			httpClient,
 			baseURL+K8SServiceGetClustersProcedure,
@@ -243,6 +304,16 @@ func NewK8SServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 		getAllNamespaces: connect.NewClient[v1.GetAllNamespacesRequest, v1.GetAllNamespacesResponse](
 			httpClient,
 			baseURL+K8SServiceGetAllNamespacesProcedure,
+			opts...,
+		),
+		searchNamespacesByCluster: connect.NewClient[v1.SearchNamespacesByClusterRequest, v1.SearchNamespacesByClusterResponse](
+			httpClient,
+			baseURL+K8SServiceSearchNamespacesByClusterProcedure,
+			opts...,
+		),
+		listNamespacesByCluster: connect.NewClient[v1.ListNamespacesByClusterRequest, v1.ListNamespacesByClusterResponse](
+			httpClient,
+			baseURL+K8SServiceListNamespacesByClusterProcedure,
 			opts...,
 		),
 		getAllWorkloadNames: connect.NewClient[v1.GetAllWorkloadNamesRequest, v1.GetAllWorkloadNamesResponse](
@@ -300,6 +371,21 @@ func NewK8SServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			baseURL+K8SServiceGetWorkloadProcedure,
 			opts...,
 		),
+		getWorkloadContainerPercentiles: connect.NewClient[v1.GetWorkloadContainerPercentilesRequest, v1.GetWorkloadContainerPercentilesResponse](
+			httpClient,
+			baseURL+K8SServiceGetWorkloadContainerPercentilesProcedure,
+			opts...,
+		),
+		getWorkloadContainerTimeSeries: connect.NewClient[v1.GetWorkloadContainerTimeSeriesRequest, v1.GetWorkloadContainerTimeSeriesResponse](
+			httpClient,
+			baseURL+K8SServiceGetWorkloadContainerTimeSeriesProcedure,
+			opts...,
+		),
+		getLatestContainerRequestLimits: connect.NewClient[v1.GetLatestContainerRequestLimitsRequest, v1.GetLatestContainerRequestLimitsResponse](
+			httpClient,
+			baseURL+K8SServiceGetLatestContainerRequestLimitsProcedure,
+			opts...,
+		),
 		getForecastWorkloads: connect.NewClient[v1.GetForecastWorkloadsRequest, v1.GetForecastWorkloadsResponse](
 			httpClient,
 			baseURL+K8SServiceGetForecastWorkloadsProcedure,
@@ -323,16 +409,6 @@ func NewK8SServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 		getLatestOperatorVersion: connect.NewClient[v1.GetLatestOperatorVersionRequest, v1.GetLatestOperatorVersionResponse](
 			httpClient,
 			baseURL+K8SServiceGetLatestOperatorVersionProcedure,
-			opts...,
-		),
-		galaxyGetClusterPerspective: connect.NewClient[v1.GalaxyGetClusterPerspectiveRequest, v1.GalaxyGetClusterPerspectiveResponse](
-			httpClient,
-			baseURL+K8SServiceGalaxyGetClusterPerspectiveProcedure,
-			opts...,
-		),
-		galaxyGetNodePerspective: connect.NewClient[v1.GalaxyGetNodePerspectiveRequest, v1.GalaxyGetNodePerspectiveResponse](
-			httpClient,
-			baseURL+K8SServiceGalaxyGetNodePerspectiveProcedure,
 			opts...,
 		),
 		galaxyGetWorkloadPerspective: connect.NewClient[v1.GalaxyGetWorkloadPerspectiveRequest, v1.GalaxyGetWorkloadPerspectiveResponse](
@@ -385,44 +461,83 @@ func NewK8SServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			baseURL+K8SServiceGetRelationsForKindProcedure,
 			opts...,
 		),
+		lookupNodeInstance: connect.NewClient[v1.LookupNodeInstanceRequest, v1.LookupNodeInstanceResponse](
+			httpClient,
+			baseURL+K8SServiceLookupNodeInstanceProcedure,
+			opts...,
+		),
+		getWorkloadPodHistory: connect.NewClient[v1.GetWorkloadPodHistoryRequest, v1.GetWorkloadPodHistoryResponse](
+			httpClient,
+			baseURL+K8SServiceGetWorkloadPodHistoryProcedure,
+			opts...,
+		),
+		addClusterTags: connect.NewClient[v1.AddClusterTagsRequest, v1.AddClusterTagsResponse](
+			httpClient,
+			baseURL+K8SServiceAddClusterTagsProcedure,
+			opts...,
+		),
+		removeClusterTags: connect.NewClient[v1.RemoveClusterTagsRequest, v1.RemoveClusterTagsResponse](
+			httpClient,
+			baseURL+K8SServiceRemoveClusterTagsProcedure,
+			opts...,
+		),
+		listTags: connect.NewClient[v1.ListTagsRequest, v1.ListTagsResponse](
+			httpClient,
+			baseURL+K8SServiceListTagsProcedure,
+			opts...,
+		),
 	}
 }
 
 // k8SServiceClient implements K8SServiceClient.
 type k8SServiceClient struct {
-	getClusters                  *connect.Client[v1.GetClustersRequest, v1.GetClustersResponse]
-	listClusters                 *connect.Client[v1.ListClustersRequest, v1.ListClustersResponse]
-	getCluster                   *connect.Client[v1.GetClusterRequest, v1.GetClusterResponse]
-	getClusterMetadata           *connect.Client[v1.GetClusterMetadataRequest, v1.GetClusterMetadataResponse]
-	getAllNamespaces             *connect.Client[v1.GetAllNamespacesRequest, v1.GetAllNamespacesResponse]
-	getAllWorkloadNames          *connect.Client[v1.GetAllWorkloadNamesRequest, v1.GetAllWorkloadNamesResponse]
-	getAllWorkloadLabels         *connect.Client[v1.GetAllWorkloadLabelsRequest, v1.GetAllWorkloadLabelsResponse]
-	getAllNodeGroupNames         *connect.Client[v1.GetAllNodeGroupNamesRequest, v1.GetAllNodeGroupNamesResponse]
-	metadataForWorkloads         *connect.Client[v1.MetadataForWorkloadsRequest, v1.MetadataForWorkloadsResponse]
-	getNodeGroups                *connect.Client[v1.GetNodeGroupsRequest, v1.GetNodeGroupsResponse]
-	getAllNodeGroups             *connect.Client[v1.GetAllNodeGroupsRequest, v1.GetAllNodeGroupsResponse]
-	getNodeGroupsUtilization     *connect.Client[v1.GetNodeGroupsUtilizationRequest, v1.GetNodeGroupsUtilizationResponse]
-	getNodeGroup                 *connect.Client[v1.GetNodeGroupRequest, v1.GetNodeGroupResponse]
-	getNode                      *connect.Client[v1.GetNodeRequest, v1.GetNodeResponse]
-	getWorkloads                 *connect.Client[v1.GetWorkloadsRequest, v1.GetWorkloadsResponse]
-	getWorkload                  *connect.Client[v1.GetWorkloadRequest, v1.GetWorkloadResponse]
-	getForecastWorkloads         *connect.Client[v1.GetForecastWorkloadsRequest, v1.GetForecastWorkloadsResponse]
-	getForecastWorkload          *connect.Client[v1.GetForecastWorkloadRequest, v1.GetForecastWorkloadResponse]
-	getResources                 *connect.Client[v1.GetResourcesRequest, v1.GetResourcesResponse]
-	getPods                      *connect.Client[v1.GetPodsRequest, v1.GetPodsResponse]
-	getLatestOperatorVersion     *connect.Client[v1.GetLatestOperatorVersionRequest, v1.GetLatestOperatorVersionResponse]
-	galaxyGetClusterPerspective  *connect.Client[v1.GalaxyGetClusterPerspectiveRequest, v1.GalaxyGetClusterPerspectiveResponse]
-	galaxyGetNodePerspective     *connect.Client[v1.GalaxyGetNodePerspectiveRequest, v1.GalaxyGetNodePerspectiveResponse]
-	galaxyGetWorkloadPerspective *connect.Client[v1.GalaxyGetWorkloadPerspectiveRequest, v1.GalaxyGetWorkloadPerspectiveResponse]
-	listAuditLogs                *connect.Client[v1.ListAuditLogsRequest, v1.ListAuditLogsResponse]
-	listAuditLogOriginators      *connect.Client[v1.ListAuditLogOriginatorsRequest, v1.ListAuditLogOriginatorsResponse]
-	sendWorkloadEmail            *connect.Client[v1.SendWorkloadEmailRequest, v1.SendWorkloadEmailResponse]
-	sendWeeklySummaryEmail       *connect.Client[v1.SendWeeklySummaryEmailRequest, v1.SendWeeklySummaryEmailResponse]
-	getClustersNodeInfo          *connect.Client[v1.GetClustersNodeInfoRequest, v1.GetClustersNodeInfoResponse]
-	searchK8SResources           *connect.Client[v1.SearchK8SResourcesRequest, v1.SearchK8SResourcesResponse]
-	searchK8SWorkloads           *connect.Client[v1.SearchK8SWorkloadsRequest, v1.SearchK8SWorkloadsResponse]
-	getClusterType               *connect.Client[v1.GetClusterTypeRequest, v1.GetClusterTypeResponse]
-	getRelationsForKind          *connect.Client[v1.GetRelatedResourcesRequest, v1.GetRelatedResourcesResponse]
+	getWorkloadsStats               *connect.Client[v1.GetWorkloadsStatsRequest, v1.GetWorkloadsStatsResponse]
+	getClusters                     *connect.Client[v1.GetClustersRequest, v1.GetClustersResponse]
+	listClusters                    *connect.Client[v1.ListClustersRequest, v1.ListClustersResponse]
+	getCluster                      *connect.Client[v1.GetClusterRequest, v1.GetClusterResponse]
+	getClusterMetadata              *connect.Client[v1.GetClusterMetadataRequest, v1.GetClusterMetadataResponse]
+	getAllNamespaces                *connect.Client[v1.GetAllNamespacesRequest, v1.GetAllNamespacesResponse]
+	searchNamespacesByCluster       *connect.Client[v1.SearchNamespacesByClusterRequest, v1.SearchNamespacesByClusterResponse]
+	listNamespacesByCluster         *connect.Client[v1.ListNamespacesByClusterRequest, v1.ListNamespacesByClusterResponse]
+	getAllWorkloadNames             *connect.Client[v1.GetAllWorkloadNamesRequest, v1.GetAllWorkloadNamesResponse]
+	getAllWorkloadLabels            *connect.Client[v1.GetAllWorkloadLabelsRequest, v1.GetAllWorkloadLabelsResponse]
+	getAllNodeGroupNames            *connect.Client[v1.GetAllNodeGroupNamesRequest, v1.GetAllNodeGroupNamesResponse]
+	metadataForWorkloads            *connect.Client[v1.MetadataForWorkloadsRequest, v1.MetadataForWorkloadsResponse]
+	getNodeGroups                   *connect.Client[v1.GetNodeGroupsRequest, v1.GetNodeGroupsResponse]
+	getAllNodeGroups                *connect.Client[v1.GetAllNodeGroupsRequest, v1.GetAllNodeGroupsResponse]
+	getNodeGroupsUtilization        *connect.Client[v1.GetNodeGroupsUtilizationRequest, v1.GetNodeGroupsUtilizationResponse]
+	getNodeGroup                    *connect.Client[v1.GetNodeGroupRequest, v1.GetNodeGroupResponse]
+	getNode                         *connect.Client[v1.GetNodeRequest, v1.GetNodeResponse]
+	getWorkloads                    *connect.Client[v1.GetWorkloadsRequest, v1.GetWorkloadsResponse]
+	getWorkload                     *connect.Client[v1.GetWorkloadRequest, v1.GetWorkloadResponse]
+	getWorkloadContainerPercentiles *connect.Client[v1.GetWorkloadContainerPercentilesRequest, v1.GetWorkloadContainerPercentilesResponse]
+	getWorkloadContainerTimeSeries  *connect.Client[v1.GetWorkloadContainerTimeSeriesRequest, v1.GetWorkloadContainerTimeSeriesResponse]
+	getLatestContainerRequestLimits *connect.Client[v1.GetLatestContainerRequestLimitsRequest, v1.GetLatestContainerRequestLimitsResponse]
+	getForecastWorkloads            *connect.Client[v1.GetForecastWorkloadsRequest, v1.GetForecastWorkloadsResponse]
+	getForecastWorkload             *connect.Client[v1.GetForecastWorkloadRequest, v1.GetForecastWorkloadResponse]
+	getResources                    *connect.Client[v1.GetResourcesRequest, v1.GetResourcesResponse]
+	getPods                         *connect.Client[v1.GetPodsRequest, v1.GetPodsResponse]
+	getLatestOperatorVersion        *connect.Client[v1.GetLatestOperatorVersionRequest, v1.GetLatestOperatorVersionResponse]
+	galaxyGetWorkloadPerspective    *connect.Client[v1.GalaxyGetWorkloadPerspectiveRequest, v1.GalaxyGetWorkloadPerspectiveResponse]
+	listAuditLogs                   *connect.Client[v1.ListAuditLogsRequest, v1.ListAuditLogsResponse]
+	listAuditLogOriginators         *connect.Client[v1.ListAuditLogOriginatorsRequest, v1.ListAuditLogOriginatorsResponse]
+	sendWorkloadEmail               *connect.Client[v1.SendWorkloadEmailRequest, v1.SendWorkloadEmailResponse]
+	sendWeeklySummaryEmail          *connect.Client[v1.SendWeeklySummaryEmailRequest, v1.SendWeeklySummaryEmailResponse]
+	getClustersNodeInfo             *connect.Client[v1.GetClustersNodeInfoRequest, v1.GetClustersNodeInfoResponse]
+	searchK8SResources              *connect.Client[v1.SearchK8SResourcesRequest, v1.SearchK8SResourcesResponse]
+	searchK8SWorkloads              *connect.Client[v1.SearchK8SWorkloadsRequest, v1.SearchK8SWorkloadsResponse]
+	getClusterType                  *connect.Client[v1.GetClusterTypeRequest, v1.GetClusterTypeResponse]
+	getRelationsForKind             *connect.Client[v1.GetRelatedResourcesRequest, v1.GetRelatedResourcesResponse]
+	lookupNodeInstance              *connect.Client[v1.LookupNodeInstanceRequest, v1.LookupNodeInstanceResponse]
+	getWorkloadPodHistory           *connect.Client[v1.GetWorkloadPodHistoryRequest, v1.GetWorkloadPodHistoryResponse]
+	addClusterTags                  *connect.Client[v1.AddClusterTagsRequest, v1.AddClusterTagsResponse]
+	removeClusterTags               *connect.Client[v1.RemoveClusterTagsRequest, v1.RemoveClusterTagsResponse]
+	listTags                        *connect.Client[v1.ListTagsRequest, v1.ListTagsResponse]
+}
+
+// GetWorkloadsStats calls api.v1.K8SService.GetWorkloadsStats.
+func (c *k8SServiceClient) GetWorkloadsStats(ctx context.Context, req *connect.Request[v1.GetWorkloadsStatsRequest]) (*connect.Response[v1.GetWorkloadsStatsResponse], error) {
+	return c.getWorkloadsStats.CallUnary(ctx, req)
 }
 
 // GetClusters calls api.v1.K8SService.GetClusters.
@@ -431,6 +546,8 @@ func (c *k8SServiceClient) GetClusters(ctx context.Context, req *connect.Request
 }
 
 // ListClusters calls api.v1.K8SService.ListClusters.
+//
+// Deprecated: do not use.
 func (c *k8SServiceClient) ListClusters(ctx context.Context, req *connect.Request[v1.ListClustersRequest]) (*connect.Response[v1.ListClustersResponse], error) {
 	return c.listClusters.CallUnary(ctx, req)
 }
@@ -448,6 +565,16 @@ func (c *k8SServiceClient) GetClusterMetadata(ctx context.Context, req *connect.
 // GetAllNamespaces calls api.v1.K8SService.GetAllNamespaces.
 func (c *k8SServiceClient) GetAllNamespaces(ctx context.Context, req *connect.Request[v1.GetAllNamespacesRequest]) (*connect.Response[v1.GetAllNamespacesResponse], error) {
 	return c.getAllNamespaces.CallUnary(ctx, req)
+}
+
+// SearchNamespacesByCluster calls api.v1.K8SService.SearchNamespacesByCluster.
+func (c *k8SServiceClient) SearchNamespacesByCluster(ctx context.Context, req *connect.Request[v1.SearchNamespacesByClusterRequest]) (*connect.Response[v1.SearchNamespacesByClusterResponse], error) {
+	return c.searchNamespacesByCluster.CallUnary(ctx, req)
+}
+
+// ListNamespacesByCluster calls api.v1.K8SService.ListNamespacesByCluster.
+func (c *k8SServiceClient) ListNamespacesByCluster(ctx context.Context, req *connect.Request[v1.ListNamespacesByClusterRequest]) (*connect.Response[v1.ListNamespacesByClusterResponse], error) {
+	return c.listNamespacesByCluster.CallUnary(ctx, req)
 }
 
 // GetAllWorkloadNames calls api.v1.K8SService.GetAllWorkloadNames.
@@ -505,12 +632,31 @@ func (c *k8SServiceClient) GetWorkload(ctx context.Context, req *connect.Request
 	return c.getWorkload.CallUnary(ctx, req)
 }
 
+// GetWorkloadContainerPercentiles calls api.v1.K8SService.GetWorkloadContainerPercentiles.
+func (c *k8SServiceClient) GetWorkloadContainerPercentiles(ctx context.Context, req *connect.Request[v1.GetWorkloadContainerPercentilesRequest]) (*connect.Response[v1.GetWorkloadContainerPercentilesResponse], error) {
+	return c.getWorkloadContainerPercentiles.CallUnary(ctx, req)
+}
+
+// GetWorkloadContainerTimeSeries calls api.v1.K8SService.GetWorkloadContainerTimeSeries.
+func (c *k8SServiceClient) GetWorkloadContainerTimeSeries(ctx context.Context, req *connect.Request[v1.GetWorkloadContainerTimeSeriesRequest]) (*connect.Response[v1.GetWorkloadContainerTimeSeriesResponse], error) {
+	return c.getWorkloadContainerTimeSeries.CallUnary(ctx, req)
+}
+
+// GetLatestContainerRequestLimits calls api.v1.K8SService.GetLatestContainerRequestLimits.
+func (c *k8SServiceClient) GetLatestContainerRequestLimits(ctx context.Context, req *connect.Request[v1.GetLatestContainerRequestLimitsRequest]) (*connect.Response[v1.GetLatestContainerRequestLimitsResponse], error) {
+	return c.getLatestContainerRequestLimits.CallUnary(ctx, req)
+}
+
 // GetForecastWorkloads calls api.v1.K8SService.GetForecastWorkloads.
+//
+// Deprecated: do not use.
 func (c *k8SServiceClient) GetForecastWorkloads(ctx context.Context, req *connect.Request[v1.GetForecastWorkloadsRequest]) (*connect.Response[v1.GetForecastWorkloadsResponse], error) {
 	return c.getForecastWorkloads.CallUnary(ctx, req)
 }
 
 // GetForecastWorkload calls api.v1.K8SService.GetForecastWorkload.
+//
+// Deprecated: do not use.
 func (c *k8SServiceClient) GetForecastWorkload(ctx context.Context, req *connect.Request[v1.GetForecastWorkloadRequest]) (*connect.Response[v1.GetForecastWorkloadResponse], error) {
 	return c.getForecastWorkload.CallUnary(ctx, req)
 }
@@ -528,16 +674,6 @@ func (c *k8SServiceClient) GetPods(ctx context.Context, req *connect.Request[v1.
 // GetLatestOperatorVersion calls api.v1.K8SService.GetLatestOperatorVersion.
 func (c *k8SServiceClient) GetLatestOperatorVersion(ctx context.Context, req *connect.Request[v1.GetLatestOperatorVersionRequest]) (*connect.Response[v1.GetLatestOperatorVersionResponse], error) {
 	return c.getLatestOperatorVersion.CallUnary(ctx, req)
-}
-
-// GalaxyGetClusterPerspective calls api.v1.K8SService.GalaxyGetClusterPerspective.
-func (c *k8SServiceClient) GalaxyGetClusterPerspective(ctx context.Context, req *connect.Request[v1.GalaxyGetClusterPerspectiveRequest]) (*connect.Response[v1.GalaxyGetClusterPerspectiveResponse], error) {
-	return c.galaxyGetClusterPerspective.CallUnary(ctx, req)
-}
-
-// GalaxyGetNodePerspective calls api.v1.K8SService.GalaxyGetNodePerspective.
-func (c *k8SServiceClient) GalaxyGetNodePerspective(ctx context.Context, req *connect.Request[v1.GalaxyGetNodePerspectiveRequest]) (*connect.Response[v1.GalaxyGetNodePerspectiveResponse], error) {
-	return c.galaxyGetNodePerspective.CallUnary(ctx, req)
 }
 
 // GalaxyGetWorkloadPerspective calls api.v1.K8SService.GalaxyGetWorkloadPerspective.
@@ -590,11 +726,41 @@ func (c *k8SServiceClient) GetRelationsForKind(ctx context.Context, req *connect
 	return c.getRelationsForKind.CallUnary(ctx, req)
 }
 
+// LookupNodeInstance calls api.v1.K8SService.LookupNodeInstance.
+func (c *k8SServiceClient) LookupNodeInstance(ctx context.Context, req *connect.Request[v1.LookupNodeInstanceRequest]) (*connect.Response[v1.LookupNodeInstanceResponse], error) {
+	return c.lookupNodeInstance.CallUnary(ctx, req)
+}
+
+// GetWorkloadPodHistory calls api.v1.K8SService.GetWorkloadPodHistory.
+func (c *k8SServiceClient) GetWorkloadPodHistory(ctx context.Context, req *connect.Request[v1.GetWorkloadPodHistoryRequest]) (*connect.Response[v1.GetWorkloadPodHistoryResponse], error) {
+	return c.getWorkloadPodHistory.CallUnary(ctx, req)
+}
+
+// AddClusterTags calls api.v1.K8SService.AddClusterTags.
+func (c *k8SServiceClient) AddClusterTags(ctx context.Context, req *connect.Request[v1.AddClusterTagsRequest]) (*connect.Response[v1.AddClusterTagsResponse], error) {
+	return c.addClusterTags.CallUnary(ctx, req)
+}
+
+// RemoveClusterTags calls api.v1.K8SService.RemoveClusterTags.
+func (c *k8SServiceClient) RemoveClusterTags(ctx context.Context, req *connect.Request[v1.RemoveClusterTagsRequest]) (*connect.Response[v1.RemoveClusterTagsResponse], error) {
+	return c.removeClusterTags.CallUnary(ctx, req)
+}
+
+// ListTags calls api.v1.K8SService.ListTags.
+func (c *k8SServiceClient) ListTags(ctx context.Context, req *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error) {
+	return c.listTags.CallUnary(ctx, req)
+}
+
 // K8SServiceHandler is an implementation of the api.v1.K8SService service.
 type K8SServiceHandler interface {
+	// GetWorkloadsStats retrieves stats for workloads in a specific cluster.
+	GetWorkloadsStats(context.Context, *connect.Request[v1.GetWorkloadsStatsRequest]) (*connect.Response[v1.GetWorkloadsStatsResponse], error)
 	// GetClusters retrieves all clusters for a team.
 	GetClusters(context.Context, *connect.Request[v1.GetClustersRequest]) (*connect.Response[v1.GetClustersResponse], error)
 	// ListClusters retrieves clusters for a team with pagination.
+	// Deprecated: Use GetClusters instead.
+	//
+	// Deprecated: do not use.
 	ListClusters(context.Context, *connect.Request[v1.ListClustersRequest]) (*connect.Response[v1.ListClustersResponse], error)
 	// GetCluster retrieves detailed information for a specific cluster.
 	GetCluster(context.Context, *connect.Request[v1.GetClusterRequest]) (*connect.Response[v1.GetClusterResponse], error)
@@ -602,6 +768,10 @@ type K8SServiceHandler interface {
 	GetClusterMetadata(context.Context, *connect.Request[v1.GetClusterMetadataRequest]) (*connect.Response[v1.GetClusterMetadataResponse], error)
 	// GetAllNamespaces returns a list of all namespaces for a teamID; if cluster list is empty, returns all.
 	GetAllNamespaces(context.Context, *connect.Request[v1.GetAllNamespacesRequest]) (*connect.Response[v1.GetAllNamespacesResponse], error)
+	// SearchNamespacesByCluster searches namespaces by name within a single cluster.
+	SearchNamespacesByCluster(context.Context, *connect.Request[v1.SearchNamespacesByClusterRequest]) (*connect.Response[v1.SearchNamespacesByClusterResponse], error)
+	// ListNamespacesByCluster lists namespaces (id and name) within a single cluster.
+	ListNamespacesByCluster(context.Context, *connect.Request[v1.ListNamespacesByClusterRequest]) (*connect.Response[v1.ListNamespacesByClusterResponse], error)
 	// GetAllWorkloadNames returns a list of all workload names for a team ID; if cluster list is empty, returns all.
 	GetAllWorkloadNames(context.Context, *connect.Request[v1.GetAllWorkloadNamesRequest]) (*connect.Response[v1.GetAllWorkloadNamesResponse], error)
 	// GetAllWorkloadLabels returns all workload labels for a team ID; if cluster list is empty, returns all.
@@ -623,17 +793,28 @@ type K8SServiceHandler interface {
 	GetWorkloads(context.Context, *connect.Request[v1.GetWorkloadsRequest]) (*connect.Response[v1.GetWorkloadsResponse], error)
 	// GetWorkload retrieves detailed information for a specific workload.
 	GetWorkload(context.Context, *connect.Request[v1.GetWorkloadRequest]) (*connect.Response[v1.GetWorkloadResponse], error)
+	// GetWorkloadContainerPercentiles retrieves per-container percentile metrics for a workload.
+	//
+	// Note: fs_* and current_* fields in the response are no longer populated.
+	// Prefer GetLatestContainerRequestLimits for progressive loading of request/limit values.
+	GetWorkloadContainerPercentiles(context.Context, *connect.Request[v1.GetWorkloadContainerPercentilesRequest]) (*connect.Response[v1.GetWorkloadContainerPercentilesResponse], error)
+	// GetWorkloadContainerTimeSeries retrieves per-container time-series resource metrics for a workload.
+	GetWorkloadContainerTimeSeries(context.Context, *connect.Request[v1.GetWorkloadContainerTimeSeriesRequest]) (*connect.Response[v1.GetWorkloadContainerTimeSeriesResponse], error)
+	// GetLatestContainerRequestLimits retrieves the most recent request/limit values per container for a workload.
+	GetLatestContainerRequestLimits(context.Context, *connect.Request[v1.GetLatestContainerRequestLimitsRequest]) (*connect.Response[v1.GetLatestContainerRequestLimitsResponse], error)
 	// GetForecastWorkloads retrieves all workloads for a specific cluster.
+	//
+	// Deprecated: do not use.
 	GetForecastWorkloads(context.Context, *connect.Request[v1.GetForecastWorkloadsRequest]) (*connect.Response[v1.GetForecastWorkloadsResponse], error)
 	// GetForecastWorkload retrieves detailed information for a specific workload.
+	//
+	// Deprecated: do not use.
 	GetForecastWorkload(context.Context, *connect.Request[v1.GetForecastWorkloadRequest]) (*connect.Response[v1.GetForecastWorkloadResponse], error)
 	// GetResources retrivers specific resource and their details from db, simulating informer.
 	GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error)
 	// GetPods retrieves Pod resources and their details from db.
 	GetPods(context.Context, *connect.Request[v1.GetPodsRequest]) (*connect.Response[v1.GetPodsResponse], error)
 	GetLatestOperatorVersion(context.Context, *connect.Request[v1.GetLatestOperatorVersionRequest]) (*connect.Response[v1.GetLatestOperatorVersionResponse], error)
-	GalaxyGetClusterPerspective(context.Context, *connect.Request[v1.GalaxyGetClusterPerspectiveRequest]) (*connect.Response[v1.GalaxyGetClusterPerspectiveResponse], error)
-	GalaxyGetNodePerspective(context.Context, *connect.Request[v1.GalaxyGetNodePerspectiveRequest]) (*connect.Response[v1.GalaxyGetNodePerspectiveResponse], error)
 	GalaxyGetWorkloadPerspective(context.Context, *connect.Request[v1.GalaxyGetWorkloadPerspectiveRequest]) (*connect.Response[v1.GalaxyGetWorkloadPerspectiveResponse], error)
 	ListAuditLogs(context.Context, *connect.Request[v1.ListAuditLogsRequest]) (*connect.Response[v1.ListAuditLogsResponse], error)
 	ListAuditLogOriginators(context.Context, *connect.Request[v1.ListAuditLogOriginatorsRequest]) (*connect.Response[v1.ListAuditLogOriginatorsResponse], error)
@@ -648,6 +829,16 @@ type K8SServiceHandler interface {
 	GetClusterType(context.Context, *connect.Request[v1.GetClusterTypeRequest]) (*connect.Response[v1.GetClusterTypeResponse], error)
 	// GetDeploymentRelations retrieves all relations for a specific deployment.
 	GetRelationsForKind(context.Context, *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error)
+	// LookupNodeInstance retrieves instance information for a node, including both dynamic cache lookup and cached instance data
+	LookupNodeInstance(context.Context, *connect.Request[v1.LookupNodeInstanceRequest]) (*connect.Response[v1.LookupNodeInstanceResponse], error)
+	// GetWorkloadPodHistory retrieves historical pods for a workload.
+	GetWorkloadPodHistory(context.Context, *connect.Request[v1.GetWorkloadPodHistoryRequest]) (*connect.Response[v1.GetWorkloadPodHistoryResponse], error)
+	// AddClusterTags adds tags to a cluster.
+	AddClusterTags(context.Context, *connect.Request[v1.AddClusterTagsRequest]) (*connect.Response[v1.AddClusterTagsResponse], error)
+	// RemoveClusterTags removes tags from a cluster.
+	RemoveClusterTags(context.Context, *connect.Request[v1.RemoveClusterTagsRequest]) (*connect.Response[v1.RemoveClusterTagsResponse], error)
+	// ListTags lists all tags for a team.
+	ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error)
 }
 
 // NewK8SServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -656,6 +847,11 @@ type K8SServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	k8SServiceGetWorkloadsStatsHandler := connect.NewUnaryHandler(
+		K8SServiceGetWorkloadsStatsProcedure,
+		svc.GetWorkloadsStats,
+		opts...,
+	)
 	k8SServiceGetClustersHandler := connect.NewUnaryHandler(
 		K8SServiceGetClustersProcedure,
 		svc.GetClusters,
@@ -679,6 +875,16 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 	k8SServiceGetAllNamespacesHandler := connect.NewUnaryHandler(
 		K8SServiceGetAllNamespacesProcedure,
 		svc.GetAllNamespaces,
+		opts...,
+	)
+	k8SServiceSearchNamespacesByClusterHandler := connect.NewUnaryHandler(
+		K8SServiceSearchNamespacesByClusterProcedure,
+		svc.SearchNamespacesByCluster,
+		opts...,
+	)
+	k8SServiceListNamespacesByClusterHandler := connect.NewUnaryHandler(
+		K8SServiceListNamespacesByClusterProcedure,
+		svc.ListNamespacesByCluster,
 		opts...,
 	)
 	k8SServiceGetAllWorkloadNamesHandler := connect.NewUnaryHandler(
@@ -736,6 +942,21 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 		svc.GetWorkload,
 		opts...,
 	)
+	k8SServiceGetWorkloadContainerPercentilesHandler := connect.NewUnaryHandler(
+		K8SServiceGetWorkloadContainerPercentilesProcedure,
+		svc.GetWorkloadContainerPercentiles,
+		opts...,
+	)
+	k8SServiceGetWorkloadContainerTimeSeriesHandler := connect.NewUnaryHandler(
+		K8SServiceGetWorkloadContainerTimeSeriesProcedure,
+		svc.GetWorkloadContainerTimeSeries,
+		opts...,
+	)
+	k8SServiceGetLatestContainerRequestLimitsHandler := connect.NewUnaryHandler(
+		K8SServiceGetLatestContainerRequestLimitsProcedure,
+		svc.GetLatestContainerRequestLimits,
+		opts...,
+	)
 	k8SServiceGetForecastWorkloadsHandler := connect.NewUnaryHandler(
 		K8SServiceGetForecastWorkloadsProcedure,
 		svc.GetForecastWorkloads,
@@ -759,16 +980,6 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 	k8SServiceGetLatestOperatorVersionHandler := connect.NewUnaryHandler(
 		K8SServiceGetLatestOperatorVersionProcedure,
 		svc.GetLatestOperatorVersion,
-		opts...,
-	)
-	k8SServiceGalaxyGetClusterPerspectiveHandler := connect.NewUnaryHandler(
-		K8SServiceGalaxyGetClusterPerspectiveProcedure,
-		svc.GalaxyGetClusterPerspective,
-		opts...,
-	)
-	k8SServiceGalaxyGetNodePerspectiveHandler := connect.NewUnaryHandler(
-		K8SServiceGalaxyGetNodePerspectiveProcedure,
-		svc.GalaxyGetNodePerspective,
 		opts...,
 	)
 	k8SServiceGalaxyGetWorkloadPerspectiveHandler := connect.NewUnaryHandler(
@@ -821,8 +1032,35 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 		svc.GetRelationsForKind,
 		opts...,
 	)
+	k8SServiceLookupNodeInstanceHandler := connect.NewUnaryHandler(
+		K8SServiceLookupNodeInstanceProcedure,
+		svc.LookupNodeInstance,
+		opts...,
+	)
+	k8SServiceGetWorkloadPodHistoryHandler := connect.NewUnaryHandler(
+		K8SServiceGetWorkloadPodHistoryProcedure,
+		svc.GetWorkloadPodHistory,
+		opts...,
+	)
+	k8SServiceAddClusterTagsHandler := connect.NewUnaryHandler(
+		K8SServiceAddClusterTagsProcedure,
+		svc.AddClusterTags,
+		opts...,
+	)
+	k8SServiceRemoveClusterTagsHandler := connect.NewUnaryHandler(
+		K8SServiceRemoveClusterTagsProcedure,
+		svc.RemoveClusterTags,
+		opts...,
+	)
+	k8SServiceListTagsHandler := connect.NewUnaryHandler(
+		K8SServiceListTagsProcedure,
+		svc.ListTags,
+		opts...,
+	)
 	return "/api.v1.K8SService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case K8SServiceGetWorkloadsStatsProcedure:
+			k8SServiceGetWorkloadsStatsHandler.ServeHTTP(w, r)
 		case K8SServiceGetClustersProcedure:
 			k8SServiceGetClustersHandler.ServeHTTP(w, r)
 		case K8SServiceListClustersProcedure:
@@ -833,6 +1071,10 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 			k8SServiceGetClusterMetadataHandler.ServeHTTP(w, r)
 		case K8SServiceGetAllNamespacesProcedure:
 			k8SServiceGetAllNamespacesHandler.ServeHTTP(w, r)
+		case K8SServiceSearchNamespacesByClusterProcedure:
+			k8SServiceSearchNamespacesByClusterHandler.ServeHTTP(w, r)
+		case K8SServiceListNamespacesByClusterProcedure:
+			k8SServiceListNamespacesByClusterHandler.ServeHTTP(w, r)
 		case K8SServiceGetAllWorkloadNamesProcedure:
 			k8SServiceGetAllWorkloadNamesHandler.ServeHTTP(w, r)
 		case K8SServiceGetAllWorkloadLabelsProcedure:
@@ -855,6 +1097,12 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 			k8SServiceGetWorkloadsHandler.ServeHTTP(w, r)
 		case K8SServiceGetWorkloadProcedure:
 			k8SServiceGetWorkloadHandler.ServeHTTP(w, r)
+		case K8SServiceGetWorkloadContainerPercentilesProcedure:
+			k8SServiceGetWorkloadContainerPercentilesHandler.ServeHTTP(w, r)
+		case K8SServiceGetWorkloadContainerTimeSeriesProcedure:
+			k8SServiceGetWorkloadContainerTimeSeriesHandler.ServeHTTP(w, r)
+		case K8SServiceGetLatestContainerRequestLimitsProcedure:
+			k8SServiceGetLatestContainerRequestLimitsHandler.ServeHTTP(w, r)
 		case K8SServiceGetForecastWorkloadsProcedure:
 			k8SServiceGetForecastWorkloadsHandler.ServeHTTP(w, r)
 		case K8SServiceGetForecastWorkloadProcedure:
@@ -865,10 +1113,6 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 			k8SServiceGetPodsHandler.ServeHTTP(w, r)
 		case K8SServiceGetLatestOperatorVersionProcedure:
 			k8SServiceGetLatestOperatorVersionHandler.ServeHTTP(w, r)
-		case K8SServiceGalaxyGetClusterPerspectiveProcedure:
-			k8SServiceGalaxyGetClusterPerspectiveHandler.ServeHTTP(w, r)
-		case K8SServiceGalaxyGetNodePerspectiveProcedure:
-			k8SServiceGalaxyGetNodePerspectiveHandler.ServeHTTP(w, r)
 		case K8SServiceGalaxyGetWorkloadPerspectiveProcedure:
 			k8SServiceGalaxyGetWorkloadPerspectiveHandler.ServeHTTP(w, r)
 		case K8SServiceListAuditLogsProcedure:
@@ -889,6 +1133,16 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 			k8SServiceGetClusterTypeHandler.ServeHTTP(w, r)
 		case K8SServiceGetRelationsForKindProcedure:
 			k8SServiceGetRelationsForKindHandler.ServeHTTP(w, r)
+		case K8SServiceLookupNodeInstanceProcedure:
+			k8SServiceLookupNodeInstanceHandler.ServeHTTP(w, r)
+		case K8SServiceGetWorkloadPodHistoryProcedure:
+			k8SServiceGetWorkloadPodHistoryHandler.ServeHTTP(w, r)
+		case K8SServiceAddClusterTagsProcedure:
+			k8SServiceAddClusterTagsHandler.ServeHTTP(w, r)
+		case K8SServiceRemoveClusterTagsProcedure:
+			k8SServiceRemoveClusterTagsHandler.ServeHTTP(w, r)
+		case K8SServiceListTagsProcedure:
+			k8SServiceListTagsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -897,6 +1151,10 @@ func NewK8SServiceHandler(svc K8SServiceHandler, opts ...connect.HandlerOption) 
 
 // UnimplementedK8SServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedK8SServiceHandler struct{}
+
+func (UnimplementedK8SServiceHandler) GetWorkloadsStats(context.Context, *connect.Request[v1.GetWorkloadsStatsRequest]) (*connect.Response[v1.GetWorkloadsStatsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetWorkloadsStats is not implemented"))
+}
 
 func (UnimplementedK8SServiceHandler) GetClusters(context.Context, *connect.Request[v1.GetClustersRequest]) (*connect.Response[v1.GetClustersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetClusters is not implemented"))
@@ -916,6 +1174,14 @@ func (UnimplementedK8SServiceHandler) GetClusterMetadata(context.Context, *conne
 
 func (UnimplementedK8SServiceHandler) GetAllNamespaces(context.Context, *connect.Request[v1.GetAllNamespacesRequest]) (*connect.Response[v1.GetAllNamespacesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetAllNamespaces is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) SearchNamespacesByCluster(context.Context, *connect.Request[v1.SearchNamespacesByClusterRequest]) (*connect.Response[v1.SearchNamespacesByClusterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.SearchNamespacesByCluster is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) ListNamespacesByCluster(context.Context, *connect.Request[v1.ListNamespacesByClusterRequest]) (*connect.Response[v1.ListNamespacesByClusterResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.ListNamespacesByCluster is not implemented"))
 }
 
 func (UnimplementedK8SServiceHandler) GetAllWorkloadNames(context.Context, *connect.Request[v1.GetAllWorkloadNamesRequest]) (*connect.Response[v1.GetAllWorkloadNamesResponse], error) {
@@ -962,6 +1228,18 @@ func (UnimplementedK8SServiceHandler) GetWorkload(context.Context, *connect.Requ
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetWorkload is not implemented"))
 }
 
+func (UnimplementedK8SServiceHandler) GetWorkloadContainerPercentiles(context.Context, *connect.Request[v1.GetWorkloadContainerPercentilesRequest]) (*connect.Response[v1.GetWorkloadContainerPercentilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetWorkloadContainerPercentiles is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) GetWorkloadContainerTimeSeries(context.Context, *connect.Request[v1.GetWorkloadContainerTimeSeriesRequest]) (*connect.Response[v1.GetWorkloadContainerTimeSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetWorkloadContainerTimeSeries is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) GetLatestContainerRequestLimits(context.Context, *connect.Request[v1.GetLatestContainerRequestLimitsRequest]) (*connect.Response[v1.GetLatestContainerRequestLimitsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetLatestContainerRequestLimits is not implemented"))
+}
+
 func (UnimplementedK8SServiceHandler) GetForecastWorkloads(context.Context, *connect.Request[v1.GetForecastWorkloadsRequest]) (*connect.Response[v1.GetForecastWorkloadsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetForecastWorkloads is not implemented"))
 }
@@ -980,14 +1258,6 @@ func (UnimplementedK8SServiceHandler) GetPods(context.Context, *connect.Request[
 
 func (UnimplementedK8SServiceHandler) GetLatestOperatorVersion(context.Context, *connect.Request[v1.GetLatestOperatorVersionRequest]) (*connect.Response[v1.GetLatestOperatorVersionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetLatestOperatorVersion is not implemented"))
-}
-
-func (UnimplementedK8SServiceHandler) GalaxyGetClusterPerspective(context.Context, *connect.Request[v1.GalaxyGetClusterPerspectiveRequest]) (*connect.Response[v1.GalaxyGetClusterPerspectiveResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GalaxyGetClusterPerspective is not implemented"))
-}
-
-func (UnimplementedK8SServiceHandler) GalaxyGetNodePerspective(context.Context, *connect.Request[v1.GalaxyGetNodePerspectiveRequest]) (*connect.Response[v1.GalaxyGetNodePerspectiveResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GalaxyGetNodePerspective is not implemented"))
 }
 
 func (UnimplementedK8SServiceHandler) GalaxyGetWorkloadPerspective(context.Context, *connect.Request[v1.GalaxyGetWorkloadPerspectiveRequest]) (*connect.Response[v1.GalaxyGetWorkloadPerspectiveResponse], error) {
@@ -1028,6 +1298,26 @@ func (UnimplementedK8SServiceHandler) GetClusterType(context.Context, *connect.R
 
 func (UnimplementedK8SServiceHandler) GetRelationsForKind(context.Context, *connect.Request[v1.GetRelatedResourcesRequest]) (*connect.Response[v1.GetRelatedResourcesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetRelationsForKind is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) LookupNodeInstance(context.Context, *connect.Request[v1.LookupNodeInstanceRequest]) (*connect.Response[v1.LookupNodeInstanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.LookupNodeInstance is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) GetWorkloadPodHistory(context.Context, *connect.Request[v1.GetWorkloadPodHistoryRequest]) (*connect.Response[v1.GetWorkloadPodHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.GetWorkloadPodHistory is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) AddClusterTags(context.Context, *connect.Request[v1.AddClusterTagsRequest]) (*connect.Response[v1.AddClusterTagsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.AddClusterTags is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) RemoveClusterTags(context.Context, *connect.Request[v1.RemoveClusterTagsRequest]) (*connect.Response[v1.RemoveClusterTagsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.RemoveClusterTags is not implemented"))
+}
+
+func (UnimplementedK8SServiceHandler) ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8SService.ListTags is not implemented"))
 }
 
 // ClusterMutationServiceClient is a client for the api.v1.ClusterMutationService service.
