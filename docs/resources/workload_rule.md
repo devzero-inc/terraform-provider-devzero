@@ -3,19 +3,17 @@
 page_title: "devzero_workload_rule Resource - devzero"
 subcategory: ""
 description: |-
-  Manages a DevZero workload rule that pins explicit resource rules directly to a single Kubernetes workload.
+  Manages a DevZero workload rule that configures vertical and horizontal scaling for a specific Kubernetes workload.
 ---
 
 # devzero_workload_rule (Resource)
 
-Pins explicit resource rules directly to a single workload (a specific `kind/namespace/name` on a cluster). Unlike `devzero_workload_policy`, which applies a shared policy to many workloads via a target, a `devzero_workload_rule` targets one workload and lets you override CPU, memory, GPU, and HPA settings with precise values.
-
-Set `auto_generate = true` to have the engine automatically compute all rule fields from observed usage. Omit it (or set it to `false`) to provide your own values via `cpu_rule`, `memory_rule`, `hpa_rule`, etc.
+Manages a DevZero workload rule that configures vertical and horizontal scaling for a specific Kubernetes workload.
 
 ## Example Usage
 
 ```terraform
-# Auto-generate all fields from observed usage
+# Minimal — auto-generate all fields
 resource "devzero_workload_rule" "auto" {
   cluster_id    = "<YOUR_CLUSTER_ID>"
   namespace     = "production"
@@ -31,13 +29,14 @@ resource "devzero_workload_rule" "manual" {
   kind       = "Deployment"
   name       = "my-api"
 
-  action_triggers    = ["on_detection"]
-  detection_triggers = ["pod_creation", "pod_update"]
+  action_triggers    = ["on_schedule"]
+  cron_schedule      = "0 2 * * *"
   cooldown_minutes   = 60
+  detection_triggers = ["pod_creation", "pod_update"]
 
   cpu_rule = {
     enabled                   = true
-    min_request               = 10
+    min_request               = 100
     max_request               = 4000
     target_percentile         = 0.95
     limits_adjustment_enabled = true
@@ -45,9 +44,11 @@ resource "devzero_workload_rule" "manual" {
   }
 
   memory_rule = {
-    enabled     = true
-    min_request = 67108864  # 64Mi in bytes
-    max_request = 536870912 # 512Mi in bytes
+    enabled                   = true
+    min_request               = 134217728  # 128Mi in bytes
+    max_request               = 2147483648 # 2Gi in bytes
+    target_percentile         = 0.9
+    limits_adjustment_enabled = true
   }
 
   hpa_rule = {
@@ -60,19 +61,19 @@ resource "devzero_workload_rule" "manual" {
 
   emergency_response = {
     oom_enabled               = true
-    oom_memory_multiplier     = 1.5
+    oom_memory_multiplier     = 2.0
     oom_max_reactions         = 3
     oom_cooldown_seconds      = 60
     cpu_throttling_enabled    = true
-    cpu_throttling_threshold  = 0.1
-    cpu_throttling_multiplier = 1.25
+    cpu_throttling_threshold  = 0.8
+    cpu_throttling_multiplier = 1.5
   }
 
   live_migration_enabled        = false
   use_in_place_vertical_scaling = false
 }
 
-# Per-container resource overrides
+# Per-container rules
 resource "devzero_workload_rule" "per_container" {
   cluster_id = "<YOUR_CLUSTER_ID>"
   namespace  = "production"
@@ -112,148 +113,59 @@ resource "devzero_workload_rule" "per_container" {
 
 ### Required
 
-- `cluster_id` (String) ID of the cluster this rule targets.
-- `kind` (String) Kubernetes workload kind. One of: `Deployment`, `StatefulSet`, `DaemonSet`, `CronJob`, `Job`.
-- `name` (String) Name of the Kubernetes workload.
-- `namespace` (String) Kubernetes namespace of the workload.
+- `cluster_id` (String) ID of the cluster this rule targets
+- `kind` (String) Kubernetes workload kind
+- `name` (String) Name of the Kubernetes workload
+- `namespace` (String) Kubernetes namespace of the workload
 
 ### Optional
 
-- `action_triggers` (List of String) When to apply recommendations. Valid values: `on_detection`, `on_schedule`.
-- `auto_generate` (Boolean) When `true`, the engine generates all rule fields automatically from observed usage; manual field overrides are ignored.
+- `action_triggers` (List of String) When to apply recommendations. Valid values: 'on_detection', 'on_schedule'
+- `auto_generate` (Boolean) When true the engine generates all rule fields automatically; manual field overrides are ignored
 - `containers` (Attributes List) Per-container resource rule configurations. When empty, workload-level rules apply to all containers. (see [below for nested schema](#nestedatt--containers))
-- `cooldown_minutes` (Number) Minimum minutes between consecutive recommendation applications.
-- `cpu_rule` (Attributes) CPU vertical scaling rule configuration. (see [below for nested schema](#nestedatt--cpu_rule))
-- `cron_schedule` (String) Cron expression for scheduled application (5-field UTC). Required when `action_triggers` includes `on_schedule`.
-- `defragmentation_schedule` (String) Cron expression for node defragmentation.
-- `detection_triggers` (List of String) Events that trigger a recommendation. Valid values: `pod_creation`, `pod_update`.
-- `emergency_response` (Attributes) Emergency response configuration for OOM and CPU throttle events. (see [below for nested schema](#nestedatt--emergency_response))
-- `gpu_rule` (Attributes) GPU vertical scaling rule configuration (units: GPU millicores). (see [below for nested schema](#nestedatt--gpu_rule))
-- `hpa_rule` (Attributes) Horizontal (replica) scaling rule configuration. (see [below for nested schema](#nestedatt--hpa_rule))
-- `live_migration_enabled` (Boolean) Allow live pod migration when applying recommendations without restart.
-- `memory_rule` (Attributes) Memory vertical scaling rule configuration. (see [below for nested schema](#nestedatt--memory_rule))
-- `scheduler_plugins` (List of String) Kubernetes scheduler plugins to activate. Example: `["binpacking"]`.
-- `startup_period_seconds` (Number) Seconds after workload start to exclude from usage data.
-- `use_in_place_vertical_scaling` (Boolean) Use in-place pod vertical scaling instead of pod restarts.
+- `cooldown_minutes` (Number) Minimum minutes between consecutive recommendation applications
+- `cpu_rule` (Attributes) CPU vertical scaling rule configuration (see [below for nested schema](#nestedatt--cpu_rule))
+- `cron_schedule` (String) Cron expression for scheduled application (5-field UTC)
+- `defragmentation_schedule` (String) Cron expression for node defragmentation
+- `detection_triggers` (List of String) Events that trigger a recommendation. Valid values: 'pod_creation', 'pod_update'
+- `emergency_response` (Attributes) Emergency response configuration for OOM and CPU throttle events (see [below for nested schema](#nestedatt--emergency_response))
+- `gpu_rule` (Attributes) GPU vertical scaling rule configuration (see [below for nested schema](#nestedatt--gpu_rule))
+- `hpa_rule` (Attributes) Horizontal (replica) scaling rule configuration (see [below for nested schema](#nestedatt--hpa_rule))
+- `live_migration_enabled` (Boolean) Allow live pod migration when applying recommendations
+- `memory_rule` (Attributes) Memory vertical scaling rule configuration (see [below for nested schema](#nestedatt--memory_rule))
+- `scheduler_plugins` (List of String) Kubernetes scheduler plugins to activate
+- `startup_period_seconds` (Number) Seconds after workload start to exclude from usage data
+- `use_in_place_vertical_scaling` (Boolean) Use in-place pod vertical scaling instead of pod restarts
 
 ### Read-Only
 
-- `id` (String) Unique identifier of the workload rule. Managed by the provider.
-
-<a id="nestedatt--cpu_rule"></a>
-### Nested Schema for `cpu_rule`
-
-Optional:
-
-- `enabled` (Boolean) Enable this resource axis rule.
-- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit. Example: `1.5` means limit = 1.5 × request.
-- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests.
-- `limits_removal_enabled` (Boolean) Actively remove limits from workloads.
-- `max_request` (Number) Maximum resource request in millicores (CPU).
-- `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle. Workload-level only.
-- `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle. Workload-level only.
-- `min_request` (Number) Minimum resource request in millicores (CPU).
-- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0–1). Example: `0.95`.
-
-
-<a id="nestedatt--memory_rule"></a>
-### Nested Schema for `memory_rule`
-
-Optional:
-
-- `enabled` (Boolean) Enable this resource axis rule.
-- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit.
-- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests.
-- `limits_removal_enabled` (Boolean) Actively remove limits from workloads.
-- `max_request` (Number) Maximum resource request in bytes (memory).
-- `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle. Workload-level only.
-- `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle. Workload-level only.
-- `min_request` (Number) Minimum resource request in bytes (memory).
-- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0–1).
-
-
-<a id="nestedatt--gpu_rule"></a>
-### Nested Schema for `gpu_rule`
-
-Optional:
-
-- `enabled` (Boolean) Enable this resource axis rule.
-- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit.
-- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests.
-- `limits_removal_enabled` (Boolean) Actively remove limits from workloads.
-- `max_request` (Number) Maximum resource request in GPU millicores.
-- `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle. Workload-level only.
-- `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle. Workload-level only.
-- `min_request` (Number) Minimum resource request in GPU millicores.
-- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0–1).
-
-
-<a id="nestedatt--hpa_rule"></a>
-### Nested Schema for `hpa_rule`
-
-Optional:
-
-- `enabled` (Boolean) Enable horizontal (replica) scaling.
-- `max_replica_change_percent` (Number) Maximum percentage change in replica count per cycle.
-- `max_replicas` (Number) Maximum number of replicas.
-- `min_replicas` (Number) Minimum number of replicas.
-- `primary_metric` (String) Primary metric for HPA. One of: `cpu`, `memory`, `gpu`, `network_ingress`, `network_egress`.
-- `target_utilization` (Number) Target utilization ratio (0–1) for the primary metric. Example: `0.7`.
-
-
-<a id="nestedatt--emergency_response"></a>
-### Nested Schema for `emergency_response`
-
-Optional:
-
-- `cpu_throttling_enabled` (Boolean) React to CPU throttling by increasing CPU requests.
-- `cpu_throttling_multiplier` (Number) Multiplier applied to CPU request on throttle reaction. Example: `1.25`.
-- `cpu_throttling_threshold` (Number) Throttle ratio (0–1) that triggers a reaction. Example: `0.1`.
-- `oom_cooldown_seconds` (Number) Seconds to wait between OOM reactions.
-- `oom_enabled` (Boolean) React to OOM kills by increasing memory requests.
-- `oom_max_reactions` (Number) Maximum number of OOM reactions before giving up.
-- `oom_memory_multiplier` (Number) Multiplier applied to memory on OOM. Example: `1.5`.
-
+- `id` (String) Unique identifier of the workload rule
 
 <a id="nestedatt--containers"></a>
 ### Nested Schema for `containers`
 
 Required:
 
-- `container_name` (String) Name of the container this config applies to.
+- `container_name` (String) Name of the container this config applies to
 
 Optional:
 
-- `cpu_rule` (Attributes) CPU resource rule for this container. (see [below for nested schema](#nestedatt--containers--cpu_rule))
-- `gpu_rule` (Attributes) GPU resource rule for this container. (see [below for nested schema](#nestedatt--containers--gpu_rule))
-- `memory_rule` (Attributes) Memory resource rule for this container. (see [below for nested schema](#nestedatt--containers--memory_rule))
+- `cpu_rule` (Attributes) CPU resource rule for this container (see [below for nested schema](#nestedatt--containers--cpu_rule))
+- `gpu_rule` (Attributes) GPU resource rule for this container (see [below for nested schema](#nestedatt--containers--gpu_rule))
+- `memory_rule` (Attributes) Memory resource rule for this container (see [below for nested schema](#nestedatt--containers--memory_rule))
 
 <a id="nestedatt--containers--cpu_rule"></a>
 ### Nested Schema for `containers.cpu_rule`
 
 Optional:
 
-- `enabled` (Boolean) Enable this resource axis rule.
-- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit.
-- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests.
-- `limits_removal_enabled` (Boolean) Actively remove limits from workloads.
-- `max_request` (Number) Maximum resource request in millicores (CPU).
-- `min_request` (Number) Minimum resource request in millicores (CPU).
-- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0–1).
-
-
-<a id="nestedatt--containers--memory_rule"></a>
-### Nested Schema for `containers.memory_rule`
-
-Optional:
-
-- `enabled` (Boolean) Enable this resource axis rule.
-- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit.
-- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests.
-- `limits_removal_enabled` (Boolean) Actively remove limits from workloads.
-- `max_request` (Number) Maximum resource request in bytes (memory).
-- `min_request` (Number) Minimum resource request in bytes (memory).
-- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0–1).
+- `enabled` (Boolean) Enable this resource axis rule
+- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
+- `limits_removal_enabled` (Boolean) Actively remove limits from workloads
+- `max_request` (Number) Maximum resource request
+- `min_request` (Number) Minimum resource request
+- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 
 <a id="nestedatt--containers--gpu_rule"></a>
@@ -261,14 +173,103 @@ Optional:
 
 Optional:
 
-- `enabled` (Boolean) Enable this resource axis rule.
-- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit.
-- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests.
-- `limits_removal_enabled` (Boolean) Actively remove limits from workloads.
-- `max_request` (Number) Maximum resource request in GPU millicores.
-- `min_request` (Number) Minimum resource request in GPU millicores.
-- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0–1).
+- `enabled` (Boolean) Enable this resource axis rule
+- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
+- `limits_removal_enabled` (Boolean) Actively remove limits from workloads
+- `max_request` (Number) Maximum resource request
+- `min_request` (Number) Minimum resource request
+- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
+
+<a id="nestedatt--containers--memory_rule"></a>
+### Nested Schema for `containers.memory_rule`
+
+Optional:
+
+- `enabled` (Boolean) Enable this resource axis rule
+- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
+- `limits_removal_enabled` (Boolean) Actively remove limits from workloads
+- `max_request` (Number) Maximum resource request
+- `min_request` (Number) Minimum resource request
+- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
+
+
+
+<a id="nestedatt--cpu_rule"></a>
+### Nested Schema for `cpu_rule`
+
+Optional:
+
+- `enabled` (Boolean) Enable this resource axis rule
+- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
+- `limits_removal_enabled` (Boolean) Actively remove limits from workloads
+- `max_request` (Number) Maximum resource request (millicores for CPU, bytes for memory/GPU)
+- `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle
+- `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle
+- `min_request` (Number) Minimum resource request (millicores for CPU, bytes for memory/GPU)
+- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
+
+
+<a id="nestedatt--emergency_response"></a>
+### Nested Schema for `emergency_response`
+
+Optional:
+
+- `cpu_throttling_enabled` (Boolean) React to CPU throttling by increasing CPU request
+- `cpu_throttling_multiplier` (Number) Multiplier applied to CPU request on throttle reaction
+- `cpu_throttling_threshold` (Number) Throttle ratio threshold that triggers a reaction (0-1)
+- `oom_cooldown_seconds` (Number) Seconds to wait between OOM reactions
+- `oom_enabled` (Boolean) React to OOM kills by increasing memory
+- `oom_max_reactions` (Number) Maximum number of OOM reactions before giving up
+- `oom_memory_multiplier` (Number) Multiplier applied to memory on OOM
+
+
+<a id="nestedatt--gpu_rule"></a>
+### Nested Schema for `gpu_rule`
+
+Optional:
+
+- `enabled` (Boolean) Enable this resource axis rule
+- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
+- `limits_removal_enabled` (Boolean) Actively remove limits from workloads
+- `max_request` (Number) Maximum resource request (millicores for CPU, bytes for memory/GPU)
+- `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle
+- `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle
+- `min_request` (Number) Minimum resource request (millicores for CPU, bytes for memory/GPU)
+- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
+
+
+<a id="nestedatt--hpa_rule"></a>
+### Nested Schema for `hpa_rule`
+
+Optional:
+
+- `enabled` (Boolean) Enable horizontal (replica) scaling
+- `max_replica_change_percent` (Number) Maximum percentage change in replica count per cycle
+- `max_replicas` (Number) Maximum number of replicas
+- `min_replicas` (Number) Minimum number of replicas
+- `primary_metric` (String) Primary metric for HPA. One of: 'cpu', 'memory', 'gpu', 'network_ingress', 'network_egress'
+- `target_utilization` (Number) Target utilization ratio (0-1) for the primary metric
+
+
+<a id="nestedatt--memory_rule"></a>
+### Nested Schema for `memory_rule`
+
+Optional:
+
+- `enabled` (Boolean) Enable this resource axis rule
+- `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
+- `limits_removal_enabled` (Boolean) Actively remove limits from workloads
+- `max_request` (Number) Maximum resource request (millicores for CPU, bytes for memory/GPU)
+- `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle
+- `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle
+- `min_request` (Number) Minimum resource request (millicores for CPU, bytes for memory/GPU)
+- `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 ## Import
 
@@ -277,5 +278,5 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
-terraform import devzero_workload_rule.manual <rule_id>
+terraform import devzero_workload_rule.manual <RULE_ID>
 ```
