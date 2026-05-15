@@ -337,6 +337,245 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 	})
 
+	t.Run("HPARuleConfigModel_ToProto_NewFields", func(t *testing.T) {
+		formula := "0.6*cpu + 0.4*memory"
+		m := &HPARuleConfigModel{
+			Enabled:                  types.BoolValue(true),
+			MinReplicas:              types.Int32Value(1),
+			MaxReplicas:              types.Int32Value(5),
+			TargetUtilization:        types.Float32Value(0.7),
+			TargetMemoryUtilization:  types.Float32Value(0.8),
+			PrimaryMetric:            types.StringValue("cpu"),
+			MaxReplicaChangePercent:  types.Float32Null(),
+			ScaleDownCooldownSeconds: types.Int32Value(300),
+			CompositeFormula:         types.StringValue(formula),
+			Metrics: []HPAMetricTriggerModel{
+				{
+					Type:              types.StringValue("prometheus"),
+					TargetUtilization: types.StringNull(),
+					TargetValue:       types.StringValue("100"),
+					Weight:            types.StringValue("0.5"),
+				},
+			},
+			Fallback: &HPAFallbackModel{
+				Replicas:         types.Int32Value(2),
+				Behavior:         types.StringValue("currentReplicasIfHigher"),
+				FailureThreshold: types.Int32Value(3),
+			},
+			Behavior: &HPABehaviorModel{
+				ScaleUp: &HPAScalingRulesModel{
+					StabilizationWindowSeconds: types.Int32Value(0),
+					SelectPolicy:               types.StringValue("Max"),
+					Policies: []HPAScalingPolicyModel{
+						{
+							Type:          types.StringValue("Percent"),
+							Value:         types.Int32Value(100),
+							PeriodSeconds: types.Int32Value(60),
+						},
+					},
+				},
+				ScaleDown: &HPAScalingRulesModel{
+					StabilizationWindowSeconds: types.Int32Value(300),
+					SelectPolicy:               types.StringValue("Min"),
+					Policies:                   nil,
+				},
+			},
+		}
+
+		p := m.toProto()
+		if p == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if p.TargetMemoryUtilization == nil || *p.TargetMemoryUtilization != 0.8 {
+			t.Errorf("Expected TargetMemoryUtilization=0.8, got %v", p.TargetMemoryUtilization)
+		}
+		if p.ScaleDownCooldownSeconds == nil || *p.ScaleDownCooldownSeconds != 300 {
+			t.Errorf("Expected ScaleDownCooldownSeconds=300, got %v", p.ScaleDownCooldownSeconds)
+		}
+		if p.CompositeFormula == nil || *p.CompositeFormula != formula {
+			t.Errorf("Expected CompositeFormula=%q, got %v", formula, p.CompositeFormula)
+		}
+		if len(p.Metrics) != 1 {
+			t.Fatalf("Expected 1 metric trigger, got %d", len(p.Metrics))
+		}
+		if p.Metrics[0].Type != "prometheus" {
+			t.Errorf("Expected metrics[0].Type='prometheus', got %s", p.Metrics[0].Type)
+		}
+		if p.Metrics[0].TargetValue == nil || *p.Metrics[0].TargetValue != "100" {
+			t.Errorf("Expected metrics[0].TargetValue='100', got %v", p.Metrics[0].TargetValue)
+		}
+		if p.Metrics[0].Weight == nil || *p.Metrics[0].Weight != "0.5" {
+			t.Errorf("Expected metrics[0].Weight='0.5', got %v", p.Metrics[0].Weight)
+		}
+		if p.Fallback == nil {
+			t.Fatal("Expected non-nil Fallback")
+		}
+		if p.Fallback.Replicas != 2 {
+			t.Errorf("Expected Fallback.Replicas=2, got %d", p.Fallback.Replicas)
+		}
+		if p.Fallback.Behavior != "currentReplicasIfHigher" {
+			t.Errorf("Expected Fallback.Behavior='currentReplicasIfHigher', got %s", p.Fallback.Behavior)
+		}
+		if p.Fallback.FailureThreshold != 3 {
+			t.Errorf("Expected Fallback.FailureThreshold=3, got %d", p.Fallback.FailureThreshold)
+		}
+		if p.Behavior == nil {
+			t.Fatal("Expected non-nil Behavior")
+		}
+		if p.Behavior.ScaleUp == nil {
+			t.Fatal("Expected non-nil ScaleUp")
+		}
+		if p.Behavior.ScaleUp.SelectPolicy != "Max" {
+			t.Errorf("Expected ScaleUp.SelectPolicy='Max', got %s", p.Behavior.ScaleUp.SelectPolicy)
+		}
+		if len(p.Behavior.ScaleUp.Policies) != 1 {
+			t.Fatalf("Expected 1 scaleUp policy, got %d", len(p.Behavior.ScaleUp.Policies))
+		}
+		if p.Behavior.ScaleUp.Policies[0].Type != "Percent" {
+			t.Errorf("Expected policy.Type='Percent', got %s", p.Behavior.ScaleUp.Policies[0].Type)
+		}
+		if p.Behavior.ScaleUp.Policies[0].Value != 100 {
+			t.Errorf("Expected policy.Value=100, got %d", p.Behavior.ScaleUp.Policies[0].Value)
+		}
+		if p.Behavior.ScaleDown == nil {
+			t.Fatal("Expected non-nil ScaleDown")
+		}
+		if p.Behavior.ScaleDown.StabilizationWindowSeconds != 300 {
+			t.Errorf("Expected ScaleDown.StabilizationWindowSeconds=300, got %d", p.Behavior.ScaleDown.StabilizationWindowSeconds)
+		}
+	})
+
+	t.Run("HPARuleConfigFromProto_NewFields", func(t *testing.T) {
+		memUtil := float32(0.8)
+		cooldown := int32(300)
+		formula := "0.6*cpu + 0.4*memory"
+		targetVal := "100"
+		weight := "0.5"
+
+		p := &apiv1.HPARuleConfig{
+			Enabled:                  true,
+			TargetMemoryUtilization:  &memUtil,
+			ScaleDownCooldownSeconds: &cooldown,
+			CompositeFormula:         &formula,
+			Metrics: []*apiv1.HPAMetricTrigger{
+				{Type: "prometheus", TargetValue: &targetVal, Weight: &weight},
+			},
+			Fallback: &apiv1.HPAFallback{
+				Replicas:         2,
+				Behavior:         "currentReplicasIfHigher",
+				FailureThreshold: 3,
+			},
+			Behavior: &apiv1.HPABehavior{
+				ScaleUp: &apiv1.HPAScalingRules{
+					SelectPolicy: "Max",
+					Policies: []*apiv1.HPAScalingPolicy{
+						{Type: "Percent", Value: 100, PeriodSeconds: 60},
+					},
+				},
+				ScaleDown: &apiv1.HPAScalingRules{
+					StabilizationWindowSeconds: 300,
+					SelectPolicy:               "Min",
+				},
+			},
+		}
+
+		m := hpaRuleConfigFromProto(p)
+		if m == nil {
+			t.Fatal("Expected non-nil model")
+		}
+		if m.TargetMemoryUtilization.ValueFloat32() != 0.8 {
+			t.Errorf("Expected TargetMemoryUtilization=0.8, got %f", m.TargetMemoryUtilization.ValueFloat32())
+		}
+		if m.ScaleDownCooldownSeconds.ValueInt32() != 300 {
+			t.Errorf("Expected ScaleDownCooldownSeconds=300, got %d", m.ScaleDownCooldownSeconds.ValueInt32())
+		}
+		if m.CompositeFormula.ValueString() != formula {
+			t.Errorf("Expected CompositeFormula=%q, got %s", formula, m.CompositeFormula.ValueString())
+		}
+		if len(m.Metrics) != 1 {
+			t.Fatalf("Expected 1 metric, got %d", len(m.Metrics))
+		}
+		if m.Metrics[0].Type.ValueString() != "prometheus" {
+			t.Errorf("Expected metrics[0].Type='prometheus', got %s", m.Metrics[0].Type.ValueString())
+		}
+		if m.Metrics[0].TargetValue.ValueString() != "100" {
+			t.Errorf("Expected metrics[0].TargetValue='100', got %s", m.Metrics[0].TargetValue.ValueString())
+		}
+		if m.Fallback == nil {
+			t.Fatal("Expected non-nil Fallback")
+		}
+		if m.Fallback.Replicas.ValueInt32() != 2 {
+			t.Errorf("Expected Fallback.Replicas=2, got %d", m.Fallback.Replicas.ValueInt32())
+		}
+		if m.Fallback.Behavior.ValueString() != "currentReplicasIfHigher" {
+			t.Errorf("Expected Fallback.Behavior='currentReplicasIfHigher', got %s", m.Fallback.Behavior.ValueString())
+		}
+		if m.Fallback.FailureThreshold.ValueInt32() != 3 {
+			t.Errorf("Expected Fallback.FailureThreshold=3, got %d", m.Fallback.FailureThreshold.ValueInt32())
+		}
+		if m.Behavior == nil {
+			t.Fatal("Expected non-nil Behavior")
+		}
+		if m.Behavior.ScaleUp == nil {
+			t.Fatal("Expected non-nil ScaleUp")
+		}
+		if m.Behavior.ScaleUp.SelectPolicy.ValueString() != "Max" {
+			t.Errorf("Expected ScaleUp.SelectPolicy='Max', got %s", m.Behavior.ScaleUp.SelectPolicy.ValueString())
+		}
+		if len(m.Behavior.ScaleUp.Policies) != 1 {
+			t.Fatalf("Expected 1 scaleUp policy, got %d", len(m.Behavior.ScaleUp.Policies))
+		}
+		if m.Behavior.ScaleUp.Policies[0].Type.ValueString() != "Percent" {
+			t.Errorf("Expected policy.Type='Percent', got %s", m.Behavior.ScaleUp.Policies[0].Type.ValueString())
+		}
+		if m.Behavior.ScaleDown == nil {
+			t.Fatal("Expected non-nil ScaleDown")
+		}
+		if m.Behavior.ScaleDown.StabilizationWindowSeconds.ValueInt32() != 300 {
+			t.Errorf("Expected ScaleDown.StabilizationWindowSeconds=300, got %d", m.Behavior.ScaleDown.StabilizationWindowSeconds.ValueInt32())
+		}
+	})
+
+	t.Run("HPARuleConfig_NilFallback_NilBehavior_ToProto", func(t *testing.T) {
+		m := &HPARuleConfigModel{
+			Enabled:  types.BoolValue(true),
+			Fallback: nil,
+			Behavior: nil,
+		}
+		p := m.toProto()
+		if p.Fallback != nil {
+			t.Error("Expected nil Fallback in proto")
+		}
+		if p.Behavior != nil {
+			t.Error("Expected nil Behavior in proto")
+		}
+	})
+
+	t.Run("HPARuleConfig_EmptyMetrics_ToProto", func(t *testing.T) {
+		m := &HPARuleConfigModel{
+			Enabled: types.BoolValue(true),
+			Metrics: nil,
+		}
+		p := m.toProto()
+		if len(p.Metrics) != 0 {
+			t.Errorf("Expected empty Metrics, got %d", len(p.Metrics))
+		}
+	})
+
+	t.Run("HPARuleConfig_NilMetrics_FromProto", func(t *testing.T) {
+		p := &apiv1.HPARuleConfig{Enabled: true, Metrics: nil}
+		m := hpaRuleConfigFromProto(p)
+		if len(m.Metrics) != 0 {
+			t.Errorf("Expected empty Metrics, got %d", len(m.Metrics))
+		}
+		if m.Behavior != nil {
+			t.Error("Expected nil Behavior")
+		}
+		if m.Fallback != nil {
+			t.Error("Expected nil Fallback")
+		}
+	})
+
 	// ---------- HPA metric conversions ----------
 
 	t.Run("HPAMetricToProto", func(t *testing.T) {

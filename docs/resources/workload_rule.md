@@ -248,12 +248,94 @@ Optional:
 
 Optional:
 
+- `behavior` (Attributes) Fine-grained scale-up and scale-down behavior policies (see [below for nested schema](#nestedatt--hpa_rule--behavior))
+- `composite_formula` (String) Formula combining multiple metric weights into a single scaling signal. Example: '0.6*cpu + 0.4*memory'
 - `enabled` (Boolean) Enable horizontal (replica) scaling
+- `fallback` (Attributes) Replica fallback configuration when metrics are unavailable (see [below for nested schema](#nestedatt--hpa_rule--fallback))
 - `max_replica_change_percent` (Number) Maximum percentage change in replica count per cycle
 - `max_replicas` (Number) Maximum number of replicas
+- `metrics` (Attributes List) Additional metric triggers (e.g. Prometheus). CPU/Memory/Network triggers are auto-generated from primary_metric. (see [below for nested schema](#nestedatt--hpa_rule--metrics))
 - `min_replicas` (Number) Minimum number of replicas
 - `primary_metric` (String) Primary metric for HPA. One of: 'cpu', 'memory', 'gpu', 'network_ingress', 'network_egress'
-- `target_utilization` (Number) Target utilization ratio (0-1) for the primary metric
+- `scale_down_cooldown_seconds` (Number) Seconds to wait between scale-down events
+- `target_memory_utilization` (Number) Target memory utilization ratio (0-1), tuned independently of CPU
+- `target_utilization` (Number) Target CPU utilization ratio (0-1)
+
+<a id="nestedatt--hpa_rule--behavior"></a>
+### Nested Schema for `hpa_rule.behavior`
+
+Optional:
+
+- `scale_down` (Attributes) Scale-down behavior rules (see [below for nested schema](#nestedatt--hpa_rule--behavior--scale_down))
+- `scale_up` (Attributes) Scale-up behavior rules (see [below for nested schema](#nestedatt--hpa_rule--behavior--scale_up))
+
+<a id="nestedatt--hpa_rule--behavior--scale_down"></a>
+### Nested Schema for `hpa_rule.behavior.scale_down`
+
+Optional:
+
+- `policies` (Attributes List) List of scaling step policies (see [below for nested schema](#nestedatt--hpa_rule--behavior--scale_down--policies))
+- `select_policy` (String) Which policy wins when multiple match. One of: 'Max', 'Min', 'Disabled'
+- `stabilization_window_seconds` (Number) Seconds to wait before acting on a scaling signal to avoid flapping
+
+<a id="nestedatt--hpa_rule--behavior--scale_down--policies"></a>
+### Nested Schema for `hpa_rule.behavior.scale_down.policies`
+
+Required:
+
+- `period_seconds` (Number) Period over which the policy applies in seconds
+- `type` (String) Policy type. One of: 'Pods', 'Percent'
+- `value` (Number) Policy value (pods count or percent)
+
+
+
+<a id="nestedatt--hpa_rule--behavior--scale_up"></a>
+### Nested Schema for `hpa_rule.behavior.scale_up`
+
+Optional:
+
+- `policies` (Attributes List) List of scaling step policies (see [below for nested schema](#nestedatt--hpa_rule--behavior--scale_up--policies))
+- `select_policy` (String) Which policy wins when multiple match. One of: 'Max', 'Min', 'Disabled'
+- `stabilization_window_seconds` (Number) Seconds to wait before acting on a scaling signal to avoid flapping
+
+<a id="nestedatt--hpa_rule--behavior--scale_up--policies"></a>
+### Nested Schema for `hpa_rule.behavior.scale_up.policies`
+
+Required:
+
+- `period_seconds` (Number) Period over which the policy applies in seconds
+- `type` (String) Policy type. One of: 'Pods', 'Percent'
+- `value` (Number) Policy value (pods count or percent)
+
+
+
+
+<a id="nestedatt--hpa_rule--fallback"></a>
+### Nested Schema for `hpa_rule.fallback`
+
+Required:
+
+- `replicas` (Number) Number of replicas to fall back to when metrics are unavailable
+
+Optional:
+
+- `behavior` (String) Fallback strategy. One of: 'static', 'currentReplicas', 'currentReplicasIfHigher', 'currentReplicasIfLower'
+- `failure_threshold` (Number) Number of consecutive metric failures before activating fallback
+
+
+<a id="nestedatt--hpa_rule--metrics"></a>
+### Nested Schema for `hpa_rule.metrics`
+
+Required:
+
+- `type` (String) Metric source type. Example: 'CPU', 'Memory', 'prometheus'
+
+Optional:
+
+- `target_utilization` (String) Target utilization as a decimal string. Example: '0.70'
+- `target_value` (String) Absolute target value as a string. Example: '50000000'
+- `weight` (String) Weight for composite formula scaling (0-1 decimal string). Example: '0.5'
+
 
 
 <a id="nestedatt--memory_rule"></a>

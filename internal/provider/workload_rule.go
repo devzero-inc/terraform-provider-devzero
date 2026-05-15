@@ -71,12 +71,48 @@ type ResourceRuleConfigModel struct {
 }
 
 type HPARuleConfigModel struct {
-	Enabled                 types.Bool    `tfsdk:"enabled"`
-	MinReplicas             types.Int32   `tfsdk:"min_replicas"`
-	MaxReplicas             types.Int32   `tfsdk:"max_replicas"`
-	TargetUtilization       types.Float32 `tfsdk:"target_utilization"`
-	PrimaryMetric           types.String  `tfsdk:"primary_metric"`
-	MaxReplicaChangePercent types.Float32 `tfsdk:"max_replica_change_percent"`
+	Enabled                  types.Bool              `tfsdk:"enabled"`
+	MinReplicas              types.Int32             `tfsdk:"min_replicas"`
+	MaxReplicas              types.Int32             `tfsdk:"max_replicas"`
+	TargetUtilization        types.Float32           `tfsdk:"target_utilization"`
+	TargetMemoryUtilization  types.Float32           `tfsdk:"target_memory_utilization"`
+	PrimaryMetric            types.String            `tfsdk:"primary_metric"`
+	MaxReplicaChangePercent  types.Float32           `tfsdk:"max_replica_change_percent"`
+	ScaleDownCooldownSeconds types.Int32             `tfsdk:"scale_down_cooldown_seconds"`
+	Metrics                  []HPAMetricTriggerModel `tfsdk:"metrics"`
+	CompositeFormula         types.String            `tfsdk:"composite_formula"`
+	Behavior                 *HPABehaviorModel       `tfsdk:"behavior"`
+	Fallback                 *HPAFallbackModel       `tfsdk:"fallback"`
+}
+
+type HPAMetricTriggerModel struct {
+	Type              types.String `tfsdk:"type"`
+	TargetUtilization types.String `tfsdk:"target_utilization"`
+	TargetValue       types.String `tfsdk:"target_value"`
+	Weight            types.String `tfsdk:"weight"`
+}
+
+type HPAFallbackModel struct {
+	Replicas         types.Int32  `tfsdk:"replicas"`
+	Behavior         types.String `tfsdk:"behavior"`
+	FailureThreshold types.Int32  `tfsdk:"failure_threshold"`
+}
+
+type HPAScalingPolicyModel struct {
+	Type          types.String `tfsdk:"type"`
+	Value         types.Int32  `tfsdk:"value"`
+	PeriodSeconds types.Int32  `tfsdk:"period_seconds"`
+}
+
+type HPAScalingRulesModel struct {
+	StabilizationWindowSeconds types.Int32             `tfsdk:"stabilization_window_seconds"`
+	SelectPolicy               types.String            `tfsdk:"select_policy"`
+	Policies                   []HPAScalingPolicyModel `tfsdk:"policies"`
+}
+
+type HPABehaviorModel struct {
+	ScaleUp   *HPAScalingRulesModel `tfsdk:"scale_up"`
+	ScaleDown *HPAScalingRulesModel `tfsdk:"scale_down"`
 }
 
 type EmergencyResponseModel struct {
@@ -104,6 +140,45 @@ type ContainerResourceConfigModel struct {
 	LimitsAdjustmentEnabled types.Bool    `tfsdk:"limits_adjustment_enabled"`
 	TargetPercentile        types.Float32 `tfsdk:"target_percentile"`
 	LimitsRemovalEnabled    types.Bool    `tfsdk:"limits_removal_enabled"`
+}
+
+func hpaScalingRulesAttributes() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"stabilization_window_seconds": schema.Int32Attribute{
+			Description: "Seconds to wait before acting on a scaling signal to avoid flapping",
+			Optional:    true,
+		},
+		"select_policy": schema.StringAttribute{
+			Description: "Which policy wins when multiple match. One of: 'Max', 'Min', 'Disabled'",
+			Optional:    true,
+			Validators: []validator.String{
+				stringvalidator.OneOf("Max", "Min", "Disabled"),
+			},
+		},
+		"policies": schema.ListNestedAttribute{
+			Description: "List of scaling step policies",
+			Optional:    true,
+			NestedObject: schema.NestedAttributeObject{
+				Attributes: map[string]schema.Attribute{
+					"type": schema.StringAttribute{
+						Description: "Policy type. One of: 'Pods', 'Percent'",
+						Required:    true,
+						Validators: []validator.String{
+							stringvalidator.OneOf("Pods", "Percent"),
+						},
+					},
+					"value": schema.Int32Attribute{
+						Description: "Policy value (pods count or percent)",
+						Required:    true,
+					},
+					"period_seconds": schema.Int32Attribute{
+						Description: "Period over which the policy applies in seconds",
+						Required:    true,
+					},
+				},
+			},
+		},
+	}
 }
 
 func (r *WorkloadRuleResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -267,7 +342,11 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Optional:    true,
 					},
 					"target_utilization": schema.Float32Attribute{
-						Description: "Target utilization ratio (0-1) for the primary metric",
+						Description: "Target CPU utilization ratio (0-1)",
+						Optional:    true,
+					},
+					"target_memory_utilization": schema.Float32Attribute{
+						Description: "Target memory utilization ratio (0-1), tuned independently of CPU",
 						Optional:    true,
 					},
 					"primary_metric": schema.StringAttribute{
@@ -280,6 +359,72 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 					"max_replica_change_percent": schema.Float32Attribute{
 						Description: "Maximum percentage change in replica count per cycle",
 						Optional:    true,
+					},
+					"scale_down_cooldown_seconds": schema.Int32Attribute{
+						Description: "Seconds to wait between scale-down events",
+						Optional:    true,
+					},
+					"composite_formula": schema.StringAttribute{
+						Description: "Formula combining multiple metric weights into a single scaling signal. Example: '0.6*cpu + 0.4*memory'",
+						Optional:    true,
+					},
+					"metrics": schema.ListNestedAttribute{
+						Description: "Additional metric triggers (e.g. Prometheus). CPU/Memory/Network triggers are auto-generated from primary_metric.",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"type": schema.StringAttribute{
+									Description: "Metric source type. Example: 'CPU', 'Memory', 'prometheus'",
+									Required:    true,
+								},
+								"target_utilization": schema.StringAttribute{
+									Description: "Target utilization as a decimal string. Example: '0.70'",
+									Optional:    true,
+								},
+								"target_value": schema.StringAttribute{
+									Description: "Absolute target value as a string. Example: '50000000'",
+									Optional:    true,
+								},
+								"weight": schema.StringAttribute{
+									Description: "Weight for composite formula scaling (0-1 decimal string). Example: '0.5'",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"fallback": schema.SingleNestedAttribute{
+						Description: "Replica fallback configuration when metrics are unavailable",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"replicas": schema.Int32Attribute{
+								Description: "Number of replicas to fall back to when metrics are unavailable",
+								Required:    true,
+							},
+							"behavior": schema.StringAttribute{
+								Description: "Fallback strategy. One of: 'static', 'currentReplicas', 'currentReplicasIfHigher', 'currentReplicasIfLower'",
+								Optional:    true,
+							},
+							"failure_threshold": schema.Int32Attribute{
+								Description: "Number of consecutive metric failures before activating fallback",
+								Optional:    true,
+							},
+						},
+					},
+					"behavior": schema.SingleNestedAttribute{
+						Description: "Fine-grained scale-up and scale-down behavior policies",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"scale_up": schema.SingleNestedAttribute{
+								Description: "Scale-up behavior rules",
+								Optional:    true,
+								Attributes:  hpaScalingRulesAttributes(),
+							},
+							"scale_down": schema.SingleNestedAttribute{
+								Description: "Scale-down behavior rules",
+								Optional:    true,
+								Attributes:  hpaScalingRulesAttributes(),
+							},
+						},
 					},
 				},
 			},
@@ -790,12 +935,33 @@ func (m *HPARuleConfigModel) toProto() *apiv1.HPARuleConfig {
 		v := m.TargetUtilization.ValueFloat32()
 		p.TargetUtilization = &v
 	}
+	if !m.TargetMemoryUtilization.IsNull() && !m.TargetMemoryUtilization.IsUnknown() {
+		v := m.TargetMemoryUtilization.ValueFloat32()
+		p.TargetMemoryUtilization = &v
+	}
 	if !m.PrimaryMetric.IsNull() && !m.PrimaryMetric.IsUnknown() {
 		p.PrimaryMetric = wrHPAMetricToProto(m.PrimaryMetric.ValueString())
 	}
 	if !m.MaxReplicaChangePercent.IsNull() && !m.MaxReplicaChangePercent.IsUnknown() {
 		v := m.MaxReplicaChangePercent.ValueFloat32()
 		p.MaxReplicaChangePercent = &v
+	}
+	if !m.ScaleDownCooldownSeconds.IsNull() && !m.ScaleDownCooldownSeconds.IsUnknown() {
+		v := m.ScaleDownCooldownSeconds.ValueInt32()
+		p.ScaleDownCooldownSeconds = &v
+	}
+	if !m.CompositeFormula.IsNull() && !m.CompositeFormula.IsUnknown() {
+		v := m.CompositeFormula.ValueString()
+		p.CompositeFormula = &v
+	}
+	if len(m.Metrics) > 0 {
+		p.Metrics = hpaMetricTriggersToProto(m.Metrics)
+	}
+	if m.Behavior != nil {
+		p.Behavior = hpaBehaviorToProto(m.Behavior)
+	}
+	if m.Fallback != nil {
+		p.Fallback = hpaFallbackToProto(m.Fallback)
 	}
 	return p
 }
@@ -805,12 +971,15 @@ func hpaRuleConfigFromProto(p *apiv1.HPARuleConfig) *HPARuleConfigModel {
 		return nil
 	}
 	m := &HPARuleConfigModel{
-		Enabled:                 types.BoolValue(p.Enabled),
-		MinReplicas:             types.Int32Null(),
-		MaxReplicas:             types.Int32Null(),
-		TargetUtilization:       types.Float32Null(),
-		PrimaryMetric:           types.StringNull(),
-		MaxReplicaChangePercent: types.Float32Null(),
+		Enabled:                  types.BoolValue(p.Enabled),
+		MinReplicas:              types.Int32Null(),
+		MaxReplicas:              types.Int32Null(),
+		TargetUtilization:        types.Float32Null(),
+		TargetMemoryUtilization:  types.Float32Null(),
+		PrimaryMetric:            types.StringNull(),
+		MaxReplicaChangePercent:  types.Float32Null(),
+		ScaleDownCooldownSeconds: types.Int32Null(),
+		CompositeFormula:         types.StringNull(),
 	}
 	if p.MinReplicas != nil {
 		m.MinReplicas = types.Int32Value(*p.MinReplicas)
@@ -821,11 +990,29 @@ func hpaRuleConfigFromProto(p *apiv1.HPARuleConfig) *HPARuleConfigModel {
 	if p.TargetUtilization != nil {
 		m.TargetUtilization = types.Float32Value(*p.TargetUtilization)
 	}
+	if p.TargetMemoryUtilization != nil {
+		m.TargetMemoryUtilization = types.Float32Value(*p.TargetMemoryUtilization)
+	}
 	if p.PrimaryMetric != nil {
 		m.PrimaryMetric = types.StringValue(wrHPAMetricFromProto(*p.PrimaryMetric))
 	}
 	if p.MaxReplicaChangePercent != nil {
 		m.MaxReplicaChangePercent = types.Float32Value(*p.MaxReplicaChangePercent)
+	}
+	if p.ScaleDownCooldownSeconds != nil {
+		m.ScaleDownCooldownSeconds = types.Int32Value(*p.ScaleDownCooldownSeconds)
+	}
+	if p.CompositeFormula != nil {
+		m.CompositeFormula = types.StringValue(*p.CompositeFormula)
+	}
+	if len(p.Metrics) > 0 {
+		m.Metrics = hpaMetricTriggersFromProto(p.Metrics)
+	}
+	if p.Behavior != nil {
+		m.Behavior = hpaBehaviorFromProto(p.Behavior)
+	}
+	if p.Fallback != nil {
+		m.Fallback = hpaFallbackFromProto(p.Fallback)
 	}
 	return m
 }
@@ -995,6 +1182,141 @@ func containerResourceConfigFromProto(p *apiv1.ContainerResourceConfig) *Contain
 	}
 	if p.TargetPercentile != nil {
 		m.TargetPercentile = types.Float32Value(*p.TargetPercentile)
+	}
+	return m
+}
+
+// ---------- HPA helpers ----------
+
+func hpaMetricTriggersToProto(ms []HPAMetricTriggerModel) []*apiv1.HPAMetricTrigger {
+	result := make([]*apiv1.HPAMetricTrigger, len(ms))
+	for i, m := range ms {
+		t := &apiv1.HPAMetricTrigger{Type: m.Type.ValueString()}
+		if !m.TargetUtilization.IsNull() && !m.TargetUtilization.IsUnknown() {
+			v := m.TargetUtilization.ValueString()
+			t.TargetUtilization = &v
+		}
+		if !m.TargetValue.IsNull() && !m.TargetValue.IsUnknown() {
+			v := m.TargetValue.ValueString()
+			t.TargetValue = &v
+		}
+		if !m.Weight.IsNull() && !m.Weight.IsUnknown() {
+			v := m.Weight.ValueString()
+			t.Weight = &v
+		}
+		result[i] = t
+	}
+	return result
+}
+
+func hpaMetricTriggersFromProto(ps []*apiv1.HPAMetricTrigger) []HPAMetricTriggerModel {
+	result := make([]HPAMetricTriggerModel, 0, len(ps))
+	for _, p := range ps {
+		if p == nil {
+			continue
+		}
+		m := HPAMetricTriggerModel{
+			Type:              types.StringValue(p.Type),
+			TargetUtilization: types.StringNull(),
+			TargetValue:       types.StringNull(),
+			Weight:            types.StringNull(),
+		}
+		if p.TargetUtilization != nil {
+			m.TargetUtilization = types.StringValue(*p.TargetUtilization)
+		}
+		if p.TargetValue != nil {
+			m.TargetValue = types.StringValue(*p.TargetValue)
+		}
+		if p.Weight != nil {
+			m.Weight = types.StringValue(*p.Weight)
+		}
+		result = append(result, m)
+	}
+	return result
+}
+
+func hpaFallbackToProto(f *HPAFallbackModel) *apiv1.HPAFallback {
+	if f == nil {
+		return nil
+	}
+	p := &apiv1.HPAFallback{
+		Replicas: f.Replicas.ValueInt32(),
+	}
+	if !f.Behavior.IsNull() && !f.Behavior.IsUnknown() {
+		p.Behavior = f.Behavior.ValueString()
+	}
+	if !f.FailureThreshold.IsNull() && !f.FailureThreshold.IsUnknown() {
+		p.FailureThreshold = f.FailureThreshold.ValueInt32()
+	}
+	return p
+}
+
+func hpaFallbackFromProto(p *apiv1.HPAFallback) *HPAFallbackModel {
+	if p == nil {
+		return nil
+	}
+	return &HPAFallbackModel{
+		Replicas:         types.Int32Value(p.Replicas),
+		Behavior:         types.StringValue(p.Behavior),
+		FailureThreshold: types.Int32Value(p.FailureThreshold),
+	}
+}
+
+func hpaBehaviorToProto(b *HPABehaviorModel) *apiv1.HPABehavior {
+	if b == nil {
+		return nil
+	}
+	return &apiv1.HPABehavior{
+		ScaleUp:   hpaScalingRulesToProto(b.ScaleUp),
+		ScaleDown: hpaScalingRulesToProto(b.ScaleDown),
+	}
+}
+
+func hpaBehaviorFromProto(p *apiv1.HPABehavior) *HPABehaviorModel {
+	if p == nil {
+		return nil
+	}
+	return &HPABehaviorModel{
+		ScaleUp:   hpaScalingRulesFromProto(p.ScaleUp),
+		ScaleDown: hpaScalingRulesFromProto(p.ScaleDown),
+	}
+}
+
+func hpaScalingRulesToProto(r *HPAScalingRulesModel) *apiv1.HPAScalingRules {
+	if r == nil {
+		return nil
+	}
+	p := &apiv1.HPAScalingRules{
+		StabilizationWindowSeconds: r.StabilizationWindowSeconds.ValueInt32(),
+		SelectPolicy:               r.SelectPolicy.ValueString(),
+	}
+	for _, pol := range r.Policies {
+		p.Policies = append(p.Policies, &apiv1.HPAScalingPolicy{
+			Type:          pol.Type.ValueString(),
+			Value:         pol.Value.ValueInt32(),
+			PeriodSeconds: pol.PeriodSeconds.ValueInt32(),
+		})
+	}
+	return p
+}
+
+func hpaScalingRulesFromProto(p *apiv1.HPAScalingRules) *HPAScalingRulesModel {
+	if p == nil {
+		return nil
+	}
+	m := &HPAScalingRulesModel{
+		StabilizationWindowSeconds: types.Int32Value(p.StabilizationWindowSeconds),
+		SelectPolicy:               types.StringValue(p.SelectPolicy),
+	}
+	for _, pol := range p.Policies {
+		if pol == nil {
+			continue
+		}
+		m.Policies = append(m.Policies, HPAScalingPolicyModel{
+			Type:          types.StringValue(pol.Type),
+			Value:         types.Int32Value(pol.Value),
+			PeriodSeconds: types.Int32Value(pol.PeriodSeconds),
+		})
 	}
 	return m
 }
