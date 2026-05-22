@@ -31,7 +31,6 @@ resource "devzero_workload_rule" "manual" {
 
   action_triggers    = ["on_schedule"]
   cron_schedule      = "0 2 * * *"
-  cooldown_minutes   = 60
   detection_triggers = ["pod_creation", "pod_update"]
 
   cpu_rule = {
@@ -62,8 +61,6 @@ resource "devzero_workload_rule" "manual" {
   emergency_response = {
     oom_enabled               = true
     oom_memory_multiplier     = 2.0
-    oom_max_reactions         = 3
-    oom_cooldown_seconds      = 60
     cpu_throttling_enabled    = true
     cpu_throttling_threshold  = 0.8
     cpu_throttling_multiplier = 1.5
@@ -123,7 +120,6 @@ resource "devzero_workload_rule" "per_container" {
 - `action_triggers` (List of String) When to apply recommendations. Valid values: 'on_detection', 'on_schedule'
 - `auto_generate` (Boolean) When true the engine generates all rule fields automatically; manual field overrides are ignored
 - `containers` (Attributes List) Per-container resource rule configurations. When empty, workload-level rules apply to all containers. (see [below for nested schema](#nestedatt--containers))
-- `cooldown_minutes` (Number) Minimum minutes between consecutive recommendation applications
 - `cpu_rule` (Attributes) CPU vertical scaling rule configuration (see [below for nested schema](#nestedatt--cpu_rule))
 - `cron_schedule` (String) Cron expression for scheduled application (5-field UTC)
 - `defragmentation_schedule` (String) Cron expression for node defragmentation
@@ -134,7 +130,6 @@ resource "devzero_workload_rule" "per_container" {
 - `live_migration_enabled` (Boolean) Allow live pod migration when applying recommendations
 - `memory_rule` (Attributes) Memory vertical scaling rule configuration (see [below for nested schema](#nestedatt--memory_rule))
 - `scheduler_plugins` (List of String) Kubernetes scheduler plugins to activate
-- `startup_period_seconds` (Number) Seconds after workload start to exclude from usage data
 - `use_in_place_vertical_scaling` (Boolean) Use in-place pod vertical scaling instead of pod restarts
 
 ### Read-Only
@@ -221,9 +216,7 @@ Optional:
 - `cpu_throttling_enabled` (Boolean) React to CPU throttling by increasing CPU request
 - `cpu_throttling_multiplier` (Number) Multiplier applied to CPU request on throttle reaction
 - `cpu_throttling_threshold` (Number) Throttle ratio threshold that triggers a reaction (0-1)
-- `oom_cooldown_seconds` (Number) Seconds to wait between OOM reactions
 - `oom_enabled` (Boolean) React to OOM kills by increasing memory
-- `oom_max_reactions` (Number) Maximum number of OOM reactions before giving up
 - `oom_memory_multiplier` (Number) Multiplier applied to memory on OOM
 
 
@@ -257,7 +250,6 @@ Optional:
 - `metrics` (Attributes List) Additional metric triggers (e.g. Prometheus). CPU/Memory/Network triggers are auto-generated from primary_metric. (see [below for nested schema](#nestedatt--hpa_rule--metrics))
 - `min_replicas` (Number) Minimum number of replicas
 - `primary_metric` (String) Primary metric for HPA. One of: 'cpu', 'memory', 'gpu', 'network_ingress', 'network_egress'
-- `scale_down_cooldown_seconds` (Number) Seconds to wait between scale-down events
 - `target_memory_utilization` (Number) Target memory utilization ratio (0-1), tuned independently of CPU
 - `target_utilization` (Number) Target CPU utilization ratio (0-1)
 

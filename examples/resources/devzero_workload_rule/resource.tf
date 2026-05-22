@@ -16,7 +16,6 @@ resource "devzero_workload_rule" "manual" {
 
   action_triggers    = ["on_schedule"]
   cron_schedule      = "0 2 * * *"
-  cooldown_minutes   = 60
   detection_triggers = ["pod_creation", "pod_update"]
 
   cpu_rule = {
@@ -47,8 +46,6 @@ resource "devzero_workload_rule" "manual" {
   emergency_response = {
     oom_enabled               = true
     oom_memory_multiplier     = 2.0
-    oom_max_reactions         = 3
-    oom_cooldown_seconds      = 60
     cpu_throttling_enabled    = true
     cpu_throttling_threshold  = 0.8
     cpu_throttling_multiplier = 1.5

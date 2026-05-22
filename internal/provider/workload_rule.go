@@ -594,7 +594,9 @@ func (r *WorkloadRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	plan := data
 	data.fromProto(upsertResp.Msg.Rule)
+	data.preserveNullsFrom(&plan)
 
 	tflog.Trace(ctx, "created a workload rule resource")
 
@@ -622,7 +624,9 @@ func (r *WorkloadRuleResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
+	prior := data
 	data.fromProto(getRuleResp.Msg.Rule)
+	data.preserveNullsFrom(&prior)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -650,7 +654,9 @@ func (r *WorkloadRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	plan := data
 	data.fromProto(upsertResp.Msg.Rule)
+	data.preserveNullsFrom(&plan)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -762,6 +768,48 @@ func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Dia
 
 	req.Fields = fields
 	return req
+}
+
+func (m *WorkloadRuleResourceModel) preserveNullsFrom(plan *WorkloadRuleResourceModel) {
+	if plan.CpuRule == nil {
+		m.CpuRule = nil
+	}
+	if plan.MemoryRule == nil {
+		m.MemoryRule = nil
+	}
+	if plan.GpuRule == nil {
+		m.GpuRule = nil
+	}
+	if plan.HpaRule == nil {
+		m.HpaRule = nil
+	}
+	if plan.EmergencyResponse == nil {
+		m.EmergencyResponse = nil
+	}
+	if plan.ActionTriggers.IsNull() {
+		m.ActionTriggers = types.ListNull(types.StringType)
+	}
+	if plan.DetectionTriggers.IsNull() {
+		m.DetectionTriggers = types.ListNull(types.StringType)
+	}
+	if plan.SchedulerPlugins.IsNull() {
+		m.SchedulerPlugins = types.ListNull(types.StringType)
+	}
+	if plan.CooldownMinutes.IsNull() {
+		m.CooldownMinutes = types.Int32Null()
+	}
+	if plan.StartupPeriodSeconds.IsNull() {
+		m.StartupPeriodSeconds = types.Int64Null()
+	}
+	if plan.CronSchedule.IsNull() {
+		m.CronSchedule = types.StringNull()
+	}
+	if plan.DefragmentationSchedule.IsNull() {
+		m.DefragmentationSchedule = types.StringNull()
+	}
+	if plan.Containers == nil {
+		m.Containers = nil
+	}
 }
 
 func (m *WorkloadRuleResourceModel) fromProto(r *apiv1.WorkloadRule) {

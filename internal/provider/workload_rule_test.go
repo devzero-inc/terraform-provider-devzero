@@ -1221,4 +1221,282 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			t.Errorf("Expected container[1].Name='sidecar', got %s", m.Containers[1].ContainerName.ValueString())
 		}
 	})
+
+	// ---------- preserveNullsFrom ----------
+
+	t.Run("PreserveNullsFrom_RestoresNullOptionals", func(t *testing.T) {
+		// Simulate plan: only hpa_rule set, everything else null/nil
+		plan := WorkloadRuleResourceModel{
+			CpuRule:              nil,
+			MemoryRule:           nil,
+			GpuRule:              nil,
+			EmergencyResponse:    nil,
+			ActionTriggers:       types.ListNull(types.StringType),
+			DetectionTriggers:    types.ListNull(types.StringType),
+			SchedulerPlugins:     types.ListNull(types.StringType),
+			CooldownMinutes:      types.Int32Null(),
+			StartupPeriodSeconds: types.Int64Null(),
+		}
+
+		// Simulate API response filling in server-side defaults
+		cooldown := int32(15)
+		startupPeriod := int64(300)
+		apiRule := &apiv1.WorkloadRule{
+			RuleId:               "rule-hpa",
+			ClusterId:            "cluster-1",
+			Namespace:            "default",
+			Kind:                 "Deployment",
+			Name:                 "my-app",
+			CurrentSource:        "manual",
+			CooldownMinutes:      &cooldown,
+			StartupPeriodSeconds: &startupPeriod,
+			CpuRule:              &apiv1.ResourceRuleConfig{Enabled: false},
+			MemoryRule:           &apiv1.ResourceRuleConfig{Enabled: false},
+			GpuRule:              &apiv1.ResourceRuleConfig{Enabled: false},
+			EmergencyResponse: &apiv1.EmergencyResponseConfig{
+				OomEnabled:           true,
+				OomMemoryMultiplier:  1.5,
+				OomMaxReactions:      5,
+				OomCooldownSeconds:   10,
+				CpuThrottlingEnabled: true,
+			},
+			ActionTriggers:    []apiv1.ActionTrigger{},
+			DetectionTriggers: []apiv1.WorkloadDetectionTrigger{},
+			SchedulerPlugins:  []string{},
+		}
+
+		var data WorkloadRuleResourceModel
+		data.fromProto(apiRule)
+		data.preserveNullsFrom(&plan)
+
+		// All fields that were null in the plan must remain null/nil after preserveNullsFrom
+		if data.CpuRule != nil {
+			t.Error("Expected CpuRule to be nil after preserveNullsFrom")
+		}
+		if data.MemoryRule != nil {
+			t.Error("Expected MemoryRule to be nil after preserveNullsFrom")
+		}
+		if data.GpuRule != nil {
+			t.Error("Expected GpuRule to be nil after preserveNullsFrom")
+		}
+		if data.EmergencyResponse != nil {
+			t.Error("Expected EmergencyResponse to be nil after preserveNullsFrom")
+		}
+		if !data.ActionTriggers.IsNull() {
+			t.Error("Expected ActionTriggers to be null after preserveNullsFrom")
+		}
+		if !data.DetectionTriggers.IsNull() {
+			t.Error("Expected DetectionTriggers to be null after preserveNullsFrom")
+		}
+		if !data.SchedulerPlugins.IsNull() {
+			t.Error("Expected SchedulerPlugins to be null after preserveNullsFrom")
+		}
+		if !data.CooldownMinutes.IsNull() {
+			t.Error("Expected CooldownMinutes to be null after preserveNullsFrom")
+		}
+		if !data.StartupPeriodSeconds.IsNull() {
+			t.Error("Expected StartupPeriodSeconds to be null after preserveNullsFrom")
+		}
+	})
+
+	t.Run("PreserveNullsFrom_KeepsSetFields", func(t *testing.T) {
+		// Plan has all optional fields explicitly set
+		plan := WorkloadRuleResourceModel{
+			CpuRule: &ResourceRuleConfigModel{
+				Enabled:                 types.BoolValue(true),
+				MinRequest:              types.Int64Value(100),
+				MaxRequest:              types.Int64Null(),
+				LimitMultiplier:         types.Float32Null(),
+				LimitsAdjustmentEnabled: types.BoolValue(false),
+				TargetPercentile:        types.Float32Null(),
+				MaxScaleUpPercent:       types.Float32Null(),
+				MaxScaleDownPercent:     types.Float32Null(),
+				LimitsRemovalEnabled:    types.BoolValue(false),
+			},
+			EmergencyResponse: &EmergencyResponseModel{
+				OomEnabled:              types.BoolValue(true),
+				OomMemoryMultiplier:     types.Float32Value(1.5),
+				OomMaxReactions:         types.Int32Value(5),
+				OomCooldownSeconds:      types.Int32Value(10),
+				CpuThrottlingEnabled:    types.BoolValue(true),
+				CpuThrottlingThreshold:  types.Float32Value(0.2),
+				CpuThrottlingMultiplier: types.Float32Value(1.25),
+			},
+			ActionTriggers: types.ListValueMust(types.StringType, []attr.Value{
+				types.StringValue("on_detection"),
+			}),
+			DetectionTriggers:    types.ListValueMust(types.StringType, []attr.Value{}),
+			SchedulerPlugins:     types.ListValueMust(types.StringType, []attr.Value{}),
+			CooldownMinutes:      types.Int32Value(30),
+			StartupPeriodSeconds: types.Int64Value(120),
+		}
+
+		cooldown := int32(30)
+		startupPeriod := int64(120)
+		apiRule := &apiv1.WorkloadRule{
+			RuleId:               "rule-full",
+			ClusterId:            "cluster-1",
+			Namespace:            "default",
+			Kind:                 "Deployment",
+			Name:                 "my-app",
+			CurrentSource:        "manual",
+			CooldownMinutes:      &cooldown,
+			StartupPeriodSeconds: &startupPeriod,
+			CpuRule:              &apiv1.ResourceRuleConfig{Enabled: true},
+			EmergencyResponse: &apiv1.EmergencyResponseConfig{
+				OomEnabled:           true,
+				OomMemoryMultiplier:  1.5,
+				OomMaxReactions:      5,
+				OomCooldownSeconds:   10,
+				CpuThrottlingEnabled: true,
+			},
+			ActionTriggers: []apiv1.ActionTrigger{
+				apiv1.ActionTrigger_ACTION_TRIGGER_ON_DETECTION,
+			},
+			DetectionTriggers: []apiv1.WorkloadDetectionTrigger{},
+			SchedulerPlugins:  []string{},
+		}
+
+		var data WorkloadRuleResourceModel
+		data.fromProto(apiRule)
+		data.preserveNullsFrom(&plan)
+
+		// Fields set in the plan must NOT be wiped
+		if data.CpuRule == nil {
+			t.Error("Expected CpuRule to remain non-nil")
+		}
+		if data.EmergencyResponse == nil {
+			t.Error("Expected EmergencyResponse to remain non-nil")
+		}
+		if data.ActionTriggers.IsNull() {
+			t.Error("Expected ActionTriggers to remain non-null")
+		}
+		if data.CooldownMinutes.IsNull() {
+			t.Error("Expected CooldownMinutes to remain non-null")
+		}
+		if data.CooldownMinutes.ValueInt32() != 30 {
+			t.Errorf("Expected CooldownMinutes=30, got %d", data.CooldownMinutes.ValueInt32())
+		}
+		if data.StartupPeriodSeconds.IsNull() {
+			t.Error("Expected StartupPeriodSeconds to remain non-null")
+		}
+		if data.StartupPeriodSeconds.ValueInt64() != 120 {
+			t.Errorf("Expected StartupPeriodSeconds=120, got %d", data.StartupPeriodSeconds.ValueInt64())
+		}
+	})
+
+	// ---------- HPA-only config (common real-world case) ----------
+
+	t.Run("WorkloadRuleResourceModel_ToProto_HpaOnly", func(t *testing.T) {
+		ctx := context.Background()
+		var diags diag.Diagnostics
+
+		m := &WorkloadRuleResourceModel{
+			ClusterId:    types.StringValue("cluster-1"),
+			Namespace:    types.StringValue("default"),
+			Kind:         types.StringValue("Deployment"),
+			Name:         types.StringValue("my-app"),
+			AutoGenerate: types.BoolValue(false),
+			HpaRule: &HPARuleConfigModel{
+				Enabled:           types.BoolValue(true),
+				MinReplicas:       types.Int32Value(2),
+				MaxReplicas:       types.Int32Value(10),
+				TargetUtilization: types.Float32Value(0.7),
+				PrimaryMetric:     types.StringValue("cpu"),
+			},
+			CpuRule:                   nil,
+			MemoryRule:                nil,
+			GpuRule:                   nil,
+			EmergencyResponse:         nil,
+			ActionTriggers:            types.ListNull(types.StringType),
+			DetectionTriggers:         types.ListNull(types.StringType),
+			SchedulerPlugins:          types.ListNull(types.StringType),
+			CooldownMinutes:           types.Int32Null(),
+			StartupPeriodSeconds:      types.Int64Null(),
+			CronSchedule:              types.StringNull(),
+			DefragmentationSchedule:   types.StringNull(),
+			LiveMigrationEnabled:      types.BoolValue(false),
+			UseInPlaceVerticalScaling: types.BoolValue(false),
+		}
+
+		req := m.toProto(ctx, &diags, "team-123")
+		if diags.HasError() {
+			t.Fatalf("Unexpected error: %v", diags)
+		}
+		if req.Fields == nil {
+			t.Fatal("Expected non-nil Fields")
+		}
+		if req.Fields.HpaRule == nil {
+			t.Fatal("Expected non-nil HpaRule in Fields")
+		}
+		if !req.Fields.HpaRule.Enabled {
+			t.Error("Expected HpaRule.Enabled=true")
+		}
+		if req.Fields.HpaRule.MinReplicas == nil || *req.Fields.HpaRule.MinReplicas != 2 {
+			t.Errorf("Expected MinReplicas=2, got %v", req.Fields.HpaRule.MinReplicas)
+		}
+		if req.Fields.HpaRule.MaxReplicas == nil || *req.Fields.HpaRule.MaxReplicas != 10 {
+			t.Errorf("Expected MaxReplicas=10, got %v", req.Fields.HpaRule.MaxReplicas)
+		}
+		if req.Fields.CpuRule != nil {
+			t.Error("Expected nil CpuRule in Fields")
+		}
+		if req.Fields.MemoryRule != nil {
+			t.Error("Expected nil MemoryRule in Fields")
+		}
+		if req.Fields.EmergencyResponse != nil {
+			t.Error("Expected nil EmergencyResponse in Fields")
+		}
+		if req.Fields.StartupPeriodSeconds != nil {
+			t.Error("Expected nil StartupPeriodSeconds in Fields")
+		}
+		if req.Fields.CooldownMinutes != nil {
+			t.Error("Expected nil CooldownMinutes in Fields")
+		}
+	})
+
+	t.Run("WorkloadRuleResourceModel_FromProto_WithHpaRule", func(t *testing.T) {
+		minR := int32(2)
+		maxR := int32(10)
+		util := float32(0.7)
+		metric := apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU
+
+		r := &apiv1.WorkloadRule{
+			RuleId:        "rule-hpa",
+			ClusterId:     "cluster-1",
+			Namespace:     "default",
+			Kind:          "Deployment",
+			Name:          "my-app",
+			CurrentSource: "manual",
+			HpaRule: &apiv1.HPARuleConfig{
+				Enabled:           true,
+				MinReplicas:       &minR,
+				MaxReplicas:       &maxR,
+				TargetUtilization: &util,
+				PrimaryMetric:     &metric,
+			},
+		}
+
+		var m WorkloadRuleResourceModel
+		m.fromProto(r)
+
+		if m.HpaRule == nil {
+			t.Fatal("Expected non-nil HpaRule")
+		}
+		if !m.HpaRule.Enabled.ValueBool() {
+			t.Error("Expected HpaRule.Enabled=true")
+		}
+		if m.HpaRule.MinReplicas.ValueInt32() != 2 {
+			t.Errorf("Expected MinReplicas=2, got %d", m.HpaRule.MinReplicas.ValueInt32())
+		}
+		if m.HpaRule.MaxReplicas.ValueInt32() != 10 {
+			t.Errorf("Expected MaxReplicas=10, got %d", m.HpaRule.MaxReplicas.ValueInt32())
+		}
+		if m.HpaRule.TargetUtilization.ValueFloat32() != 0.7 {
+			t.Errorf("Expected TargetUtilization=0.7, got %f", m.HpaRule.TargetUtilization.ValueFloat32())
+		}
+		if m.HpaRule.PrimaryMetric.ValueString() != "cpu" {
+			t.Errorf("Expected PrimaryMetric='cpu', got %s", m.HpaRule.PrimaryMetric.ValueString())
+		}
+	})
 }
