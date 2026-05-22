@@ -30,11 +30,12 @@ resource "devzero_workload_rule" "manual" {
   name       = "my-api"
 
   action_triggers    = ["on_schedule"]
+  cron_schedule      = "0 2 * * *"
   detection_triggers = ["pod_creation", "pod_update"]
 
   cpu_rule = {
     enabled                   = true
-    min_request               = 10
+    min_request               = 100
     max_request               = 4000
     target_percentile         = 0.95
     limits_adjustment_enabled = true
@@ -43,8 +44,8 @@ resource "devzero_workload_rule" "manual" {
 
   memory_rule = {
     enabled                   = true
-    min_request               = 67108864 # 64MiB in bytes
-    max_request               = 536870912 # 512MiB in bytes
+    min_request               = 134217728  # 128Mi in bytes
+    max_request               = 2147483648 # 2Gi in bytes
     target_percentile         = 0.9
     limits_adjustment_enabled = true
   }
@@ -52,17 +53,17 @@ resource "devzero_workload_rule" "manual" {
   hpa_rule = {
     enabled            = true
     min_replicas       = 2
-    max_replicas       = 8
+    max_replicas       = 10
     target_utilization = 0.7
     primary_metric     = "cpu"
   }
 
   emergency_response = {
     oom_enabled               = true
-    oom_memory_multiplier     = 1.5
+    oom_memory_multiplier     = 2.0
     cpu_throttling_enabled    = true
-    cpu_throttling_threshold  = 0.1
-    cpu_throttling_multiplier = 1.25
+    cpu_throttling_threshold  = 0.8
+    cpu_throttling_multiplier = 1.5
   }
 
   live_migration_enabled        = false
