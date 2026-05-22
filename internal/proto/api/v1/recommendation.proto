@@ -128,6 +128,28 @@ service K8sRecommendationService {
     // k8s_nodes metadata for clusters without Karpenter/dzkarp.
     rpc GenerateNodePoliciesFromNodeGroups(GenerateNodePoliciesFromNodeGroupsRequest) returns (GenerateNodePoliciesFromNodeGroupsResponse);
 
+    // GetNodeGroupsCheckpointStatus returns, per node group in a cluster, whether
+    // checkpoint-restore is enabled (dz-managed + active node policy + the
+    // dakr.devzero.io/checkpoint-node label) so the UI can render status/CTA.
+    rpc GetNodeGroupsCheckpointStatus(GetNodeGroupsCheckpointStatusRequest) returns (GetNodeGroupsCheckpointStatusResponse);
+    // SetNodePolicyCheckpointLabel toggles the dakr.devzero.io/checkpoint-node
+    // label on a single node policy via a targeted label patch (not a full-row
+    // policy update).
+    rpc SetNodePolicyCheckpointLabel(SetNodePolicyCheckpointLabelRequest) returns (SetNodePolicyCheckpointLabelResponse);
+
+    // EnableCheckpointForPolicy is the orchestration RPC for the checkpoint-restore
+    // toggle on a NodePolicy. It performs the policy-template patch (same as
+    // SetNodePolicyCheckpointLabel) AND enqueues one GenericResourceRecommendation
+    // per currently-observed node in the policy's matched groups so existing
+    // nodes get (un)labelled, not just future ones. All enqueued rows share a
+    // batch_id the caller polls via GetCheckpointApplyStatus.
+    rpc EnableCheckpointForPolicy(EnableCheckpointForPolicyRequest) returns (EnableCheckpointForPolicyResponse);
+    // GetCheckpointApplyStatus surfaces the per-batch status counts (plus per-node
+    // failure details) for the most recent EnableCheckpointForPolicy batch on a
+    // policy. The FE polls this while a batch is in flight so the toggle CTA can
+    // render "9/10 labelled, 1 failed".
+    rpc GetCheckpointApplyStatus(GetCheckpointApplyStatusRequest) returns (GetCheckpointApplyStatusResponse);
+
     // GetNodeAnnotationReadiness checks how many nodes in a cluster have been
     // annotated with AWS metadata by the Karpenter fork's node metadata controller.
     rpc GetNodeAnnotationReadiness(GetNodeAnnotationReadinessRequest) returns (GetNodeAnnotationReadinessResponse);
@@ -1115,7 +1137,7 @@ message WorkloadRule {
     // UI display fields (not sent to cluster, only used for listing)
     string status = 80;                // "active" or "inactive"
     string sync_status = 81;           // "pending", "synced", or "failed"
-    string current_source = 82;        // "crd", "policy", "auto_optimization", "manual"
+    string current_source = 82;        // "crd", "policy", "auto_optimization", "manual", "pulumi_manual", "pulumi_auto", "terraform_manual", "terraform_auto"
     google.protobuf.Timestamp created_at = 83;
     google.protobuf.Timestamp updated_at = 84;
 
@@ -1140,13 +1162,23 @@ message ResourceRuleConfig {
 
     // Whether to actively remove limits from workloads.
     bool limits_removal_enabled = 13;
+
+    // Human-readable annotations from the engine: clamp messages, pmax /
+    // throttle / OOM floor activation, and "request exceeds existing limit"
+    // warnings. Surfaced through PreviewWorkloadRule so the UI can show why
+    // the produced BaseRequest differs from the user's expectation. Not
+    // persisted — recomputed on every generation/preview.
+    repeated string notes = 14;
 }
 
 message HPAMetricTrigger {
-    string type = 1;                          // "CPU", "Memory", "NetworkIngress", "NetworkEgress"
+    string type = 1;                          // "CPU", "Memory", "NetworkIngress", "NetworkEgress", "prometheus"
     optional string target_utilization = 2;    // "0.70" for resource metrics
     optional string target_value = 3;          // "50000000" for absolute metrics (bytes/sec)
     optional string weight = 4;                // "0.5" for composite formula
+    map<string, string> metadata = 5;          // Free-form key-value for external scalers (e.g. serverAddress, query for Prometheus)
+    optional string server_address = 6;        // Frontend-friendly: Prometheus server URL (packed into metadata by service layer)
+    optional string query = 7;                 // Frontend-friendly: PromQL query (packed into metadata by service layer)
 }
 
 // HPABehavior, HPAScalingRules, HPAScalingPolicy are defined in common.proto
@@ -1169,6 +1201,10 @@ message ContainerResourceConfig {
     // Carried so the UI can surface profiling's per-container percentile
     // pick alongside the workload-level chip.
     optional float target_percentile = 8;
+
+    // Human-readable annotations from the engine for this container.
+    // See ResourceRuleConfig.notes for semantics.
+    repeated string notes = 9;
 }
 
 // Per-container resource rule config with CPU/Memory/GPU.
@@ -2157,6 +2193,64 @@ message GenerateNodePoliciesFromNodeGroupsResponse {
     repeated NodePolicy policies = 1;
     repeated NodePolicyTarget targets = 2;
     repeated WorkloadCompatibilityWarning warnings = 3;
+    // eligibility carries per-node-group "may this be migrated?" information
+    // computed from the current node observations. The wizard reads this to
+    // disable Step 3 rows for groups the operator must NOT migrate, with a
+    // tooltip explaining why. Always parallel-keyed by group name (matches
+    // NodePolicy.name). Empty when every group is migratable.
+    repeated NodeGroupMigrationEligibility eligibility = 4;
+}
+
+// NodeGroupMigrationEligibility flags a node group as not-safe-to-migrate
+// for the CAS-migration wizard. Eligibility is preview-time only — it
+// describes the *current* state of the source pool, not a property of the
+// generated NodePolicy, so it's surfaced alongside the policies rather
+// than embedded in NodePolicy itself.
+message NodeGroupMigrationEligibility {
+    // group_name matches NodePolicy.name (the source node group's name).
+    string group_name = 1;
+    // migratable=false means the wizard MUST disable this row in Step 3
+    // (BLOCKING reason present). True (or absent) means safe-to-migrate;
+    // an ADVISORY reason may still be present, in which case the wizard
+    // should show a non-blocking yellow caveat next to the row.
+    bool migratable = 2;
+    // reasons documents why migration is blocked OR carries caveats.
+    // Stable identifier strings the wizard maps to human-readable messages.
+    //
+    // Blocking reasons (force migratable=false; row is disabled):
+    //   "system_pool"       — AKS pool with kubernetes.azure.com/mode=system
+    //                          or GKE pool with cloud.google.com/gke-system-only=true
+    //                          or the GKE system-only taint
+    //                          (CriticalAddonsOnly=true:NoSchedule). AKS
+    //                          requires ≥1 System pool to keep kube-system
+    //                          schedulable; draining the last one bricks
+    //                          the control plane.
+    //   "karpenter_ops_pool" — pool labelled devzero.io/karpenter-ops-pool=true
+    //                          by dz-installer (setup-azure.sh /
+    //                          setup-gcp.sh). Migrating the pool that runs
+    //                          karpenter itself is a chicken-and-egg —
+    //                          karpenter would have to drain itself.
+    //   "azure_sku_restricted" — source pool runs an AKS-restricted VM size
+    //                          (Basic A-series, B1s/B1ms, F1/F1s,
+    //                          A0/A1/A1_v2). kp-azure refuses to provision
+    //                          these. No workaround at the policy layer.
+    //   "azure_sku_confidential" — source pool runs a Confidential Compute
+    //                          SKU (DC* / EC*). kp-azure's isConfidential
+    //                          predicate excludes these.
+    //
+    // Advisory reasons (migratable stays true; show as caveat):
+    //   "azure_sku_nvme_under_cig" — source pool's SKU is NVMe-only
+    //                          (Standard_D*ads_v6 / D*alds_v6 / E*ads_v6 etc).
+    //                          kp-azure's default CIG image source isn't
+    //                          NVMe-tagged, so the controller filters these
+    //                          SKUs out of its catalog. Migration still
+    //                          works because the generated NodePool only
+    //                          requires sku-family (instance-category) —
+    //                          karpenter picks a compatible non-NVMe SKU
+    //                          from the same family. Operator should know
+    //                          the launched nodes won't exactly match the
+    //                          source pool.
+    repeated string reasons = 3;
 }
 
 message GetNodeAnnotationReadinessRequest {
@@ -2170,6 +2264,19 @@ message GetNodeAnnotationReadinessResponse {
     int32 unannotated_nodes = 3;
     bool ready = 4;
     repeated string unannotated_node_names = 5;
+    // supported is false when the cluster's cloud provider has no annotation
+    // schema yet (OCI today). The wizard renders a clear "not supported"
+    // state instead of polling indefinitely.
+    bool supported = 6;
+    // aks_cluster_resource_group is the resource group that hosts the AKS
+    // managed-cluster resource (NOT the MC_* node RG). Surfaced here so the
+    // wizard's Step 5 / Step 7 commands (`az aks nodepool update/scale`)
+    // can drop the <aks-resource-group> placeholder. Populated from
+    // devzero.io/azure-aks-cluster-rg on any annotated node. Empty when
+    // the cluster isn't Azure or when the controller wasn't configured
+    // with ARM_RESOURCE_GROUP — in either case the wizard falls back to
+    // the placeholder.
+    string aks_cluster_resource_group = 7;
 }
 
 // Migration wizard state
@@ -2255,6 +2362,57 @@ message UpdateNodePolicyResponse {
     NodePolicy policy = 1;
 }
 
+// NodeGroupCheckpointState classifies a node group's checkpoint-restore status.
+enum NodeGroupCheckpointState {
+    NODE_GROUP_CHECKPOINT_STATE_UNSPECIFIED = 0;
+    // Node group is not DevZero/dzkarp-managed (no matching node policy node
+    // pool). Customer is responsible for adding the checkpoint-node label.
+    NODE_GROUP_CHECKPOINT_STATE_NOT_DZ_MANAGED = 1;
+    // dz-managed (matches a policy's node pool) but no active node policy
+    // target for this cluster.
+    NODE_GROUP_CHECKPOINT_STATE_DZ_MANAGED_NO_ACTIVE_POLICY = 2;
+    // dz-managed + active policy, but the policy lacks the
+    // dakr.devzero.io/checkpoint-node label. Eligible for the one-click CTA.
+    NODE_GROUP_CHECKPOINT_STATE_POLICY_NO_LABEL = 3;
+    // dz-managed + active policy + label present. Intent declared; actual CRIU
+    // capability not (yet) verified.
+    NODE_GROUP_CHECKPOINT_STATE_CONFIGURED = 4;
+    // CONFIGURED and CRIU verified present on the node group's nodes.
+    NODE_GROUP_CHECKPOINT_STATE_ENABLED = 5;
+}
+
+message NodeGroupCheckpointStatus {
+    NodeGroupCheckpointState state = 1;
+    // Associated node policy (empty when NOT_DZ_MANAGED).
+    string policy_id = 2;
+    string policy_name = 3;
+    // For scope disclosure on the CTA: all node pool names this policy compiles
+    // to / clusters it targets — toggling the label affects all of them.
+    repeated string shared_node_pool_names = 4;
+    repeated string shared_cluster_ids = 5;
+}
+
+message GetNodeGroupsCheckpointStatusRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+}
+
+message GetNodeGroupsCheckpointStatusResponse {
+    // Keyed by node group name.
+    map<string, NodeGroupCheckpointStatus> by_node_group = 1;
+}
+
+message SetNodePolicyCheckpointLabelRequest {
+    string team_id = 1;
+    string policy_id = 2;
+    // true adds dakr.devzero.io/checkpoint-node=true; false removes the key.
+    bool enabled = 3;
+}
+
+message SetNodePolicyCheckpointLabelResponse {
+    bool success = 1;
+}
+
 message DeleteNodePolicyRequest {
     string team_id = 1;
     string policy_id = 2;
@@ -2280,6 +2438,10 @@ message NodePolicy {
   LabelSelector instance_generations = 14; // self explanatory; UI: Generation; e.g., 4 (Azure), 5 (AWS)
   LabelSelector instance_sizes = 15; // UI: Size; eg: Standard_D4s (Azure), large (AWS)
   LabelSelector instance_types = 16; // UI: Type; eg: Standard_D4s_v2 (Azure), m4.2xlarge (AWS)
+  // AWS only — karpenter.k8s.aws/instance-local-nvme. Ephemeral NVMe GiB per
+  // node. Karpenter-provider-gcp/-azure/-oci have no equivalent label; this
+  // field is silently dropped on the compile path for those providers.
+  LabelSelector instance_local_nvme = 113;
 
   optional string instance_categories_tip = 26;
   optional string instance_families_tip = 27;
@@ -2287,6 +2449,7 @@ message NodePolicy {
   optional string instance_hypervisors_tip = 29;
   optional string instance_generations_tip = 30;
   optional string instance_sizes_tip = 31;
+  optional string instance_local_nvme_tip = 114;
 
   LabelSelector zones = 36; // abstract, per-cloud mapping
   LabelSelector architectures = 37;    // amd64, arm64
@@ -2323,6 +2486,11 @@ message NodePolicy {
 
   optional int64 cloud_provider_id = 85;
   CloudProvider cloud_provider = 86;
+
+  // Cloud-agnostic opt-in for AZ outage handling (AWS ARC zonal shift today;
+  // analogous GCP behavior planned). The compile step translates this to
+  // provider-specific annotations on the Karpenter NodePool.
+  ZonalShiftConfig zonal_shift = 90;
 
   // Raw escape hatch for node pool
   repeated RawKarpenterSpec raw = 100;
@@ -2475,6 +2643,45 @@ message NodePolicyTarget {
   google.protobuf.Timestamp created_at = 110;
   google.protobuf.Timestamp updated_at = 111;
   google.protobuf.Timestamp deleted_at = 112;
+
+  // Runtime status conditions read from the compiled Karpenter NodePool in the
+  // target cluster (e.g. ZonalShiftReady / ZonalShiftActive). Populated by
+  // ListNodePolicyTargets via a join against k8s_karpenter_resources. Empty
+  // when no conditions are observed for this target.
+  NodePolicyTargetStatus status = 120;
+}
+
+message NodePolicyCondition {
+  // e.g. "ZonalShiftReady", "ZonalShiftActive"
+  string type = 1;
+  // "True" | "False" | "Unknown"
+  string status = 2;
+  // Machine-readable reason code (e.g. "Ready", "ZonePinned", "NoFallbackZones",
+  // "NoActiveShift", "AwayFrom", "ZoneConstraintConflict").
+  string reason = 3;
+  // Human-readable detail (e.g. impacted zone names).
+  string message = 4;
+  google.protobuf.Timestamp last_transition_time = 5;
+}
+
+message NodePolicyTargetStatus {
+  repeated NodePolicyCondition conditions = 1;
+}
+
+// Cloud-agnostic config for how a node policy should react to AZ outage
+// signals from the cloud provider (AWS ARC zonal shift today; GCP analogue
+// planned). The compile step maps these intents to provider-specific
+// annotations on the resulting Karpenter NodePool.
+message ZonalShiftConfig {
+  // Master opt-in. When false the other two fields are ignored.
+  bool respect_zonal_shift = 1;
+  // Also terminate existing nodes in the impacted zone, forcing reschedule.
+  // Respects pod disruption budgets. Only meaningful when respect_zonal_shift is true.
+  bool evict_impacted_nodes = 2;
+  // If the policy is pinned to a single zone and that zone is impacted, expand
+  // to other zones available on the node class. Only meaningful when
+  // respect_zonal_shift is true.
+  bool allow_zone_fallback = 3;
 }
 
 message Taint {
@@ -3287,6 +3494,11 @@ message CreateWorkloadOptimizationPolicyResponse {
 
 message ListWorkloadOptimizationPoliciesRequest {
     string team_id = 1;
+    // Optional. When set, restricts the listing to policies that target this
+    // cluster — either explicitly via cluster_ids, or implicitly via an empty
+    // cluster_ids array (which means "all clusters" and therefore applies
+    // to this cluster too).
+    string cluster_id = 2;
 }
 
 message ListWorkloadOptimizationPoliciesResponse {
@@ -3436,6 +3648,23 @@ message ManualRuleFields {
     repeated ContainerResourceRuleConfig containers = 15;
 }
 
+// WorkloadRuleSource identifies who created/last-modified a WorkloadRule.
+// Mirrors models.WorkloadRuleSource on the server. New IaC ecosystems get
+// their own value so audit + UI can attribute rules accurately.
+enum WorkloadRuleSource {
+    WORKLOAD_RULE_SOURCE_UNSPECIFIED = 0;
+    WORKLOAD_RULE_SOURCE_CRD = 1;                // kubectl / in-cluster CRD edit
+    WORKLOAD_RULE_SOURCE_POLICY = 2;             // workload_optimization_policy loop
+    WORKLOAD_RULE_SOURCE_AUTO_OPTIMIZATION = 3;  // engine-driven auto rule
+    WORKLOAD_RULE_SOURCE_MANUAL = 4;             // UI form
+    // IaC providers — split per mode so audit + UI can tell whether the user
+    // hand-specified the rule fields or asked the engine to auto-generate.
+    WORKLOAD_RULE_SOURCE_PULUMI_MANUAL = 5;      // pulumi, auto_generate=false
+    WORKLOAD_RULE_SOURCE_PULUMI_AUTO = 6;        // pulumi, auto_generate=true
+    WORKLOAD_RULE_SOURCE_TERRAFORM_MANUAL = 7;   // terraform, auto_generate=false
+    WORKLOAD_RULE_SOURCE_TERRAFORM_AUTO = 8;     // terraform, auto_generate=true
+}
+
 message UpsertManualWorkloadRuleRequest {
     string team_id = 1;
     string cluster_id = 2;
@@ -3446,6 +3675,12 @@ message UpsertManualWorkloadRuleRequest {
 
     // Manual fields (only used when auto_generate = false).
     ManualRuleFields fields = 10;
+
+    // Optional: identifies which caller is upserting this rule. When unset,
+    // the server defaults to WORKLOAD_RULE_SOURCE_MANUAL (legacy UI behavior).
+    // External IaC providers (pulumi, terraform) MUST set this so the rule
+    // can be attributed in audit and UI surfaces.
+    WorkloadRuleSource source = 11;
 }
 
 message UpsertManualWorkloadRuleResponse {
@@ -3573,4 +3808,54 @@ message GetNodeRecommendationStatusRequest {
 message GetNodeRecommendationStatusResponse {
     NodeRecommendationConfig current_config = 1;
     repeated NodeConfigApplyEvent history = 2;
+}
+
+// EnableCheckpointForPolicyRequest is the orchestration request for the C/R
+// toggle on a node policy. enabled=true sets dakr.devzero.io/checkpoint-node
+// on the policy template AND enqueues per-node label patches for all live nodes
+// in the policy's matched groups. enabled=false unsets the label and enqueues
+// the corresponding unset patches.
+message EnableCheckpointForPolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+    bool enabled = 3;
+}
+
+message EnableCheckpointForPolicyResponse {
+    // UUID grouping the enqueued per-node patches; empty when no live nodes
+    // needed enqueueing (policy template still got patched).
+    string batch_id = 1;
+    uint32 enqueued_nodes = 2;
+    // cluster_ids whose live nodes were NOT enqueued because their dakr
+    // operator reports a version lower than MinVersionNodeLabelApply (the
+    // operator release carrying the Node `patch` RBAC verb + the
+    // dakr.devzero.io/* allowlist for SSA). The policy template was still
+    // patched for these clusters, so newly-provisioned nodes inherit the
+    // label via the NodePool template; existing nodes will be picked up the
+    // next time the user re-runs this action after the operator upgrade.
+    repeated string skipped_clusters = 3;
+}
+
+message GetCheckpointApplyStatusRequest {
+    string team_id = 1;
+    string policy_id = 2;
+}
+
+message GetCheckpointApplyStatusResponse {
+    // batch_id of the most-recent EnableCheckpointForPolicy batch for the
+    // supplied policy, or empty when no batch exists yet.
+    string batch_id = 1;
+    uint32 pending = 2;
+    uint32 applied = 3;
+    uint32 failed = 4;
+    // rejected lumps every other terminal status (superseded, blocked, ignored,
+    // and the operator's Rejected) — the UI surfaces them collectively as "did
+    // not apply".
+    uint32 rejected = 5;
+    repeated NodeApplyFailure failures = 6;
+}
+
+message NodeApplyFailure {
+    string node_name = 1;
+    string error = 2;
 }

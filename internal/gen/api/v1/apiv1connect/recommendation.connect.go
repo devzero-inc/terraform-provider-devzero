@@ -209,6 +209,18 @@ const (
 	// K8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsProcedure is the fully-qualified name
 	// of the K8sRecommendationService's GenerateNodePoliciesFromNodeGroups RPC.
 	K8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsProcedure = "/api.v1.K8sRecommendationService/GenerateNodePoliciesFromNodeGroups"
+	// K8SRecommendationServiceGetNodeGroupsCheckpointStatusProcedure is the fully-qualified name of the
+	// K8sRecommendationService's GetNodeGroupsCheckpointStatus RPC.
+	K8SRecommendationServiceGetNodeGroupsCheckpointStatusProcedure = "/api.v1.K8sRecommendationService/GetNodeGroupsCheckpointStatus"
+	// K8SRecommendationServiceSetNodePolicyCheckpointLabelProcedure is the fully-qualified name of the
+	// K8sRecommendationService's SetNodePolicyCheckpointLabel RPC.
+	K8SRecommendationServiceSetNodePolicyCheckpointLabelProcedure = "/api.v1.K8sRecommendationService/SetNodePolicyCheckpointLabel"
+	// K8SRecommendationServiceEnableCheckpointForPolicyProcedure is the fully-qualified name of the
+	// K8sRecommendationService's EnableCheckpointForPolicy RPC.
+	K8SRecommendationServiceEnableCheckpointForPolicyProcedure = "/api.v1.K8sRecommendationService/EnableCheckpointForPolicy"
+	// K8SRecommendationServiceGetCheckpointApplyStatusProcedure is the fully-qualified name of the
+	// K8sRecommendationService's GetCheckpointApplyStatus RPC.
+	K8SRecommendationServiceGetCheckpointApplyStatusProcedure = "/api.v1.K8sRecommendationService/GetCheckpointApplyStatus"
 	// K8SRecommendationServiceGetNodeAnnotationReadinessProcedure is the fully-qualified name of the
 	// K8sRecommendationService's GetNodeAnnotationReadiness RPC.
 	K8SRecommendationServiceGetNodeAnnotationReadinessProcedure = "/api.v1.K8sRecommendationService/GetNodeAnnotationReadiness"
@@ -473,6 +485,26 @@ type K8SRecommendationServiceClient interface {
 	// GenerateNodePoliciesFromNodeGroups generates NodePolicy objects by inspecting
 	// k8s_nodes metadata for clusters without Karpenter/dzkarp.
 	GenerateNodePoliciesFromNodeGroups(context.Context, *connect.Request[v1.GenerateNodePoliciesFromNodeGroupsRequest]) (*connect.Response[v1.GenerateNodePoliciesFromNodeGroupsResponse], error)
+	// GetNodeGroupsCheckpointStatus returns, per node group in a cluster, whether
+	// checkpoint-restore is enabled (dz-managed + active node policy + the
+	// dakr.devzero.io/checkpoint-node label) so the UI can render status/CTA.
+	GetNodeGroupsCheckpointStatus(context.Context, *connect.Request[v1.GetNodeGroupsCheckpointStatusRequest]) (*connect.Response[v1.GetNodeGroupsCheckpointStatusResponse], error)
+	// SetNodePolicyCheckpointLabel toggles the dakr.devzero.io/checkpoint-node
+	// label on a single node policy via a targeted label patch (not a full-row
+	// policy update).
+	SetNodePolicyCheckpointLabel(context.Context, *connect.Request[v1.SetNodePolicyCheckpointLabelRequest]) (*connect.Response[v1.SetNodePolicyCheckpointLabelResponse], error)
+	// EnableCheckpointForPolicy is the orchestration RPC for the checkpoint-restore
+	// toggle on a NodePolicy. It performs the policy-template patch (same as
+	// SetNodePolicyCheckpointLabel) AND enqueues one GenericResourceRecommendation
+	// per currently-observed node in the policy's matched groups so existing
+	// nodes get (un)labelled, not just future ones. All enqueued rows share a
+	// batch_id the caller polls via GetCheckpointApplyStatus.
+	EnableCheckpointForPolicy(context.Context, *connect.Request[v1.EnableCheckpointForPolicyRequest]) (*connect.Response[v1.EnableCheckpointForPolicyResponse], error)
+	// GetCheckpointApplyStatus surfaces the per-batch status counts (plus per-node
+	// failure details) for the most recent EnableCheckpointForPolicy batch on a
+	// policy. The FE polls this while a batch is in flight so the toggle CTA can
+	// render "9/10 labelled, 1 failed".
+	GetCheckpointApplyStatus(context.Context, *connect.Request[v1.GetCheckpointApplyStatusRequest]) (*connect.Response[v1.GetCheckpointApplyStatusResponse], error)
 	// GetNodeAnnotationReadiness checks how many nodes in a cluster have been
 	// annotated with AWS metadata by the Karpenter fork's node metadata controller.
 	GetNodeAnnotationReadiness(context.Context, *connect.Request[v1.GetNodeAnnotationReadinessRequest]) (*connect.Response[v1.GetNodeAnnotationReadinessResponse], error)
@@ -842,6 +874,26 @@ func NewK8SRecommendationServiceClient(httpClient connect.HTTPClient, baseURL st
 			baseURL+K8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsProcedure,
 			opts...,
 		),
+		getNodeGroupsCheckpointStatus: connect.NewClient[v1.GetNodeGroupsCheckpointStatusRequest, v1.GetNodeGroupsCheckpointStatusResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceGetNodeGroupsCheckpointStatusProcedure,
+			opts...,
+		),
+		setNodePolicyCheckpointLabel: connect.NewClient[v1.SetNodePolicyCheckpointLabelRequest, v1.SetNodePolicyCheckpointLabelResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceSetNodePolicyCheckpointLabelProcedure,
+			opts...,
+		),
+		enableCheckpointForPolicy: connect.NewClient[v1.EnableCheckpointForPolicyRequest, v1.EnableCheckpointForPolicyResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceEnableCheckpointForPolicyProcedure,
+			opts...,
+		),
+		getCheckpointApplyStatus: connect.NewClient[v1.GetCheckpointApplyStatusRequest, v1.GetCheckpointApplyStatusResponse](
+			httpClient,
+			baseURL+K8SRecommendationServiceGetCheckpointApplyStatusProcedure,
+			opts...,
+		),
 		getNodeAnnotationReadiness: connect.NewClient[v1.GetNodeAnnotationReadinessRequest, v1.GetNodeAnnotationReadinessResponse](
 			httpClient,
 			baseURL+K8SRecommendationServiceGetNodeAnnotationReadinessProcedure,
@@ -1165,6 +1217,10 @@ type k8SRecommendationServiceClient struct {
 	suggestedKarpenterConfig                       *connect.Client[v1.SuggestedKarpenterConfigRequest, v1.SuggestedKarpenterConfigResponse]
 	generateNodePoliciesFromKarpenter              *connect.Client[v1.GenerateNodePoliciesFromKarpenterRequest, v1.GenerateNodePoliciesFromKarpenterResponse]
 	generateNodePoliciesFromNodeGroups             *connect.Client[v1.GenerateNodePoliciesFromNodeGroupsRequest, v1.GenerateNodePoliciesFromNodeGroupsResponse]
+	getNodeGroupsCheckpointStatus                  *connect.Client[v1.GetNodeGroupsCheckpointStatusRequest, v1.GetNodeGroupsCheckpointStatusResponse]
+	setNodePolicyCheckpointLabel                   *connect.Client[v1.SetNodePolicyCheckpointLabelRequest, v1.SetNodePolicyCheckpointLabelResponse]
+	enableCheckpointForPolicy                      *connect.Client[v1.EnableCheckpointForPolicyRequest, v1.EnableCheckpointForPolicyResponse]
+	getCheckpointApplyStatus                       *connect.Client[v1.GetCheckpointApplyStatusRequest, v1.GetCheckpointApplyStatusResponse]
 	getNodeAnnotationReadiness                     *connect.Client[v1.GetNodeAnnotationReadinessRequest, v1.GetNodeAnnotationReadinessResponse]
 	getMigrationState                              *connect.Client[v1.GetMigrationStateRequest, v1.GetMigrationStateResponse]
 	updateMigrationState                           *connect.Client[v1.UpdateMigrationStateRequest, v1.UpdateMigrationStateResponse]
@@ -1574,6 +1630,27 @@ func (c *k8SRecommendationServiceClient) GenerateNodePoliciesFromNodeGroups(ctx 
 	return c.generateNodePoliciesFromNodeGroups.CallUnary(ctx, req)
 }
 
+// GetNodeGroupsCheckpointStatus calls
+// api.v1.K8sRecommendationService.GetNodeGroupsCheckpointStatus.
+func (c *k8SRecommendationServiceClient) GetNodeGroupsCheckpointStatus(ctx context.Context, req *connect.Request[v1.GetNodeGroupsCheckpointStatusRequest]) (*connect.Response[v1.GetNodeGroupsCheckpointStatusResponse], error) {
+	return c.getNodeGroupsCheckpointStatus.CallUnary(ctx, req)
+}
+
+// SetNodePolicyCheckpointLabel calls api.v1.K8sRecommendationService.SetNodePolicyCheckpointLabel.
+func (c *k8SRecommendationServiceClient) SetNodePolicyCheckpointLabel(ctx context.Context, req *connect.Request[v1.SetNodePolicyCheckpointLabelRequest]) (*connect.Response[v1.SetNodePolicyCheckpointLabelResponse], error) {
+	return c.setNodePolicyCheckpointLabel.CallUnary(ctx, req)
+}
+
+// EnableCheckpointForPolicy calls api.v1.K8sRecommendationService.EnableCheckpointForPolicy.
+func (c *k8SRecommendationServiceClient) EnableCheckpointForPolicy(ctx context.Context, req *connect.Request[v1.EnableCheckpointForPolicyRequest]) (*connect.Response[v1.EnableCheckpointForPolicyResponse], error) {
+	return c.enableCheckpointForPolicy.CallUnary(ctx, req)
+}
+
+// GetCheckpointApplyStatus calls api.v1.K8sRecommendationService.GetCheckpointApplyStatus.
+func (c *k8SRecommendationServiceClient) GetCheckpointApplyStatus(ctx context.Context, req *connect.Request[v1.GetCheckpointApplyStatusRequest]) (*connect.Response[v1.GetCheckpointApplyStatusResponse], error) {
+	return c.getCheckpointApplyStatus.CallUnary(ctx, req)
+}
+
 // GetNodeAnnotationReadiness calls api.v1.K8sRecommendationService.GetNodeAnnotationReadiness.
 func (c *k8SRecommendationServiceClient) GetNodeAnnotationReadiness(ctx context.Context, req *connect.Request[v1.GetNodeAnnotationReadinessRequest]) (*connect.Response[v1.GetNodeAnnotationReadinessResponse], error) {
 	return c.getNodeAnnotationReadiness.CallUnary(ctx, req)
@@ -1959,6 +2036,26 @@ type K8SRecommendationServiceHandler interface {
 	// GenerateNodePoliciesFromNodeGroups generates NodePolicy objects by inspecting
 	// k8s_nodes metadata for clusters without Karpenter/dzkarp.
 	GenerateNodePoliciesFromNodeGroups(context.Context, *connect.Request[v1.GenerateNodePoliciesFromNodeGroupsRequest]) (*connect.Response[v1.GenerateNodePoliciesFromNodeGroupsResponse], error)
+	// GetNodeGroupsCheckpointStatus returns, per node group in a cluster, whether
+	// checkpoint-restore is enabled (dz-managed + active node policy + the
+	// dakr.devzero.io/checkpoint-node label) so the UI can render status/CTA.
+	GetNodeGroupsCheckpointStatus(context.Context, *connect.Request[v1.GetNodeGroupsCheckpointStatusRequest]) (*connect.Response[v1.GetNodeGroupsCheckpointStatusResponse], error)
+	// SetNodePolicyCheckpointLabel toggles the dakr.devzero.io/checkpoint-node
+	// label on a single node policy via a targeted label patch (not a full-row
+	// policy update).
+	SetNodePolicyCheckpointLabel(context.Context, *connect.Request[v1.SetNodePolicyCheckpointLabelRequest]) (*connect.Response[v1.SetNodePolicyCheckpointLabelResponse], error)
+	// EnableCheckpointForPolicy is the orchestration RPC for the checkpoint-restore
+	// toggle on a NodePolicy. It performs the policy-template patch (same as
+	// SetNodePolicyCheckpointLabel) AND enqueues one GenericResourceRecommendation
+	// per currently-observed node in the policy's matched groups so existing
+	// nodes get (un)labelled, not just future ones. All enqueued rows share a
+	// batch_id the caller polls via GetCheckpointApplyStatus.
+	EnableCheckpointForPolicy(context.Context, *connect.Request[v1.EnableCheckpointForPolicyRequest]) (*connect.Response[v1.EnableCheckpointForPolicyResponse], error)
+	// GetCheckpointApplyStatus surfaces the per-batch status counts (plus per-node
+	// failure details) for the most recent EnableCheckpointForPolicy batch on a
+	// policy. The FE polls this while a batch is in flight so the toggle CTA can
+	// render "9/10 labelled, 1 failed".
+	GetCheckpointApplyStatus(context.Context, *connect.Request[v1.GetCheckpointApplyStatusRequest]) (*connect.Response[v1.GetCheckpointApplyStatusResponse], error)
 	// GetNodeAnnotationReadiness checks how many nodes in a cluster have been
 	// annotated with AWS metadata by the Karpenter fork's node metadata controller.
 	GetNodeAnnotationReadiness(context.Context, *connect.Request[v1.GetNodeAnnotationReadinessRequest]) (*connect.Response[v1.GetNodeAnnotationReadinessResponse], error)
@@ -2322,6 +2419,26 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 	k8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsHandler := connect.NewUnaryHandler(
 		K8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsProcedure,
 		svc.GenerateNodePoliciesFromNodeGroups,
+		opts...,
+	)
+	k8SRecommendationServiceGetNodeGroupsCheckpointStatusHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceGetNodeGroupsCheckpointStatusProcedure,
+		svc.GetNodeGroupsCheckpointStatus,
+		opts...,
+	)
+	k8SRecommendationServiceSetNodePolicyCheckpointLabelHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceSetNodePolicyCheckpointLabelProcedure,
+		svc.SetNodePolicyCheckpointLabel,
+		opts...,
+	)
+	k8SRecommendationServiceEnableCheckpointForPolicyHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceEnableCheckpointForPolicyProcedure,
+		svc.EnableCheckpointForPolicy,
+		opts...,
+	)
+	k8SRecommendationServiceGetCheckpointApplyStatusHandler := connect.NewUnaryHandler(
+		K8SRecommendationServiceGetCheckpointApplyStatusProcedure,
+		svc.GetCheckpointApplyStatus,
 		opts...,
 	)
 	k8SRecommendationServiceGetNodeAnnotationReadinessHandler := connect.NewUnaryHandler(
@@ -2702,6 +2819,14 @@ func NewK8SRecommendationServiceHandler(svc K8SRecommendationServiceHandler, opt
 			k8SRecommendationServiceGenerateNodePoliciesFromKarpenterHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsProcedure:
 			k8SRecommendationServiceGenerateNodePoliciesFromNodeGroupsHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceGetNodeGroupsCheckpointStatusProcedure:
+			k8SRecommendationServiceGetNodeGroupsCheckpointStatusHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceSetNodePolicyCheckpointLabelProcedure:
+			k8SRecommendationServiceSetNodePolicyCheckpointLabelHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceEnableCheckpointForPolicyProcedure:
+			k8SRecommendationServiceEnableCheckpointForPolicyHandler.ServeHTTP(w, r)
+		case K8SRecommendationServiceGetCheckpointApplyStatusProcedure:
+			k8SRecommendationServiceGetCheckpointApplyStatusHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceGetNodeAnnotationReadinessProcedure:
 			k8SRecommendationServiceGetNodeAnnotationReadinessHandler.ServeHTTP(w, r)
 		case K8SRecommendationServiceGetMigrationStateProcedure:
@@ -3045,6 +3170,22 @@ func (UnimplementedK8SRecommendationServiceHandler) GenerateNodePoliciesFromKarp
 
 func (UnimplementedK8SRecommendationServiceHandler) GenerateNodePoliciesFromNodeGroups(context.Context, *connect.Request[v1.GenerateNodePoliciesFromNodeGroupsRequest]) (*connect.Response[v1.GenerateNodePoliciesFromNodeGroupsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GenerateNodePoliciesFromNodeGroups is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) GetNodeGroupsCheckpointStatus(context.Context, *connect.Request[v1.GetNodeGroupsCheckpointStatusRequest]) (*connect.Response[v1.GetNodeGroupsCheckpointStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetNodeGroupsCheckpointStatus is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) SetNodePolicyCheckpointLabel(context.Context, *connect.Request[v1.SetNodePolicyCheckpointLabelRequest]) (*connect.Response[v1.SetNodePolicyCheckpointLabelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.SetNodePolicyCheckpointLabel is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) EnableCheckpointForPolicy(context.Context, *connect.Request[v1.EnableCheckpointForPolicyRequest]) (*connect.Response[v1.EnableCheckpointForPolicyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.EnableCheckpointForPolicy is not implemented"))
+}
+
+func (UnimplementedK8SRecommendationServiceHandler) GetCheckpointApplyStatus(context.Context, *connect.Request[v1.GetCheckpointApplyStatusRequest]) (*connect.Response[v1.GetCheckpointApplyStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.K8sRecommendationService.GetCheckpointApplyStatus is not implemented"))
 }
 
 func (UnimplementedK8SRecommendationServiceHandler) GetNodeAnnotationReadiness(context.Context, *connect.Request[v1.GetNodeAnnotationReadinessRequest]) (*connect.Response[v1.GetNodeAnnotationReadinessResponse], error) {

@@ -1499,4 +1499,104 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			t.Errorf("Expected PrimaryMetric='cpu', got %s", m.HpaRule.PrimaryMetric.ValueString())
 		}
 	})
+
+	// ---------- Source field (terraform_manual / terraform_auto) ----------
+
+	t.Run("ToProto_Source_ManualIsTerrformManual", func(t *testing.T) {
+		ctx := context.Background()
+		var diags diag.Diagnostics
+
+		m := &WorkloadRuleResourceModel{
+			ClusterId:                 types.StringValue("c1"),
+			Namespace:                 types.StringValue("default"),
+			Kind:                      types.StringValue("Deployment"),
+			Name:                      types.StringValue("app"),
+			AutoGenerate:              types.BoolValue(false),
+			ActionTriggers:            types.ListNull(types.StringType),
+			DetectionTriggers:         types.ListNull(types.StringType),
+			SchedulerPlugins:          types.ListNull(types.StringType),
+			CooldownMinutes:           types.Int32Null(),
+			StartupPeriodSeconds:      types.Int64Null(),
+			CronSchedule:              types.StringNull(),
+			DefragmentationSchedule:   types.StringNull(),
+			LiveMigrationEnabled:      types.BoolValue(false),
+			UseInPlaceVerticalScaling: types.BoolValue(false),
+		}
+
+		req := m.toProto(ctx, &diags, "team-1")
+		if diags.HasError() {
+			t.Fatalf("Unexpected error: %v", diags)
+		}
+		if req.Source != apiv1.WorkloadRuleSource_WORKLOAD_RULE_SOURCE_TERRAFORM_MANUAL {
+			t.Errorf("Expected TERRAFORM_MANUAL, got %v", req.Source)
+		}
+	})
+
+	t.Run("ToProto_Source_AutoGenerateIsTerrformAuto", func(t *testing.T) {
+		ctx := context.Background()
+		var diags diag.Diagnostics
+
+		m := &WorkloadRuleResourceModel{
+			ClusterId:                 types.StringValue("c1"),
+			Namespace:                 types.StringValue("default"),
+			Kind:                      types.StringValue("Deployment"),
+			Name:                      types.StringValue("app"),
+			AutoGenerate:              types.BoolValue(true),
+			ActionTriggers:            types.ListNull(types.StringType),
+			DetectionTriggers:         types.ListNull(types.StringType),
+			SchedulerPlugins:          types.ListNull(types.StringType),
+			CooldownMinutes:           types.Int32Null(),
+			StartupPeriodSeconds:      types.Int64Null(),
+			CronSchedule:              types.StringNull(),
+			DefragmentationSchedule:   types.StringNull(),
+			LiveMigrationEnabled:      types.BoolValue(false),
+			UseInPlaceVerticalScaling: types.BoolValue(false),
+		}
+
+		req := m.toProto(ctx, &diags, "team-1")
+		if diags.HasError() {
+			t.Fatalf("Unexpected error: %v", diags)
+		}
+		if req.Source != apiv1.WorkloadRuleSource_WORKLOAD_RULE_SOURCE_TERRAFORM_AUTO {
+			t.Errorf("Expected TERRAFORM_AUTO, got %v", req.Source)
+		}
+	})
+
+	t.Run("FromProto_AutoGenerate_AllAutoSources", func(t *testing.T) {
+		autoSources := []string{"auto_optimization", "terraform_auto", "pulumi_auto"}
+		for _, src := range autoSources {
+			r := &apiv1.WorkloadRule{
+				RuleId:        "rule-1",
+				ClusterId:     "c1",
+				Namespace:     "default",
+				Kind:          "Deployment",
+				Name:          "app",
+				CurrentSource: src,
+			}
+			var m WorkloadRuleResourceModel
+			m.fromProto(r)
+			if !m.AutoGenerate.ValueBool() {
+				t.Errorf("Expected AutoGenerate=true for source %q", src)
+			}
+		}
+	})
+
+	t.Run("FromProto_AutoGenerate_AllManualSources", func(t *testing.T) {
+		manualSources := []string{"manual", "terraform_manual", "pulumi_manual", "crd", "policy"}
+		for _, src := range manualSources {
+			r := &apiv1.WorkloadRule{
+				RuleId:        "rule-1",
+				ClusterId:     "c1",
+				Namespace:     "default",
+				Kind:          "Deployment",
+				Name:          "app",
+				CurrentSource: src,
+			}
+			var m WorkloadRuleResourceModel
+			m.fromProto(r)
+			if m.AutoGenerate.ValueBool() {
+				t.Errorf("Expected AutoGenerate=false for source %q", src)
+			}
+		}
+	})
 }

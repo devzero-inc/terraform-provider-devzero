@@ -686,6 +686,11 @@ func (r *WorkloadRuleResource) ImportState(ctx context.Context, req resource.Imp
 // ---------- toProto / fromProto ----------
 
 func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Diagnostics, teamId string) *apiv1.UpsertManualWorkloadRuleRequest {
+	source := apiv1.WorkloadRuleSource_WORKLOAD_RULE_SOURCE_TERRAFORM_MANUAL
+	if m.AutoGenerate.ValueBool() {
+		source = apiv1.WorkloadRuleSource_WORKLOAD_RULE_SOURCE_TERRAFORM_AUTO
+	}
+
 	req := &apiv1.UpsertManualWorkloadRuleRequest{
 		TeamId:       teamId,
 		ClusterId:    m.ClusterId.ValueString(),
@@ -693,6 +698,7 @@ func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Dia
 		Kind:         m.Kind.ValueString(),
 		Name:         m.Name.ValueString(),
 		AutoGenerate: m.AutoGenerate.ValueBool(),
+		Source:       source,
 	}
 
 	if m.AutoGenerate.ValueBool() {
@@ -819,9 +825,10 @@ func (m *WorkloadRuleResourceModel) fromProto(r *apiv1.WorkloadRule) {
 	m.Kind = types.StringValue(r.Kind)
 	m.Name = types.StringValue(r.Name)
 
-	if r.CurrentSource == "auto_optimization" {
+	switch r.CurrentSource {
+	case "auto_optimization", "terraform_auto", "pulumi_auto":
 		m.AutoGenerate = types.BoolValue(true)
-	} else {
+	default:
 		m.AutoGenerate = types.BoolValue(false)
 	}
 
