@@ -11,6 +11,21 @@ lint:
 
 generate:
 	cd tools; go generate ./...
+	@echo "Patching workload_rule docs: removing internal-only fields..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		sed -i '' '/`cooldown_minutes`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`startup_period_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`oom_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`scale_down_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`oom_max_reactions`/d' docs/resources/workload_rule.md; \
+	else \
+		sed -i '/`cooldown_minutes`/d' docs/resources/workload_rule.md; \
+		sed -i '/`startup_period_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '/`oom_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '/`scale_down_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '/`oom_max_reactions`/d' docs/resources/workload_rule.md; \
+	fi
+	@echo "Patch complete."
 
 fmt:
 	gofmt -s -w -e .
