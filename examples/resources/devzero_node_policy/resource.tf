@@ -1,3 +1,69 @@
+# Standard example — values kept in sync with the Pulumi provider
+resource "devzero_node_policy" "standard_nodes" {
+  name        = "standard-nodes"
+  description = "On-demand x86 nodes for general workloads"
+  weight      = 10
+
+  capacity_types = {
+    match_expressions = [{
+      key      = "capacityTypes"
+      operator = "In"
+      values   = ["on-demand"]
+    }]
+  }
+
+  instance_categories = {
+    match_expressions = [{
+      key      = "instanceCategories"
+      operator = "In"
+      values   = ["m", "c"]
+    }]
+  }
+
+  instance_sizes = {
+    match_expressions = [{
+      key      = "instanceSizes"
+      operator = "In"
+      values   = ["large", "xlarge", "2xlarge"]
+    }]
+  }
+
+  architectures = {
+    match_expressions = [{
+      key      = "architectures"
+      operator = "In"
+      values   = ["amd64"]
+    }]
+  }
+
+  operating_systems = {
+    match_expressions = [{
+      key      = "operatingSystems"
+      operator = "In"
+      values   = ["linux"]
+    }]
+  }
+
+  disruption = {
+    consolidation_policy = "WhenEmptyOrUnderutilized"
+    consolidate_after    = "30m"
+    expire_after         = "168h" # 7 days
+  }
+
+  aws = {
+    ami_family = "AL2"
+    role       = "KarpenterNodeRole"
+
+    subnet_selector_terms = [
+      { tags = { "karpenter.sh/discovery" = "my-cluster" } }
+    ]
+
+    security_group_selector_terms = [
+      { tags = { "karpenter.sh/discovery" = "my-cluster" } }
+    ]
+  }
+}
+
 # Minimal example - uses sensible defaults
 resource "devzero_node_policy" "minimal" {
   name            = "minimal-policy"

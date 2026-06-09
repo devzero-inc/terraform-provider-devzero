@@ -13,49 +13,34 @@ Defines which workloads a policy applies to by selecting namespaces, workloads, 
 ## Example Usage
 
 ```terraform
-resource "devzero_cluster" "cluster" {
-  name = "terraform-example"
+resource "devzero_cluster" "production" {
+  name = "production-cluster"
 }
 
-resource "devzero_workload_policy" "workload_policy" {
-  name = "terraform-example"
+resource "devzero_workload_policy" "cost_saving" {
+  name = "cost-saving-policy"
 }
 
-# Only required attributes
-resource "devzero_workload_policy_target" "workload_policy_target" {
-  name        = "terraform-example"
-  policy_id   = devzero_workload_policy.workload_policy.id
-  cluster_ids = [devzero_cluster.cluster.id]
+# Minimal — only required attributes
+resource "devzero_workload_policy_target" "minimal" {
+  name        = "production-target"
+  policy_id   = devzero_workload_policy.cost_saving.id
+  cluster_ids = [devzero_cluster.production.id]
 }
 
-# All attributes
-resource "devzero_workload_policy_target" "workload_policy_target" {
-  name        = "terraform-example"
-  description = "some description"
-  policy_id   = devzero_workload_policy.workload_policy.id
-  cluster_ids = [devzero_cluster.cluster.id]
-  priority    = 1
+# Full example — values kept in sync with the Pulumi provider
+resource "devzero_workload_policy_target" "production" {
+  name        = "production-target"
+  policy_id   = devzero_workload_policy.cost_saving.id
+  cluster_ids = [devzero_cluster.production.id]
+  kind_filter = ["Deployment", "StatefulSet"]
   enabled     = true
 
-  workload_names   = ["workload-1", "workload-2"]     # Empty list means all workloads
-  node_group_names = ["node-group-1", "node-group-2"] # Empty list means all node groups
-  kind_filter      = ["Deployment", "ReplicaSet"]     # Empty list means all kinds
-
-  name_pattern = {
-    pattern = "terraform-example"
-    flags   = "i"
-  }
-
-  namespace_selector = {
-    match_labels = {
-      app = "terraform-example"
-    }
-  }
-
-  workload_selector = {
-    match_labels = {
-      app = "terraform-example"
-    }
+  # Match namespaces by name pattern — useful when namespaces follow a naming
+  # convention but aren't consistently labeled (e.g. team-*, prod-*).
+  namespace_pattern = {
+    pattern = "^prod-"
+    flags   = "i" # case-insensitive
   }
 }
 ```
