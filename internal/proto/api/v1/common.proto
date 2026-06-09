@@ -41,6 +41,15 @@ enum K8sObjectKind {
     K8S_OBJECT_KIND_POD_DISRUPTION_BUDGET = 27;
     K8S_OBJECT_KIND_RESOURCE_QUOTA = 28;
     K8S_OBJECT_KIND_KUBEFLOW_NOTEBOOK = 29;
+    K8S_OBJECT_KIND_VOLCANO_JOB = 30;
+    K8S_OBJECT_KIND_SECRET = 31;
+    K8S_OBJECT_KIND_CLUSTER_ROLE = 32;
+    K8S_OBJECT_KIND_CLUSTER_ROLE_BINDING = 33;
+    K8S_OBJECT_KIND_NETWORK_POLICY = 34;
+    // CloudNativePG Cluster CRD (postgresql.cnpg.io/v1). Cluster is the Schema for the PostgreSQL API. Not the Kubernetes infrastructure cluster.
+    K8S_OBJECT_KIND_CNPG_CLUSTER = 35;
+    K8S_OBJECT_KIND_SPARK_APPLICATION = 36;
+    K8S_OBJECT_KIND_SCHEDULED_SPARK_APPLICATION = 37;
 }
 
 // Represents a single audit log entry
@@ -51,7 +60,7 @@ message AuditLogEntry {
 
   string node_id = 4;
   string workload_id = 5;
-  K8sObjectKind workload_type = 6; // only going to be deployment, replicaset, statefulset, daemonset, job, cronjob, pod
+  K8sObjectKind workload_type = 6; // e.g. deployment, replicaset, statefulset, daemonset, job, cronjob, pod, rollout, notebook, volcano job, spark application, CNPG cluster
 
   string recommendation_policy_id = 7;
   string recommendation_id = 8;
@@ -89,34 +98,62 @@ enum OrderByEnum {
 
 // CostInfo contains cost estimates and optimized cost projections.
 message CostInfo {
-  double cpu_cost_per_hour = 1; // Estimated CPU cost per hour.
-  double memory_cost_per_hour = 2; // Estimated memory cost per hour.
-  double total_cost_per_hour = 3; // Total estimated cost per hour.
-  double total_cost_per_month = 4; // Total estimated cost per month.
-  double total_cost_per_year = 5; // Total estimated cost per year.
-  double optimized_cpu_cost_per_hour = 6; // Optimized CPU cost per hour.
-  double optimized_memory_cost_per_hour = 7; // Optimized memory cost per hour.
-  double optimized_total_cost_per_hour = 8; // Optimized total cost per hour.
-  double optimized_total_cost_per_month = 9; // Optimized total cost per month.
-  double optimized_total_cost_per_year = 10; // Optimized total cost per year.
+  double cpu_cost_per_hour = 1 [deprecated = true]; // Estimated CPU cost per hour.
+  double memory_cost_per_hour = 2 [deprecated = true]; // Estimated memory cost per hour.
+  double total_cost_per_hour = 3 [deprecated = true]; // Total estimated cost per hour.
+  double total_cost_per_month = 4 [deprecated = true]; // Total estimated cost per month.
+  double total_cost_per_year = 5 [deprecated = true]; // Total estimated cost per year.
+  double optimized_cpu_cost_per_hour = 6 [deprecated = true]; // Optimized CPU cost per hour.
+  double optimized_memory_cost_per_hour = 7 [deprecated = true]; // Optimized memory cost per hour.
+  double optimized_total_cost_per_hour = 8 [deprecated = true]; // Optimized total cost per hour.
+  double optimized_total_cost_per_month = 9 [deprecated = true]; // Optimized total cost per month.
+  double optimized_total_cost_per_year = 10 [deprecated = true]; // Optimized total cost per year.
 
-  double cpu_cost_for_time_period = 11; // CPU cost for selected time period
-  double memory_cost_for_time_period = 12; // Memory cost for selected time period
-  double total_cost_for_time_period = 13; // Total cost for selected time period
+  double cpu_cost_for_time_period = 11 [deprecated = true]; // CPU cost for selected time period
+  double memory_cost_for_time_period = 12 [deprecated = true]; // Memory cost for selected time period
+  double total_cost_for_time_period = 13 [deprecated = true]; // Total cost for selected time period
 
-  double optimized_cpu_cost_for_time_period = 14; // Optimized CPU cost for selected time period
-  double optimized_memory_cost_for_time_period = 15; // Optimized Memory cost for selected time period
-  double optimized_total_cost_for_time_period = 16; // Optimized total cost for selected time period
+  double optimized_cpu_cost_for_time_period = 14 [deprecated = true]; // Optimized CPU cost for selected time period
+  double optimized_memory_cost_for_time_period = 15 [deprecated = true]; // Optimized Memory cost for selected time period
+  double optimized_total_cost_for_time_period = 16 [deprecated = true]; // Optimized total cost for selected time period
 
-  double optimized_gpu_cost_for_time_period = 17; // Optimized GPU cost for selected time period
-  double gpu_cost_for_time_period = 18; // GPU cost for time period
-  double gpu_cost_per_hour = 19; // GPU cost per hour
-  double optimized_gpu_cost_per_hour = 20; // Optimized GPU cost per hour
+  double optimized_gpu_cost_for_time_period = 17 [deprecated = true]; // Optimized GPU cost for selected time period
+  double gpu_cost_for_time_period = 18 [deprecated = true]; // GPU cost for time period
+  double gpu_cost_per_hour = 19 [deprecated = true]; // GPU cost per hour
+  double optimized_gpu_cost_per_hour = 20 [deprecated = true]; // Optimized GPU cost per hour
 
-  double cpu_cost_per_vcpu_per_hour = 21; // Estimated CPU cost per vcpu per hour.
-  double memory_cost_per_gib_per_hour = 22; // Estimated memory cost per gib per hour.
+  double cpu_cost_per_vcpu_per_hour = 21 [deprecated = true]; // Estimated CPU cost per vcpu per hour.
+  double memory_cost_per_gib_per_hour = 22 [deprecated = true]; // Estimated memory cost per gib per hour.
 
-  google.type.Money node_recommendation_saved_cost_last_month = 23; // Estimated cost saved by node recommendations in the last month.
+  reserved 23; // was node_recommendation_saved_cost_last_month (removed)
+
+  // Money-based cost fields for currency flexibility
+  google.type.Money money_cpu_cost_per_hour = 100;
+  google.type.Money money_memory_cost_per_hour = 101;
+  google.type.Money money_total_cost_per_hour = 102;
+  google.type.Money money_total_cost_per_month = 103;
+  google.type.Money money_total_cost_per_year = 104;
+  google.type.Money money_optimized_cpu_cost_per_hour = 105;
+  google.type.Money money_optimized_memory_cost_per_hour = 106;
+  google.type.Money money_optimized_total_cost_per_hour = 107;
+  google.type.Money money_optimized_total_cost_per_month = 108;
+  google.type.Money money_optimized_total_cost_per_year = 109;
+
+  google.type.Money money_cpu_cost_for_time_period = 110;
+  google.type.Money money_memory_cost_for_time_period = 111;
+  google.type.Money money_total_cost_for_time_period = 112;
+
+  google.type.Money money_optimized_cpu_cost_for_time_period = 113;
+  google.type.Money money_optimized_memory_cost_for_time_period = 114;
+  google.type.Money money_optimized_total_cost_for_time_period = 115;
+
+  google.type.Money money_optimized_gpu_cost_for_time_period = 116;
+  google.type.Money money_gpu_cost_for_time_period = 117;
+  google.type.Money money_gpu_cost_per_hour = 118;
+  google.type.Money money_optimized_gpu_cost_per_hour = 119;
+
+  google.type.Money money_cpu_cost_per_vcpu_per_hour = 120;
+  google.type.Money money_memory_cost_per_gib_per_hour = 121;
 }
 
 // ResourceMetrics encapsulates CPU and memory capacity, usage, and utilization for nodes and containers.
@@ -163,8 +200,94 @@ message ResourceMetrics {
   // fs bits TODO: node-level
   double container_fs_read_bytes = 71; // in bytes
   double container_fs_write_bytes = 76; // in bytes
-  double container_fs_reads = 81; // float
   double container_fs_writes = 86; // float
+  double container_fs_reads = 81; // float
+
+  // Node-level Network Metrics
+  double node_net_rcv = 91; // in bytes
+  double node_net_transmit = 92; // in bytes
+  double node_net_rcv_pckts = 93; // number of packets
+  double node_net_transmit_pckts = 94; // number of packets
+  double node_net_rcv_errors = 95; // number
+  double node_net_transmit_errors = 96; // number
+  double node_net_rcv_dropped = 97; // number
+  double node_net_transmit_dropped = 98; // number
+
+  // Node-level Filesystem Metrics
+  double node_fs_read_bytes = 101; // in bytes
+  double node_fs_write_bytes = 102; // in bytes
+  double node_fs_reads = 103; // number
+  double node_fs_writes = 104; // number
+
+  // Pod count
+  int32 pod_count = 111; // Number of distinct pods observed in this time bucket.
+}
+
+// MetricPercentiles contains percentile statistics for a single metric.
+message MetricPercentiles {
+  double min = 1;
+  double avg = 2;
+  double max = 3;
+  double p50 = 4;
+  double p95 = 5;
+  double p99 = 6;
+  double p100 = 7;
+  double p10 = 8;
+  double p25 = 9;
+  double p75 = 10;
+  double p90 = 11;
+  double p999 = 12;
+  // Dense percentiles for smooth distribution visualization
+  double p1 = 13;
+  double p5 = 14;
+  double p15 = 15;
+  double p20 = 16;
+  double p30 = 17;
+  double p35 = 18;
+  double p40 = 19;
+  double p45 = 20;
+  double p55 = 21;
+  double p60 = 22;
+  double p65 = 23;
+  double p70 = 24;
+  double p80 = 25;
+  double p85 = 26;
+  double p97 = 27;
+}
+
+// ContainerPercentileSummary contains percentile statistics for a single container.
+message ContainerPercentileSummary {
+  string container_name = 1;
+  MetricPercentiles cpu_usage = 2;
+  MetricPercentiles memory_usage = 3;
+  MetricPercentiles cpu_request = 4;
+  MetricPercentiles memory_request = 5;
+  MetricPercentiles cpu_limit = 6;
+  MetricPercentiles memory_limit = 7;
+  MetricPercentiles gpu_usage = 8;
+  MetricPercentiles gpu_vram_usage = 9;
+
+  // Deprecated: Use GetLatestContainerRequestLimits RPC instead.
+  double current_cpu_request = 10 [deprecated = true];
+  double current_memory_request = 11 [deprecated = true];
+  double current_cpu_limit = 12 [deprecated = true];
+  double current_memory_limit = 13 [deprecated = true];
+
+  MetricPercentiles network_receive_bytes = 14;
+  MetricPercentiles network_transmit_bytes = 15;
+
+  // Deprecated: FS percentiles are now served via GetWorkloadProfiles RPC.
+  MetricPercentiles fs_read_bytes = 16 [deprecated = true];
+  MetricPercentiles fs_write_bytes = 17 [deprecated = true];
+}
+
+// ContainerRequestLimits contains the latest request/limit values for a single container.
+message ContainerRequestLimits {
+  string container_name = 1;
+  double current_cpu_request = 2;
+  double current_memory_request = 3;
+  double current_cpu_limit = 4;
+  double current_memory_limit = 5;
 }
 
 // ForecastResourceMetrics encapsulates Forecasted CPU and memory capacity, usage, and utilization for nodes and containers.
@@ -250,6 +373,10 @@ message WorkloadItem {
 
   int32 replicas_from_status = 76;
   int32 replicas_from_spec = 77;
+  int32 replicas_from_metrics = 78;
+
+  string root_owner_kind = 91; // Kind of the root owning resource, if any.
+  string root_owner_uid = 92; // UID of the root owning resource, if any.
 }
 
 // ContainerRuntimeInfo containes information about container runtime info
@@ -265,6 +392,7 @@ message NodeInfo {
   int32 reserved_count = 3; // Number of reserved nodes.
   int32 spot_count = 4; // Number of spot nodes.
   int32 unknown_count = 5; // Number of nodes with unknown type.
+  map<string, int32> price_source_counts = 6; // Node count by price_source (e.g. {"ri_exact": 2, "sp_api_rate": 1, "on_demand": 5}).
 }
 
 // ResourceInfo provides counts of resources and their scheduling states.
@@ -299,17 +427,35 @@ message Node {
   map<string, string> labels = 44; // Resource labels.
   map<string, string> annotations = 45; // Resource annotations.
 
-  // Pricing information
-  double price_per_hour = 50;
-  double price_per_vcpu = 51;
-  double price_per_gib = 52;
-  double price_per_gpu = 53;
-  double cpu_price = 54;
-  double memory_price = 55;
-  double gpu_price = 56;
+  // Pricing information (legacy float fields - deprecated)
+  double price_per_hour = 50 [deprecated = true];
+  double price_per_vcpu = 51 [deprecated = true];
+  double price_per_gib = 52 [deprecated = true];
+  double price_per_gpu = 53 [deprecated = true];
+  double cpu_price = 54 [deprecated = true];
+  double memory_price = 55 [deprecated = true];
+  double gpu_price = 56 [deprecated = true];
+
+  // Pricing information (using Money type for currency flexibility)
+  google.type.Money money_price_per_hour = 57;
+  google.type.Money money_eff_period_total_cost = 58;
+  google.type.Money money_price_per_vcpu = 59;
+  google.type.Money money_price_per_gib = 80;
+  google.type.Money money_price_per_gpu = 81;
+  google.type.Money money_cpu_price = 82;
+  google.type.Money money_memory_price = 83;
+  google.type.Money money_gpu_price = 84;
+
+  // Commitment pricing: original on-demand list price and billing source.
+  // money_price_per_hour holds the effective (RI/SP-adjusted) price.
+  // money_on_demand_price_per_hour holds the baseline list price before any discount.
+  // For on-demand and spot nodes both fields are equal.
+  google.type.Money money_on_demand_price_per_hour = 85;
+  string price_source = 86; // "ri_exact", "ri_flexible", "sp_api_rate", "sp_estimated", "mixed", "spot", "on_demand", "unknown"
+  string pricing_accuracy = 87; // "accurate", "estimated", "fallback", "unknown"
 
   // Enhanced node classification
-  string extracted_node_type = 60; // "spot", "on-demand", "reserved" 
+  string extracted_node_type = 60; // "spot", "on-demand", "reserved"
   string availability_zone = 61;   // Multi-cloud AZ extraction
 
   // Kubernetes metadata
@@ -354,6 +500,12 @@ message CostDataPoint {
 message ResourceDataPoint {
   int64 timestamp = 1; // Unix timestamp (seconds since epoch).
   ResourceMetrics resource_metrics = 2; // Resource metrics for the data point.
+}
+
+// ContainerTimeSeries contains time-series resource metrics for a single container.
+message ContainerTimeSeries {
+  string container_name = 1;
+  repeated ResourceDataPoint resource_data_points = 2;
 }
 
 message SavingsData {
@@ -410,25 +562,26 @@ message LabelSelectorRequirement {
     repeated string values = 3;
 }
 
+message Label {
+  string key = 1;
+  string value = 2;
+}
+
+
 // LabelSelector is a label query over a set of resources. The result of matchLabels and
 // matchExpressions are ANDed. An empty label selector matches all objects. A null
 // label selector matches no objects.
 message LabelSelector {
+  // Department-style labels for backwards compatibility
+  repeated Label labels = 1 [deprecated = true]; // Deprecated: Label is still used for departments but we will soon migrate to match_label and match_expressions
+  
 
-    // Department-style labels for backwards compatibility
-    repeated Label labels = 1 [deprecated = true]; // Deprecated: Label is still used for departments but we will soon migrate to match_label and match_expressions
-    
-    message Label {
-        string key = 1;
-        string value = 2;
-    }
-
-    // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-    // map is equivalent to an element of matchExpressions, whose key field is "key", the
-    // operator is "In", and the values array contains only "value". The requirements are ANDed.
-    map<string, string> match_labels = 2;
-    // matchExpressions is a list of label selector requirements. The requirements are ANDed.
-    repeated LabelSelectorRequirement match_expressions = 3;   
+  // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+  // map is equivalent to an element of matchExpressions, whose key field is "key", the
+  // operator is "In", and the values array contains only "value". The requirements are ANDed.
+  map<string, string> match_labels = 2;
+  // matchExpressions is a list of label selector requirements. The requirements are ANDed.
+  repeated LabelSelectorRequirement match_expressions = 3;   
 }
 
 // RegexPattern represents a regex pattern with optional flags
@@ -488,6 +641,12 @@ message ResourceDetails {
     PodDisruptionBudgetDetails pod_disruption_budget_details = 237;
     // ResourceQuota-specific fields
     ResourceQuotaDetails resource_quota_details = 238;
+    // VolcanoJob-specific fields
+    VolcanoJobDetails volcano_job_details = 239;
+    // SparkApplication-specific fields
+    SparkApplicationDetails spark_application_details = 242;
+    // ScheduledSparkApplication-specific fields
+    ScheduledSparkApplicationDetails scheduled_spark_application_details = 243;
   }
   
   // Common fields that can be flattened at this level for easier access
@@ -1421,6 +1580,104 @@ message ResourceQuotaCondition {
   int64 last_transition_time = 5;               // Last transition time
 }
 
+// VolcanoJobDetails contains detailed VolcanoJob information for drill-down
+message VolcanoJobDetails {
+  repeated ContainerTemplate containers = 1;   // Container templates from pod spec
+  repeated VolcanoJobCondition conditions = 2; // VolcanoJob conditions for debugging
+  string queue = 3;                            // Queue name for scheduling
+  int32 min_available = 4;                     // Minimum available pods
+  string schedule_policy = 5;                  // Schedule policy name
+  string priority_class = 6;                   // Priority class name
+  repeated VolcanoTask tasks = 7;              // Tasks in the job
+}
+
+// VolcanoJobCondition represents a volcano job condition
+message VolcanoJobCondition {
+  string type = 1;          // "Pending", "Running", "Completed", "Failed", etc.
+  string status = 2;        // "True", "False", "Unknown"
+  string reason = 3;        // Reason for the condition
+  string message = 4;       // Human readable message
+  int64 last_transition_time = 5; // Last time condition transitioned
+}
+
+// VolcanoTask represents a task in a VolcanoJob
+message VolcanoTask {
+  string name = 1;                            // Task name
+  int32 replicas = 2;                         // Number of replicas
+  repeated ContainerTemplate containers = 3;  // Container templates
+}
+
+// SparkApplicationDetails contains detailed SparkApplication information for drill-down
+message SparkApplicationDetails {
+  repeated ContainerTemplate containers = 1;   // Container templates from driver/executor specs
+  string spark_version = 2;                    // Spark version
+  string application_type = 3;                // Java, Scala, Python, R
+  string deploy_mode = 4;                     // cluster, client, in-cluster-client
+  string main_class = 5;                      // Main class for Java/Scala applications
+  string main_application_file = 6;          // Main application file path
+  repeated string arguments = 7;               // Application arguments
+  SparkDriverInfo spark_driver_info = 8;            // Driver information
+  int32 executor_instances = 9;               // Number of executor instances (from spec.executor.instances)
+  int32 executors_ready = 16;                // Number of RUNNING executors (from status.executorState); only meaningful when app is running
+  string application_state = 10;              // Application state: SUBMITTED, RUNNING, COMPLETED, FAILED, etc.
+  string spark_application_id = 11;          // Spark application ID
+  string submission_id = 12;                  // Submission ID
+  bool suspended = 13;                        // Whether application is suspended
+  SparkRestartPolicyInfo restart_policy = 14; // Restart policy information
+  SparkDynamicAllocationInfo dynamic_allocation = 15; // Dynamic allocation configuration
+}
+
+// SparkDriverInfo represents information about the Spark driver
+message SparkDriverInfo {
+  string pod_name = 1;                        // Driver pod name
+  string web_ui_service_name = 2;             // Web UI service name
+  string web_ui_address = 3;                  // Web UI address
+  int32 web_ui_port = 4;                      // Web UI port
+  string web_ui_ingress_name = 5;             // Web UI ingress name (if configured)
+  string web_ui_ingress_address = 6;          // Web UI ingress address (if configured)
+  string cores = 7;                           // Driver cores
+  string memory = 8;                          // Driver memory
+  string service_account = 9;                 // Service account used by driver
+}
+
+// SparkRestartPolicyInfo represents restart policy information
+message SparkRestartPolicyInfo {
+  string type = 1;                            // Always, OnFailure, Never
+  int32 on_failure_retries = 2;               // Number of retries on failure
+  int64 on_failure_retry_interval = 3;        // Retry interval in seconds
+  int32 on_submission_failure_retries = 4;    // Number of retries on submission failure
+  int64 on_submission_failure_retry_interval = 5; // Submission retry interval in seconds
+}
+
+// SparkDynamicAllocationInfo represents dynamic allocation configuration
+message SparkDynamicAllocationInfo {
+  bool enabled = 1;                           // Whether dynamic allocation is enabled
+  int32 initial_executors = 2;                // Initial number of executors
+  int32 min_executors = 3;                    // Minimum number of executors
+  int32 max_executors = 4;                    // Maximum number of executors
+  bool shuffle_tracking_enabled = 5;          // Whether shuffle tracking is enabled
+  int64 shuffle_tracking_timeout = 6;         // Shuffle tracking timeout in milliseconds
+}
+
+// ScheduledSparkApplicationDetails contains detailed ScheduledSparkApplication information for drill-down
+message ScheduledSparkApplicationDetails {
+  string schedule = 1;                        // Cron schedule expression (e.g., "@every 15m", "0 * * * *")
+  string time_zone = 2;                       // Time zone for schedule (e.g., "UTC", "America/New_York")
+  bool suspended = 3;                         // Whether the schedule is suspended
+  string concurrency_policy = 4;              // Allow, Forbid, Replace
+  int32 successful_run_history_limit = 5;     // Number of successful runs to keep
+  int32 failed_run_history_limit = 6;         // Number of failed runs to keep
+  string schedule_state = 7;                  // Current state: Scheduled, Validating, FailedValidation
+  string last_run_name = 8;                   // Name of the last SparkApplication created
+  google.protobuf.Timestamp last_run = 9;     // Time of last run
+  google.protobuf.Timestamp next_run = 10;    // Time of next scheduled run
+  repeated string past_successful_run_names = 11; // Names of past successful runs
+  repeated string past_failed_run_names = 12;     // Names of past failed runs
+  string reason = 13;                         // Reason for current schedule state
+  // Template fields (inherited from SparkApplication)
+  SparkApplicationDetails template_details = 14;  // Details from the SparkApplication template
+}
+
 message Event {
   string id = 1;
   string kind = 2;
@@ -1443,6 +1700,9 @@ message Event {
   string involved_object_namespace = 20;
   string reporting_controller = 21;
   string reporting_instance = 22;
+  map<string, string> annotations = 23;
+  map<string, string> labels = 24;
+  string involved_object_uid = 25;
 
   google.protobuf.Timestamp created_at = 41;
   google.protobuf.Timestamp updated_at = 42;
@@ -1466,8 +1726,31 @@ message EventDatapointInfo {
 message EventDatapoint {
   string utc_time = 1;
   int32 count = 2; // Number of events in this time bucket
-  repeated EventDatapointInfo events = 3; // Details of events in this bucket
+  repeated EventDatapointInfo events = 3; // Details of events in this bucket (deprecated: use normal_count/warning_count)
+  int32 normal_count = 4; // Count of Normal events in this time bucket
+  int32 warning_count = 5; // Count of Warning events in this time bucket
+  int32 critical_count = 6; // Count of events with critical reasons (OOMKilled, CrashLoopBackOff, NodeNotReady, etc.)
 }
+
+message DimensionCount {
+  string value = 1;
+  int32 count = 2;
+  double percentage = 3;
+}
+
+message EventGroup {
+  string reason = 1;
+  string namespace = 2;
+  string workload_name = 3;
+  string workload_kind = 4;
+  string node = 5;
+  int32 count = 6;
+  int32 affected_objects = 7;
+  google.protobuf.Timestamp first_seen = 8;
+  google.protobuf.Timestamp last_seen = 9;
+  string type = 10;
+}
+
 // message InvolvedObject {
 //   string uid = 1;
 //   string kind = 2;

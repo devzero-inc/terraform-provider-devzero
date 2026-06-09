@@ -4,6 +4,8 @@ package api.v1;
 
 import "google/protobuf/timestamp.proto";
 import "api/v1/common.proto";
+import "api/v1/instance.proto";
+import "google/type/money.proto";
 
 option go_package = "github.com/devzero-inc/services/dakr/gen/api/v1;gen";
 option java_multiple_files = true;
@@ -22,6 +24,16 @@ message GetNodeRequest {
 
   optional google.protobuf.Timestamp start_time = 21;
   optional google.protobuf.Timestamp end_time = 22;
+}
+
+// GetWorkloadPodHistoryRequest is used to fetch historical pods for a workload.
+message GetWorkloadPodHistoryRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  string workload_kind = 3;
+  string workload_uid = 4;
+  optional google.protobuf.Timestamp start_time = 5;
+  optional google.protobuf.Timestamp end_time = 6;
 }
 
 // GetClusterMetadataRequest request for metadata
@@ -75,10 +87,13 @@ message GetPodsRequest {
   optional string search = 4; // Search term to filter pods by name
 
   Pagination pagination = 11; // Pagination parameters
-  
+
   repeated string node_group_names = 25; // Optional filter for node groups
   repeated string node_ids = 26; // Optional filter for specific node IDs
   // Note: When both node_group_names and node_ids are provided, they are combined with AND logic (intersection)
+
+  google.protobuf.Timestamp start_time = 27; // Start time for metrics query
+  google.protobuf.Timestamp end_time = 28; // End time for metrics query
 }
 
 // GetPodsResponse is the response for getting pod resources.
@@ -114,7 +129,9 @@ message GetClustersRequest {
 }
 
 // ListClustersRequest is used to fetch clusters for a specific team with pagination.
+// Deprecated: Use GetClustersRequest instead.
 message ListClustersRequest {
+  option deprecated = true;
   string team_id = 1; // Unique identifier for the team.
   optional string search = 2; // Search term to filter clusters by name or ID
 
@@ -243,6 +260,7 @@ message GetNodeGroupsUtilizationResponse {
 
 message NodeGroupMetric {
   int32 node_count = 1;
+  int32 max_concurrent_node_count = 2;
 
   int64 capacity_cpu = 11; // millicores
   int64 capacity_memory = 12; // bytes
@@ -257,6 +275,11 @@ message NodeGroupMetric {
   float util_memory_avg_usage = 32; // bytes
   float util_gpu_vram_avg_usage = 33; // bytes
   float util_gpu_device = 34; // pct
+
+  google.type.Money hourly_cost = 50; // average hourly cost within the time bucket
+  google.type.Money hourly_cpu_cost = 51; // cost for cpu
+  google.type.Money hourly_memory_cost = 52; // cost for memory
+  google.type.Money hourly_gpu_cost = 53; // cost for gpu
 
   google.protobuf.Timestamp bucket_time = 41;
 }
@@ -283,7 +306,9 @@ message GetClustersResponse {
 }
 
 // ListClustersResponse contains the paginated list of clusters for a team.
+// Deprecated: Use GetClustersResponse instead.
 message ListClustersResponse {
+  option deprecated = true;
   repeated Cluster clusters = 1; // List of clusters.
   Pagination pagination = 2; // Pagination information.
 }
@@ -313,6 +338,48 @@ message GetWorkloadResponse {
   ResourceSummary resource_summary = 4; // Summary of resource counts and pod statuses for the workload.
   repeated CostDataPoint cost_data_points = 5; // Time-series cost data points for the workload.
   repeated ResourceDataPoint resource_data_points = 6; // Time-series resource metrics for the workload.
+}
+
+// GetWorkloadContainerPercentilesRequest requests per-container percentile metrics for a workload.
+message GetWorkloadContainerPercentilesRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  string kind = 3;
+  string uid = 4;
+  optional google.protobuf.Timestamp start_time = 11;
+  optional google.protobuf.Timestamp end_time = 12;
+}
+
+// GetWorkloadContainerPercentilesResponse returns per-container percentile statistics.
+message GetWorkloadContainerPercentilesResponse {
+  repeated ContainerPercentileSummary containers = 1;
+}
+
+// GetWorkloadContainerTimeSeriesRequest requests per-container time-series metrics for a workload.
+message GetWorkloadContainerTimeSeriesRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  string kind = 3;
+  string uid = 4;
+  optional google.protobuf.Timestamp start_time = 11;
+  optional google.protobuf.Timestamp end_time = 12;
+}
+
+// GetWorkloadContainerTimeSeriesResponse returns per-container time-series data.
+message GetWorkloadContainerTimeSeriesResponse {
+  repeated ContainerTimeSeries containers = 1;
+}
+
+// GetLatestContainerRequestLimitsRequest requests the most recent request/limit values per container.
+message GetLatestContainerRequestLimitsRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  string uid = 3;
+}
+
+// GetLatestContainerRequestLimitsResponse returns per-container request/limit values.
+message GetLatestContainerRequestLimitsResponse {
+  repeated ContainerRequestLimits containers = 1;
 }
 
 // Request to get forecasted workloads
@@ -369,13 +436,42 @@ message ClusterElement {
 message GetAllNamespacesRequest {
   string team_id = 1;
   repeated string cluster_ids = 5;
-  
-  int64 start_time = 11; 
-  int64 stop_time = 12; 
+
+  int64 start_time = 11;
+  int64 stop_time = 12;
 }
 
 message GetAllNamespacesResponse {
   repeated ClusterElement cluster_id_with_namespaces = 1;
+}
+
+// SearchNamespacesByClusterRequest searches namespaces by name within a single cluster.
+message SearchNamespacesByClusterRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  string search = 3;
+}
+
+// SearchNamespacesByClusterResponse returns the matching namespace names.
+message SearchNamespacesByClusterResponse {
+  repeated string namespaces = 1;
+}
+
+// ListNamespacesByClusterRequest lists namespaces within a single cluster.
+message ListNamespacesByClusterRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+}
+
+// ListNamespacesByClusterResponse returns namespace id and name pairs.
+message ListNamespacesByClusterResponse {
+  repeated NamespaceItem namespaces = 1;
+}
+
+// NamespaceItem represents a namespace with its id and name.
+message NamespaceItem {
+  string id = 1;
+  string name = 2;
 }
 
 message GetAllWorkloadNamesRequest {
@@ -457,8 +553,14 @@ message Cluster {
   OperatorInfo zxp_info = 50;
   OperatorInfo zxp_helm_info = 51;
   OperatorInfo dakr_op_info = 60;
+  OperatorInfo node_op_info = 61;
+  OperatorInfo security_op_info = 62;
+  OperatorInfo network_op_info = 63;
   double impact_score = 70; // Optimization impact score for cluster
   double underutilization = 81; // Percentage of how much is cluster underutilized that is using combined numbers of cpu, memory and GPU
+  repeated string tags = 91; // Tags for the cluster
+  bool has_argo_workloads = 101; // Whether any workload on this cluster is managed by Argo CD
+  string kubernetes_version = 110; // Kubernetes version of the cluster (e.g. "v1.28.3")
 }
 
 message OperatorInfo {
@@ -479,50 +581,21 @@ message GetLatestOperatorVersionRequest {}
 message GetLatestOperatorVersionResponse {
   OperatorInfo zxp_info = 1;
   OperatorInfo zxp_helm_info = 2;
+  OperatorInfo zxp_netmon_info = 3;
+  OperatorInfo zxp_netmon_helm_info = 4;
   OperatorInfo dakr_op_info = 11;
   OperatorInfo dakr_op_helm_info = 12;
-}
 
-message GalaxyGetClusterPerspectiveRequest {
-  string team_id = 1;
-  repeated string cluster_ids = 2; // (optional) restrict to specific clusters
-  GalaxyPOVClusterGroupBy group_by = 3; // group response
-  PerspectiveDatapointOpts datapoint_opts = 4; // time range / resolution config
-}
+  OperatorInfo node_op_info_aws = 21;
+  OperatorInfo node_op_info_azure = 22;
+  OperatorInfo node_op_info_gcp = 23;
+  OperatorInfo node_op_info_oci = 24;
 
-message GalaxyGetClusterPerspectiveResponse {
-  repeated GalaxyClusterGroup groupings = 1;
-}
+  OperatorInfo security_op_info = 31;
+  OperatorInfo security_op_helm_info = 32;
 
-message GalaxyClusterGroup {
-  string group_key = 1; // e.g., "us-west-2", "AWS", "v1.27", etc.
-  // TODO (debo) might want to change cluster_ids to just cluster (same as GetClusters etc)
-  repeated string cluster_ids = 2; // IDs of clusters in this group 
-  CostInfo cost_info = 3; // aggregated cost for this group
-  ResourceMetrics resource_metrics = 4; // aggregated resource metrics
-  NodeInfo node_info = 5; // (optional) node counts (on-demand, spot, etc)
-}
-
-message GalaxyGetNodePerspectiveRequest {
-  string team_id = 1;
-  repeated string cluster_ids = 2; // (optional) restrict to specific clusters
-  GalaxyPOVNodeGroupBy group_by = 3; // how to group nodes
-  PerspectiveDatapointOpts datapoint_opts = 4; // time range / resolution
-}
-
-message GalaxyGetNodePerspectiveResponse {
-  repeated GalaxyNodeGroup groupings = 1;
-}
-
-message GalaxyNodeGroup {
-  string group_key = 1; // e.g., "spot", "n1-standard-4", "g5.xlarge", etc.
-  // TODO (debo) might want to change node_ids to just node (same as GetNodeGroups etc)
-  repeated string node_ids = 2; // nodes that belong to this group
-  // TODO (debo) might want to change cluster_ids to just cluster (same as GetClusters etc)
-  repeated string cluster_ids = 3; // clusters that contain these nodes
-  CostInfo cost_info = 4;
-  ResourceMetrics resource_metrics = 5;
-  NodeInfo node_info = 6;
+  OperatorInfo trezr_info = 41;
+  OperatorInfo trezr_helm_info = 42;
 }
 
 message GalaxyGetWorkloadPerspectiveRequest {
@@ -549,16 +622,6 @@ message GalaxyWorkloadGroup {
   ResourceSummary resource_summary = 6; // (optional) aggregated resource kind/status info
 }
 
-
-enum GalaxyPOVClusterGroupBy {
-  GALAXY_POV_CLUSTER_GROUP_BY_UNSPECIFIED = 0;
-  GALAXY_POV_CLUSTER_GROUP_BY_REGION = 1;
-  GALAXY_POV_CLUSTER_GROUP_BY_PROVIDER = 2;
-  GALAXY_POV_CLUSTER_GROUP_BY_PCT_OPTIMIZED = 3;
-  GALAXY_POV_CLUSTER_GROUP_BY_COST_PER_HOUR = 4;
-  GALAXY_POV_CLUSTER_GROUP_BY_K8S_VERSION = 5;
-  GALAXY_POV_CLUSTER_GROUP_BY_ZXPORTER_VERSION = 6;
-}
 
 enum GalaxyPOVNodeGroupBy {
   GALAXY_POV_NODE_GROUP_BY_UNSPECIFIED = 0;
@@ -611,11 +674,13 @@ message ListAuditLogsRequest {
   repeated string recommendation_policy_id = 6;
   repeated string recommendation_id = 7;
   repeated string originating_user_id = 8;
-  optional string email_contains = 9;
+  optional string email_contains = 9 [deprecated = true];
   repeated string event = 10;
 
   google.protobuf.Timestamp start_time = 11;
   google.protobuf.Timestamp end_time = 12;
+
+  repeated string email_matches = 13; // Exact match on originating_user_email (equality with IN clause)
 
   Pagination pagination = 21;
 
@@ -640,11 +705,13 @@ message ListAuditLogOriginatorsRequest {
   repeated string recommendation_policy_id = 6;
   repeated string recommendation_id = 7;
   repeated string originating_user_id = 8;
-  optional string email_contains = 9;
+  optional string email_contains = 9 [deprecated = true];
   repeated string event = 10;
 
   google.protobuf.Timestamp start_time = 11;
   google.protobuf.Timestamp end_time = 12;
+
+  repeated string email_matches = 13; // Exact match on originating_user_email (equality with IN clause)
 }
 
 // Response for fetching all audit log originators.
@@ -748,6 +815,39 @@ message MetadataForWorkloadsResponse {
   map<string, WorkloadMetadata> workload_uid_to_metadata = 1;
 }
 
+message AddClusterTagsRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  repeated string tags = 3;
+}
+
+message AddClusterTagsResponse {
+  Cluster cluster = 1;
+}
+
+message RemoveClusterTagsRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  repeated string tags = 3;
+}
+
+message RemoveClusterTagsResponse {
+  Cluster cluster = 1;
+}
+
+message ListTagsRequest {
+  string team_id = 1;
+}
+
+message TagSummary {
+  string tag = 1;
+  repeated string cluster_ids = 2;
+}
+
+message ListTagsResponse {
+  repeated TagSummary tags = 1;
+}
+
 message WorkloadMetadata {
   map<string, NodeMetadata> pod_uid_to_node_metadata = 1;
   map<string, PodMetadata> pod_uid_to_pod_metadata = 2;
@@ -788,9 +888,46 @@ message GetRelatedResourcesRequest {
   string cluster_id = 2; // Unique identifier for the cluster.
   K8sObjectKind kind = 3; // Type of object to get.
   string uid = 4; // Unique identifier for the workload.
+  optional string karpenterKind = 5; // used for karpenter deployments
 }
 
-// GetRelatedResourcesResponse contains all relations for a specific kind
+
+  
+message GetWorkloadPodHistoryResponse {
+    string workload_uid = 1;
+    repeated ReplicaSetHistory replica_sets = 2; // Populated if workload is Deployment or ArgoRollout
+    repeated PodHistory direct_pods = 3; // Populated if workload directly owns pods (e.g. StatefulSet, DaemonSet)
+    repeated JobHistory jobs = 4; // Populated if workload is CronJob
+}
+
+message JobHistory {
+    string uid = 1;
+    string name = 2;
+    string status = 3; // active, succeeded, failed
+    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp deleted_at = 5;
+    repeated PodHistory pods = 6;
+}
+
+message ReplicaSetHistory {
+    string uid = 1;
+    string name = 2;
+    google.protobuf.Timestamp created_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    string revision = 5; // from adjustments/annotations if available
+    repeated PodHistory pods = 6;
+}
+
+message PodHistory {
+    string uid = 1;
+    string name = 2;
+    string namespace = 3;
+    string phase = 4;
+    string node_name = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp deleted_at = 7;
+}
+
 message GetRelatedResourcesResponse {
   repeated K8sRelatedResource relations = 1; // List of resource relations.
   repeated K8sResourceNode nodes = 2; // List of unique nodes (resources) in the graph.
@@ -845,11 +982,17 @@ enum ClusterType {
 
 // Defines the K8SService RPC methods for Kubernetes cluster management and monitoring.
 service K8SService {
+  // GetWorkloadsStats retrieves stats for workloads in a specific cluster.
+  rpc GetWorkloadsStats(GetWorkloadsStatsRequest) returns (GetWorkloadsStatsResponse);
+
   // GetClusters retrieves all clusters for a team.
   rpc GetClusters(GetClustersRequest) returns (GetClustersResponse);
 
   // ListClusters retrieves clusters for a team with pagination.
-  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse);
+  // Deprecated: Use GetClusters instead.
+  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse) {
+    option deprecated = true;
+  };
 
   // GetCluster retrieves detailed information for a specific cluster.
   rpc GetCluster(GetClusterRequest) returns (GetClusterResponse);
@@ -859,6 +1002,12 @@ service K8SService {
 
   // GetAllNamespaces returns a list of all namespaces for a teamID; if cluster list is empty, returns all.
   rpc GetAllNamespaces(GetAllNamespacesRequest) returns (GetAllNamespacesResponse);
+
+  // SearchNamespacesByCluster searches namespaces by name within a single cluster.
+  rpc SearchNamespacesByCluster(SearchNamespacesByClusterRequest) returns (SearchNamespacesByClusterResponse);
+
+  // ListNamespacesByCluster lists namespaces (id and name) within a single cluster.
+  rpc ListNamespacesByCluster(ListNamespacesByClusterRequest) returns (ListNamespacesByClusterResponse);
 
   // GetAllWorkloadNames returns a list of all workload names for a team ID; if cluster list is empty, returns all.
   rpc GetAllWorkloadNames(GetAllWorkloadNamesRequest) returns (GetAllWorkloadNamesResponse);
@@ -892,11 +1041,27 @@ service K8SService {
   // GetWorkload retrieves detailed information for a specific workload.
   rpc GetWorkload(GetWorkloadRequest) returns (GetWorkloadResponse);
 
+  // GetWorkloadContainerPercentiles retrieves per-container percentile metrics for a workload.
+  //
+  // Note: fs_* and current_* fields in the response are no longer populated.
+  // Prefer GetLatestContainerRequestLimits for progressive loading of request/limit values.
+  rpc GetWorkloadContainerPercentiles(GetWorkloadContainerPercentilesRequest) returns (GetWorkloadContainerPercentilesResponse);
+
+  // GetWorkloadContainerTimeSeries retrieves per-container time-series resource metrics for a workload.
+  rpc GetWorkloadContainerTimeSeries(GetWorkloadContainerTimeSeriesRequest) returns (GetWorkloadContainerTimeSeriesResponse);
+
+  // GetLatestContainerRequestLimits retrieves the most recent request/limit values per container for a workload.
+  rpc GetLatestContainerRequestLimits(GetLatestContainerRequestLimitsRequest) returns (GetLatestContainerRequestLimitsResponse);
+
   // GetForecastWorkloads retrieves all workloads for a specific cluster.
-  rpc GetForecastWorkloads(GetForecastWorkloadsRequest) returns (GetForecastWorkloadsResponse);
+  rpc GetForecastWorkloads(GetForecastWorkloadsRequest) returns (GetForecastWorkloadsResponse) {
+    option deprecated = true;
+  }
 
   // GetForecastWorkload retrieves detailed information for a specific workload.
-  rpc GetForecastWorkload(GetForecastWorkloadRequest) returns (GetForecastWorkloadResponse);
+  rpc GetForecastWorkload(GetForecastWorkloadRequest) returns (GetForecastWorkloadResponse) {
+    option deprecated = true;
+  }
 
 
   // GetResources retrivers specific resource and their details from db, simulating informer.
@@ -906,10 +1071,6 @@ service K8SService {
   rpc GetPods(GetPodsRequest) returns (GetPodsResponse);
 
   rpc GetLatestOperatorVersion(GetLatestOperatorVersionRequest) returns (GetLatestOperatorVersionResponse);
-
-  rpc GalaxyGetClusterPerspective(GalaxyGetClusterPerspectiveRequest) returns (GalaxyGetClusterPerspectiveResponse);
-
-  rpc GalaxyGetNodePerspective(GalaxyGetNodePerspectiveRequest) returns (GalaxyGetNodePerspectiveResponse);
 
   rpc GalaxyGetWorkloadPerspective(GalaxyGetWorkloadPerspectiveRequest) returns (GalaxyGetWorkloadPerspectiveResponse);
 
@@ -932,6 +1093,21 @@ service K8SService {
   rpc GetClusterType(GetClusterTypeRequest) returns (GetClusterTypeResponse);
   // GetDeploymentRelations retrieves all relations for a specific deployment.
   rpc GetRelationsForKind(GetRelatedResourcesRequest) returns (GetRelatedResourcesResponse);
+
+  // LookupNodeInstance retrieves instance information for a node, including both dynamic cache lookup and cached instance data
+  rpc LookupNodeInstance(LookupNodeInstanceRequest) returns (LookupNodeInstanceResponse);
+
+  // GetWorkloadPodHistory retrieves historical pods for a workload.
+  rpc GetWorkloadPodHistory(GetWorkloadPodHistoryRequest) returns (GetWorkloadPodHistoryResponse);
+
+  // AddClusterTags adds tags to a cluster.
+  rpc AddClusterTags(AddClusterTagsRequest) returns (AddClusterTagsResponse);
+
+  // RemoveClusterTags removes tags from a cluster.
+  rpc RemoveClusterTags(RemoveClusterTagsRequest) returns (RemoveClusterTagsResponse);
+
+  // ListTags lists all tags for a team.
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
 }
 
 // ClusterMutationService manages mutating cluster resources.
@@ -954,6 +1130,20 @@ service UtilizationService {
   rpc DailyUtilization(DailyUtilizationRequest) returns (DailyUtilizationResponse);
   rpc DailyUtilizationInstanceType(DailyUtilizationInstanceTypeRequest) returns (DailyUtilizationInstanceTypeResponse);
   rpc DailyUtilizationNodeType(DailyUtilizationNodeTypeRequest) returns (DailyUtilizationNodeTypeResponse);
+}
+
+message GetWorkloadsStatsRequest {
+  string team_id = 1; // Unique identifier for the team.
+  string cluster_id = 2; // Unique identifier for the cluster.
+  optional google.protobuf.Timestamp start_time = 21;
+  optional google.protobuf.Timestamp end_time = 22;
+}
+message GetWorkloadsStatsResponse {
+  int32 total = 1;
+  int32 optimized = 2;
+  int32 unoptimized = 3;
+  int32 without_requests = 4;
+  int32 optimized_percentage = 5;
 }
 
 message DailyUtilizationRequest {
@@ -1018,10 +1208,35 @@ message DailyUtilizationNodeTypeResponse {
 
   message Datapoint {
     int64 timestamp = 1; // Unix timestamp (seconds since epoch).
-    
+
     map<string, int32> node_type_to_daily_total_core_minutes = 11;
   }
 
   map<string, Datapoints> cluster_id_to_datapoints = 1;
   map<string, Cluster> cluster_id_to_meta = 11;
+}
+
+// LookupNodeInstanceRequest is used to debug and inspect instance lookup for a node
+message LookupNodeInstanceRequest {
+  string team_id = 1; // Unique identifier for the team.
+  string cluster_id = 2; // Unique identifier for the cluster.
+  string node_id = 3; // Unique identifier for the node.
+}
+
+// InstanceLookupParams contains the parameters used to lookup an instance from cache
+message InstanceLookupParams {
+  int64 cloud_provider_id = 1; // Cloud provider ID used in lookup
+  int64 region_id = 2; // Region ID used in lookup
+  string availability_zone = 3; // Availability zone name used in lookup
+  string instance_type = 4; // Instance type name used in lookup
+  int64 operating_system_id = 5; // Operating system ID used in lookup
+}
+
+// LookupNodeInstanceResponse contains the results of instance lookup for a node
+message LookupNodeInstanceResponse {
+  Instance dynamic_instance = 1; // Instance retrieved dynamically from cache using node attributes
+  Instance cached_instance = 2; // Instance retrieved from node.InstanceID if available
+  InstanceLookupParams lookup_params = 3; // Parameters used to lookup the dynamic instance
+  bool dynamic_instance_found = 4; // Whether dynamic instance lookup succeeded
+  bool cached_instance_found = 5; // Whether cached instance lookup succeeded
 }

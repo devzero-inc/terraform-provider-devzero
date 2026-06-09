@@ -8,8 +8,11 @@ option java_package = "gen.api.v1";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
+import "google/type/money.proto";
 import "api/v1/common.proto";
+import "api/v1/instance.proto";
 import "api/v1/k8s.proto";
+import "api/v1/profiling.proto";
 
 service K8sRecommendationService {
     // Cluster Stats
@@ -18,11 +21,9 @@ service K8sRecommendationService {
 
     // Node Group Stats
     rpc GetNodeGroupStats(GetNodeGroupStatsRequest) returns (GetNodeGroupStatsResponse);
-    rpc GetLatestNodeGroupRecommendation(GetLatestNodeGroupRecommendationRequest) returns (GetLatestNodeGroupRecommendationResponse);
-    rpc GetPreviewNodeGroupRecommendation(GetPreviewNodeGroupRecommendationRequest) returns (GetPreviewNodeGroupRecommendationResponse);
+    rpc GetLatestNodeGroupRecommendation(GetLatestNodeGroupRecommendationRequest) returns (GetLatestNodeGroupRecommendationResponse) { option deprecated = true; }
 
     // Workload Stats
-    rpc GetWorkloadStats(GetWorkloadStatsRequest) returns (GetWorkloadStatsResponse);
     rpc GetLatestWorkloadRecommendation(GetLatestWorkloadRecommendationRequest) returns (GetLatestWorkloadRecommendationResponse);
     rpc GetPreviewWorkloadRecommendation(GetPreviewWorkloadRecommendationRequest) returns (GetPreviewWorkloadRecommendationResponse);
     rpc GetPreviewWorkloadRecommendations(GetPreviewWorkloadRecommendationsRequest) returns (GetPreviewWorkloadRecommendationsResponse);
@@ -37,13 +38,13 @@ service K8sRecommendationService {
     // rpc DeleteClusterRecommendationPolicy(DeleteClusterRecommendationPolicyRequest) returns (DeleteClusterRecommendationPolicyResponse);
     // rpc AttachClusterRecommendationPolicy(AttachClusterRecommendationPolicyRequest) returns (AttachClusterRecommendationPolicyResponse);
 
-    // NodeGroup Recommendation Policies
-    rpc CreateNodeGroupRecommendationPolicy(CreateNodeGroupRecommendationPolicyRequest) returns (CreateNodeGroupRecommendationPolicyResponse);
-    rpc GetNodeGroupRecommendationPolicy(GetNodeGroupRecommendationPolicyRequest) returns (GetNodeGroupRecommendationPolicyResponse);
-    rpc ListNodeGroupRecommendationPolicies(ListNodeGroupRecommendationPoliciesRequest) returns (ListNodeGroupRecommendationPoliciesResponse);
-    rpc UpdateNodeGroupRecommendationPolicy(UpdateNodeGroupRecommendationPolicyRequest) returns (UpdateNodeGroupRecommendationPolicyResponse);
-    rpc DeleteNodeGroupRecommendationPolicy(DeleteNodeGroupRecommendationPolicyRequest) returns (DeleteNodeGroupRecommendationPolicyResponse);
-    rpc AttachNodeGroupRecommendationPolicy(AttachNodeGroupRecommendationPolicyRequest) returns (AttachNodeGroupRecommendationPolicyResponse);
+    // NodeGroup Recommendation Policies (Deprecated)
+    rpc CreateNodeGroupRecommendationPolicy(CreateNodeGroupRecommendationPolicyRequest) returns (CreateNodeGroupRecommendationPolicyResponse) { option deprecated = true; }
+    rpc GetNodeGroupRecommendationPolicy(GetNodeGroupRecommendationPolicyRequest) returns (GetNodeGroupRecommendationPolicyResponse) { option deprecated = true; }
+    rpc ListNodeGroupRecommendationPolicies(ListNodeGroupRecommendationPoliciesRequest) returns (ListNodeGroupRecommendationPoliciesResponse) { option deprecated = true; }
+    rpc UpdateNodeGroupRecommendationPolicy(UpdateNodeGroupRecommendationPolicyRequest) returns (UpdateNodeGroupRecommendationPolicyResponse) { option deprecated = true; }
+    rpc DeleteNodeGroupRecommendationPolicy(DeleteNodeGroupRecommendationPolicyRequest) returns (DeleteNodeGroupRecommendationPolicyResponse) { option deprecated = true; }
+    rpc AttachNodeGroupRecommendationPolicy(AttachNodeGroupRecommendationPolicyRequest) returns (AttachNodeGroupRecommendationPolicyResponse) { option deprecated = true; }
 
     // Workload Recommendation Policies
     rpc CreateWorkloadRecommendationPolicy(CreateWorkloadRecommendationPolicyRequest) returns (CreateWorkloadRecommendationPolicyResponse);
@@ -68,24 +69,24 @@ service K8sRecommendationService {
     rpc GetPreviewWorkloadPolicyTargetRecommendations(GetPreviewWorkloadPolicyTargetRecommendationsRequest) returns (GetPreviewWorkloadPolicyTargetRecommendationsResponse);
     rpc GetWorkloadsWithAttachedPolicyTargets(GetWorkloadsWithAttachedPolicyTargetsRequest) returns (GetWorkloadsWithAttachedPolicyTargetsResponse);
 
-    // Node Policy Targets (Pattern-Based Targeting)
-    rpc CreateNodeGroupPolicyTarget(CreateNodeGroupPolicyTargetRequest) returns (CreateNodeGroupPolicyTargetResponse);
-    rpc GetNodeGroupPolicyTarget(GetNodeGroupPolicyTargetRequest) returns (GetNodeGroupPolicyTargetResponse);
-    rpc ListNodeGroupPolicyTargets(ListNodeGroupPolicyTargetsRequest) returns (ListNodeGroupPolicyTargetsResponse);
-    rpc UpdateNodeGroupPolicyTarget(UpdateNodeGroupPolicyTargetRequest) returns (UpdateNodeGroupPolicyTargetResponse);
-    rpc DeleteNodeGroupPolicyTarget(DeleteNodeGroupPolicyTargetRequest) returns (DeleteNodeGroupPolicyTargetResponse);
-    rpc ToggleNodeGroupPolicyTargets(ToggleNodeGroupPolicyTargetsRequest) returns (ToggleNodeGroupPolicyTargetsResponse);
-    rpc PreviewNodeGroupPolicyTargetMatches(PreviewNodeGroupPolicyTargetMatchesRequest) returns (PreviewNodeGroupPolicyTargetMatchesResponse);
-    rpc GetPreviewNodeGroupPolicyTargetRecommendations(GetPreviewNodeGroupPolicyTargetRecommendationsRequest) returns (GetPreviewNodeGroupPolicyTargetRecommendationsResponse);
+    // Node Policy Targets (Pattern-Based Targeting) (Deprecated)
+    rpc CreateNodeGroupPolicyTarget(CreateNodeGroupPolicyTargetRequest) returns (CreateNodeGroupPolicyTargetResponse) { option deprecated = true; }
+    rpc GetNodeGroupPolicyTarget(GetNodeGroupPolicyTargetRequest) returns (GetNodeGroupPolicyTargetResponse) { option deprecated = true; }
+    rpc ListNodeGroupPolicyTargets(ListNodeGroupPolicyTargetsRequest) returns (ListNodeGroupPolicyTargetsResponse) { option deprecated = true; }
+    rpc UpdateNodeGroupPolicyTarget(UpdateNodeGroupPolicyTargetRequest) returns (UpdateNodeGroupPolicyTargetResponse) { option deprecated = true; }
+    rpc DeleteNodeGroupPolicyTarget(DeleteNodeGroupPolicyTargetRequest) returns (DeleteNodeGroupPolicyTargetResponse) { option deprecated = true; }
+    rpc ToggleNodeGroupPolicyTargets(ToggleNodeGroupPolicyTargetsRequest) returns (ToggleNodeGroupPolicyTargetsResponse) { option deprecated = true; }
+    rpc PreviewNodeGroupPolicyTargetMatches(PreviewNodeGroupPolicyTargetMatchesRequest) returns (PreviewNodeGroupPolicyTargetMatchesResponse) { option deprecated = true; }
+    rpc GetPreviewNodeGroupPolicyTargetRecommendations(GetPreviewNodeGroupPolicyTargetRecommendationsRequest) returns (GetPreviewNodeGroupPolicyTargetRecommendationsResponse) { option deprecated = true; }
 
     // Balance get recommendations
     rpc BalanceGetRecommendations(stream BalanceGetRecommendationsRequest) returns (stream BalanceGetRecommendationsResponse);
 
-    // website recommendations for optimal instance type for node group
-    rpc GetOptimalInstanceTypeForNodeGroup(GetOptimalInstanceTypeForNodeGroupRequest) returns (GetOptimalInstanceTypeForNodeGroupResponse);
+    // website recommendations for optimal instance type for node group (Deprecated)
+    rpc GetOptimalInstanceTypeForNodeGroup(GetOptimalInstanceTypeForNodeGroupRequest) returns (GetOptimalInstanceTypeForNodeGroupResponse) { option deprecated = true; }
 
-    // Get attached node group policies
-    rpc GetAttachedNodeGroupPolicies(GetAttachedNodeGroupPoliciesRequest) returns (GetAttachedNodeGroupPoliciesResponse);
+    // Get attached node group policies (Deprecated)
+    rpc GetAttachedNodeGroupPolicies(GetAttachedNodeGroupPoliciesRequest) returns (GetAttachedNodeGroupPoliciesResponse) { option deprecated = true; }
 
     // Get attached workload policies
     rpc GetAttachedWorkloadPolicies(GetAttachedWorkloadPoliciesRequest) returns (GetAttachedWorkloadPoliciesResponse);
@@ -99,8 +100,8 @@ service K8sRecommendationService {
     // ListAttachedWorkloadPolicies retrieves all attached workload policies and workloads for a team
     rpc ListAttachedWorkloadPolicies(ListAttachedWorkloadPoliciesRequest) returns (ListAttachedWorkloadPoliciesResponse);
 
-    // ListAttachedNodeGroupPolicies retrieves all attached node group policies and node groups for a team
-    rpc ListAttachedNodeGroupPolicies(ListAttachedNodeGroupPoliciesRequest) returns (ListAttachedNodeGroupPoliciesResponse);
+    // ListAttachedNodeGroupPolicies retrieves all attached node group policies and node groups for a team (Deprecated)
+    rpc ListAttachedNodeGroupPolicies(ListAttachedNodeGroupPoliciesRequest) returns (ListAttachedNodeGroupPoliciesResponse) { option deprecated = true; }
 
     // RecommendationEvents is a way for callers to retrieve the supported event types
     rpc RecommendationEvents(RecommendationEventsRequest) returns (RecommendationEventsResponse);
@@ -117,7 +118,49 @@ service K8sRecommendationService {
     rpc CreateNodePolicies(CreateNodePoliciesRequest) returns (CreateNodePoliciesResponse);
     rpc ListNodePolicies(ListNodePoliciesRequest) returns (ListNodePoliciesResponse);
     rpc UpdateNodePolicy(UpdateNodePolicyRequest) returns (UpdateNodePolicyResponse);
+    rpc DeleteNodePolicy(DeleteNodePolicyRequest) returns (DeleteNodePolicyResponse);
     rpc SuggestedNodePolicy(SuggestedNodePolicyRequest) returns (SuggestedNodePolicyResponse);
+    rpc SuggestedKarpenterConfig(SuggestedKarpenterConfigRequest) returns (SuggestedKarpenterConfigResponse);
+    // GenerateNodePoliciesFromKarpenter generates NodePolicy objects from existing Karpenter resources
+    // (NodePools and EC2NodeClasses) for a given cluster.
+    rpc GenerateNodePoliciesFromKarpenter(GenerateNodePoliciesFromKarpenterRequest) returns (GenerateNodePoliciesFromKarpenterResponse);
+    // GenerateNodePoliciesFromNodeGroups generates NodePolicy objects by inspecting
+    // k8s_nodes metadata for clusters without Karpenter/dzkarp.
+    rpc GenerateNodePoliciesFromNodeGroups(GenerateNodePoliciesFromNodeGroupsRequest) returns (GenerateNodePoliciesFromNodeGroupsResponse);
+
+    // GetNodeGroupsCheckpointStatus returns, per node group in a cluster, whether
+    // checkpoint-restore is enabled (dz-managed + active node policy + the
+    // dakr.devzero.io/checkpoint-node label) so the UI can render status/CTA.
+    rpc GetNodeGroupsCheckpointStatus(GetNodeGroupsCheckpointStatusRequest) returns (GetNodeGroupsCheckpointStatusResponse);
+    // SetNodePolicyCheckpointLabel toggles the dakr.devzero.io/checkpoint-node
+    // label on a single node policy via a targeted label patch (not a full-row
+    // policy update).
+    rpc SetNodePolicyCheckpointLabel(SetNodePolicyCheckpointLabelRequest) returns (SetNodePolicyCheckpointLabelResponse);
+
+    // EnableCheckpointForPolicy is the orchestration RPC for the checkpoint-restore
+    // toggle on a NodePolicy. It performs the policy-template patch (same as
+    // SetNodePolicyCheckpointLabel) AND enqueues one GenericResourceRecommendation
+    // per currently-observed node in the policy's matched groups so existing
+    // nodes get (un)labelled, not just future ones. All enqueued rows share a
+    // batch_id the caller polls via GetCheckpointApplyStatus.
+    rpc EnableCheckpointForPolicy(EnableCheckpointForPolicyRequest) returns (EnableCheckpointForPolicyResponse);
+    // GetCheckpointApplyStatus surfaces the per-batch status counts (plus per-node
+    // failure details) for the most recent EnableCheckpointForPolicy batch on a
+    // policy. The FE polls this while a batch is in flight so the toggle CTA can
+    // render "9/10 labelled, 1 failed".
+    rpc GetCheckpointApplyStatus(GetCheckpointApplyStatusRequest) returns (GetCheckpointApplyStatusResponse);
+
+    // GetNodeAnnotationReadiness checks how many nodes in a cluster have been
+    // annotated with AWS metadata by the Karpenter fork's node metadata controller.
+    rpc GetNodeAnnotationReadiness(GetNodeAnnotationReadinessRequest) returns (GetNodeAnnotationReadinessResponse);
+
+    // Migration wizard state management
+    rpc GetMigrationState(GetMigrationStateRequest) returns (GetMigrationStateResponse);
+    rpc UpdateMigrationState(UpdateMigrationStateRequest) returns (UpdateMigrationStateResponse);
+
+    // NodePool validation phone-home
+    rpc ReportNodePoolValidation(ReportNodePoolValidationRequest) returns (ReportNodePoolValidationResponse);
+    rpc GetNodePoolValidations(GetNodePoolValidationsRequest) returns (GetNodePoolValidationsResponse);
 
     rpc CreateNodePolicyTargets(CreateNodePolicyTargetsRequest) returns (CreateNodePolicyTargetsResponse);
     rpc ListNodePolicyTargets(ListNodePolicyTargetsRequest) returns (ListNodePolicyTargetsResponse);
@@ -125,13 +168,79 @@ service K8sRecommendationService {
 
     rpc PreviewNodeRecommendationConfig(PreviewNodeRecommendationConfigRequest) returns (PreviewNodeRecommendationConfigResponse);
     rpc GetInstanceFamilies(GetInstanceFamiliesRequest) returns (GetInstanceFamiliesResponse);
+
     rpc GetInstanceSizes(GetInstanceSizesRequest) returns (GetInstanceSizesResponse);
+
+    rpc GetInstanceCategories(GetInstanceCategoriesRequest) returns (GetInstanceCategoriesResponse);
+    rpc GetInstanceCPUs(GetInstanceCPUsRequest) returns (GetInstanceCPUsResponse);
+    rpc GetInstanceTypeNames(GetInstanceTypeNamesRequest) returns (GetInstanceTypeNamesResponse);
+
+    // PodDisruptionBudget RPCs
+    rpc GeneratePodDisruptionBudget(GeneratePodDisruptionBudgetRequest) returns (GeneratePodDisruptionBudgetResponse);
+    rpc GenerateAndCreatePodDisruptionBudget(GenerateAndCreatePodDisruptionBudgetRequest) returns (GenerateAndCreatePodDisruptionBudgetResponse);
+    rpc CreatePodDisruptionBudget(CreatePodDisruptionBudgetRequest) returns (CreatePodDisruptionBudgetResponse);
+    // GetPDBRecommendationForWorkload retrieves the existing PDB recommendation for a workload (if any)
+    rpc GetPDBRecommendationForWorkload(GetPDBRecommendationForWorkloadRequest) returns (GetPDBRecommendationForWorkloadResponse);
+
+    // Storage Recommendation Policies
+    rpc CreateStorageRecommendationPolicy(CreateStorageRecommendationPolicyRequest) returns (CreateStorageRecommendationPolicyResponse);
+    rpc GetStorageRecommendationPolicy(GetStorageRecommendationPolicyRequest) returns (GetStorageRecommendationPolicyResponse);
+    rpc ListStorageRecommendationPolicies(ListStorageRecommendationPoliciesRequest) returns (ListStorageRecommendationPoliciesResponse);
+    rpc UpdateStorageRecommendationPolicy(UpdateStorageRecommendationPolicyRequest) returns (UpdateStorageRecommendationPolicyResponse);
+    rpc DeleteStorageRecommendationPolicy(DeleteStorageRecommendationPolicyRequest) returns (DeleteStorageRecommendationPolicyResponse);
+
+    // Storage Policy Targets
+    rpc CreateStoragePolicyTarget(CreateStoragePolicyTargetRequest) returns (CreateStoragePolicyTargetResponse);
+    rpc ListStoragePolicyTargets(ListStoragePolicyTargetsRequest) returns (ListStoragePolicyTargetsResponse);
+    rpc UpdateStoragePolicyTarget(UpdateStoragePolicyTargetRequest) returns (UpdateStoragePolicyTargetResponse);
+    rpc DeleteStoragePolicyTarget(DeleteStoragePolicyTargetRequest) returns (DeleteStoragePolicyTargetResponse);
+
+    // PVC Storage Recommendations
+    rpc GetPvcStorageRecommendation(GetPvcStorageRecommendationRequest) returns (GetPvcStorageRecommendationResponse);
+    rpc ListPvcStorageRecommendations(ListPvcStorageRecommendationsRequest) returns (ListPvcStorageRecommendationsResponse);
+    rpc GeneratePvcStorageRecommendation(GeneratePvcStorageRecommendationRequest) returns (GeneratePvcStorageRecommendationResponse);
+    rpc PreviewPvcStorageRecommendation(PreviewPvcStorageRecommendationRequest) returns (PreviewPvcStorageRecommendationResponse);
+
+    // OOM Events
+    rpc ListWorkloadRuleOOMEvents(ListWorkloadRuleOOMEventsRequest) returns (ListWorkloadRuleOOMEventsResponse);
+    rpc ListWorkloadOOMEvents(ListWorkloadOOMEventsRequest) returns (ListWorkloadOOMEventsResponse);
+
+    // CPU Throttle Events
+    rpc ListWorkloadRuleCPUThrottleEvents(ListWorkloadRuleCPUThrottleEventsRequest) returns (ListWorkloadRuleCPUThrottleEventsResponse);
+    rpc ListWorkloadCPUThrottleEvents(ListWorkloadCPUThrottleEventsRequest) returns (ListWorkloadCPUThrottleEventsResponse);
+
+    // Cluster-wide optimization removal
+    rpc RemoveClusterOptimizations(RemoveClusterOptimizationsRequest) returns (RemoveClusterOptimizationsResponse);
+
+    // MPA V3: Workload Optimization Policies
+    rpc CreateWorkloadOptimizationPolicy(CreateWorkloadOptimizationPolicyRequest) returns (CreateWorkloadOptimizationPolicyResponse);
+    rpc ListWorkloadOptimizationPolicies(ListWorkloadOptimizationPoliciesRequest) returns (ListWorkloadOptimizationPoliciesResponse);
+    rpc GetWorkloadOptimizationPolicy(GetWorkloadOptimizationPolicyRequest) returns (GetWorkloadOptimizationPolicyResponse);
+    rpc UpdateWorkloadOptimizationPolicy(UpdateWorkloadOptimizationPolicyRequest) returns (UpdateWorkloadOptimizationPolicyResponse);
+    rpc DeleteWorkloadOptimizationPolicy(DeleteWorkloadOptimizationPolicyRequest) returns (DeleteWorkloadOptimizationPolicyResponse);
+
+    // MPA V3: Workload Rules (CRUD)
+    rpc UpsertManualWorkloadRule(UpsertManualWorkloadRuleRequest) returns (UpsertManualWorkloadRuleResponse);
+    rpc PreviewWorkloadRule(PreviewWorkloadRuleRequest) returns (PreviewWorkloadRuleResponse);
+    rpc GetWorkloadRulesByPolicy(GetWorkloadRulesByPolicyRequest) returns (GetWorkloadRulesByPolicyResponse);
+    rpc ListWorkloadRules(ListWorkloadRulesRequest) returns (ListWorkloadRulesResponse);
+    rpc GetWorkloadRuleByID(GetWorkloadRuleByIDRequest) returns (GetWorkloadRuleByIDResponse);
+    rpc GetWorkloadRuleByWorkload(GetWorkloadRuleByWorkloadRequest) returns (GetWorkloadRuleByWorkloadResponse);
+    rpc GetWorkloadByWorkloadRule(GetWorkloadByWorkloadRuleRequest) returns (GetWorkloadByWorkloadRuleResponse);
+    rpc DeleteWorkloadRule(DeleteWorkloadRuleRequest) returns (DeleteWorkloadRuleResponse);
+    rpc GetWorkloadContainerNames(GetWorkloadContainerNamesRequest) returns (GetWorkloadContainerNamesResponse);
+    rpc BatchAutoOptimizeWorkloads(BatchAutoOptimizeWorkloadsRequest) returns (BatchAutoOptimizeWorkloadsResponse);
+
+    // Get current node pool config status and recent apply history for a cluster
+    rpc GetNodeRecommendationStatus(GetNodeRecommendationStatusRequest) returns (GetNodeRecommendationStatusResponse);
 }
 
 message GetRecommendationsRequest {
     string cluster_id = 1;
     string team_id = 2;
     repeated string exclude_statuses = 3;
+    repeated string namespaces = 4;
+    bool include_deleted_policies = 5;
 
     optional google.protobuf.Timestamp start_time = 16;
     optional google.protobuf.Timestamp end_time = 17;
@@ -217,43 +326,6 @@ message GetLatestNodeGroupRecommendationResponse {
     int32 after_node_count = 6;
 }
 
-message GetPreviewNodeGroupRecommendationRequest {
-    string node_group_name = 1;
-    string cluster_id = 2;
-    string team_id = 3;
-    string policy_id = 4;
-}
-
-message GetPreviewNodeGroupRecommendationResponse {
-    string node_group_name = 1;
-    string cluster_id = 2;
-    string team_id = 3;
-    string policy_id = 4;
-
-    repeated string nodes_to_remove = 5;
-
-    int32 before_node_count = 6;
-    int32 after_node_count = 7;
-}
-
-message GetWorkloadStatsRequest {
-    string cluster_id = 1;
-    string team_id = 2;
-    string workload_uid = 3;
-    string namespace = 4;
-    K8sObjectKind kind = 5;
-    string name = 6;
-    optional google.protobuf.Timestamp start_time = 7;
-    optional google.protobuf.Timestamp end_time = 8;
-}
-
-message GetWorkloadStatsResponse {
-    string workload_uid = 1;
-    string namespace = 2;
-    K8sObjectKind kind = 3;
-    string name = 4;
-    repeated ContainerStats container_stats = 5;
-}
 
 message GetLatestWorkloadRecommendationRequest {
     string cluster_id = 1;
@@ -346,6 +418,7 @@ message CreateClusterRecommendationPolicyRequest {
     // - pod_creation
     // - pod_deletion
     // - pod_unschedulable
+    // - pod_eviction
     repeated string detection_triggers = 6;
 
     // The mode for the recommendation, can be balanced, aggressive, or conservative
@@ -673,11 +746,12 @@ message WorkloadPolicyTarget {
     optional RegexPattern name_pattern = 14;          // Target workloads by name pattern
     optional LabelSelector annotation_selector = 15;  // Target workloads by annotations
     repeated string workload_names = 16;              // Target specific workload kinds
+    optional RegexPattern namespace_pattern = 17;     // Target namespaces by name pattern
 
     repeated string node_group_names = 21;            // target workloads running on specific nodes
 
     repeated string cluster_ids = 31;
-    
+
     google.protobuf.Timestamp created_at = 51;
     google.protobuf.Timestamp updated_at = 52;
 }
@@ -700,6 +774,7 @@ message CreateWorkloadPolicyTargetRequest {
     optional LabelSelector annotation_selector = 15;   // Target workloads by annotations
     repeated string workload_names = 16;
     repeated string node_group_names = 17;
+    optional RegexPattern namespace_pattern = 18;      // Target namespaces by name pattern
 
     repeated string cluster_ids = 21;
 }
@@ -746,6 +821,7 @@ message UpdateWorkloadPolicyTargetRequest {
     optional LabelSelector annotation_selector = 15;   // Target workloads by annotations
     repeated string workload_names = 16;
     repeated string node_group_names = 17;
+    optional RegexPattern namespace_pattern = 18;      // Target namespaces by name pattern
 
     optional string policy_id = 21; // should only be set when target needs to be attached to diff policy
 
@@ -775,6 +851,17 @@ message DeleteWorkloadPolicyTargetResponse {
     bool success = 1;
 }
 
+message RemoveClusterOptimizationsRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+}
+
+message RemoveClusterOptimizationsResponse {
+    bool success = 1;
+    int64 disabled_targets = 2;
+    int64 deleted_pending_recommendations = 3;
+}
+
 message PreviewWorkloadPolicyTargetMatchesRequest {
     string team_id = 1;
     string cluster_id = 2;
@@ -787,6 +874,7 @@ message PreviewWorkloadPolicyTargetMatchesRequest {
     optional LabelSelector annotation_selector = 7;   // Target workloads by annotations
     repeated string workload_names = 8;
     repeated string node_group_names = 9;
+    optional RegexPattern namespace_pattern = 10;     // Target namespaces by name pattern
 }
 
 message PreviewWorkloadPolicyTargetMatchesResponse {
@@ -795,7 +883,6 @@ message PreviewWorkloadPolicyTargetMatchesResponse {
 
 message GetPreviewWorkloadPolicyTargetRecommendationsRequest {
     string team_id = 1;
-    string cluster_id = 2 [deprecated = true]; // use cluster_ids
     string policy_id = 3;
 
     // Targeting criteria (AND logic between non-null fields)
@@ -806,6 +893,7 @@ message GetPreviewWorkloadPolicyTargetRecommendationsRequest {
     optional LabelSelector annotation_selector = 8;   // Target workloads by annotations
     repeated string workload_names = 9;
     repeated string node_group_names = 10;
+    optional RegexPattern namespace_pattern = 11;     // Target namespaces by name pattern
 
     bool include_deleted = 21;
 
@@ -814,6 +902,18 @@ message GetPreviewWorkloadPolicyTargetRecommendationsRequest {
 
 message GetPreviewWorkloadPolicyTargetRecommendationsResponse {
     repeated WorkloadRecommendation recommendations = 1;
+    repeated WorkloadItem workload_items = 2;
+    // Map from workload UID to aggregated percentile summaries across all containers
+    map<string, WorkloadPercentileSummary> workload_percentiles = 3;
+}
+
+// WorkloadPercentileSummary aggregates percentile metrics across all containers of a workload.
+message WorkloadPercentileSummary {
+    MetricPercentiles cpu_usage = 1;
+    MetricPercentiles memory_usage = 2;
+    MetricPercentiles gpu_usage = 3;
+    MetricPercentiles cpu_request = 4;
+    MetricPercentiles memory_request = 5;
 }
 
 //  NodeGroupPolicyTarget Messages for Targeting
@@ -937,6 +1037,10 @@ message BalanceGetRecommendationsRequest {
         // state reconciliation APIs
         ReconcileWorkload workload_meta = 11;
 
+        // MPA v2: In-cluster generated recommendation (from rule evaluation)
+        // Sent when RuleEvaluatorController generates a recommendation from evaluating a WorkloadRule
+        WorkloadRecommendation in_cluster_recommendation = 21;
+
         // health check APIs
         OperatorHealth operator_health = 71;
         AgentHealth agent_health = 81;
@@ -958,8 +1062,24 @@ message BalanceGetRecommendationsResponse {
         // state reconciliation APIs
         WorkloadWithActiveRecommendations kind_to_namespace_to_workloads = 31; // return {kind: namespace: [workloads]}
         ReconcileResponse workload_reconcile_response = 41;
-        
+
+        // Workload profile snapshots (persisted profiling signal for in-cluster consumers)
+        WorkloadProfileManifest workload_profile_manifest = 51;
+        BatchWorkloadProfiles batch_workload_profiles = 52;
+
         HealthReport health_update_requested = 71;
+
+        // Generic resource recommendations
+        BatchGenericResourceRecommendations batch_generic_resource_recommendations = 50;
+
+        // PVC storage recommendations
+        BatchPvcStorageRecommendations batch_pvc_storage_recommendations = 60;
+
+        // MPA v2: WorkloadRules for in-cluster evaluation
+        BatchWorkloadRules batch_workload_rules = 61;
+
+        // KarpenterSettings CRD push-down
+        KarpenterSettingsRecommendation karpenter_settings = 62;
     }
     string request_id = 99; // optional
 }
@@ -972,9 +1092,273 @@ message BatchWorkloadRecommendations {
   repeated WorkloadRecommendation recommendations = 1;
 }
 
+// WorkloadRule proto messages for MPA v2 rules-based architecture
+message WorkloadRule {
+    string rule_id = 1;
+    string cluster_id = 2;
+    string namespace = 3;
+    string kind = 4;
+    string name = 5;
+
+    ResourceRuleConfig cpu_rule = 10;
+    ResourceRuleConfig memory_rule = 11;
+    ResourceRuleConfig gpu_rule = 12;
+    HPARuleConfig hpa_rule = 13;
+
+    int64 generation = 20;
+    string version = 21;
+    double confidence_score = 22;
+    bool outlier_detection_enabled = 23;
+
+    repeated ActionTrigger action_triggers = 30;
+    optional int64 startup_period_seconds = 31;
+    optional string cron_schedule = 32;
+    optional int32 cooldown_minutes = 33;
+    repeated WorkloadDetectionTrigger detection_triggers = 34;
+    repeated string scheduler_plugins = 35;
+    optional string defragmentation_schedule = 36;
+    bool live_migration_enabled = 37;
+
+    // PolicyID is the UUID of the policy that generated this rule
+    optional string policy_id = 40;
+
+    EmergencyResponseConfig emergency_response = 50;
+
+    // Pre-computed percentiles per resource axis from control plane
+    ResourcePercentiles percentiles = 60;
+
+    // Workload classification (dominance + burstiness)
+    WorkloadClassification classification = 61;
+
+    // Whether the rule evaluator should create recommendations that use
+    // in-place pod vertical scaling instead of triggering pod restarts.
+    bool use_in_place_vertical_scaling = 70;
+
+    // UI display fields (not sent to cluster, only used for listing)
+    string status = 80;                // "active" or "inactive"
+    string sync_status = 81;           // "pending", "synced", or "failed"
+    string current_source = 82;        // "crd", "policy", "auto_optimization", "manual", "pulumi_manual", "pulumi_auto", "terraform_manual", "terraform_auto"
+    google.protobuf.Timestamp created_at = 83;
+    google.protobuf.Timestamp updated_at = 84;
+
+    // Per-container resource configurations (VPA). When empty, workload-level rules apply to all containers.
+    repeated ContainerResourceRuleConfig containers = 90;
+}
+
+message ResourceRuleConfig {
+    bool enabled = 1;
+    int64 base_request = 2;
+    optional int64 min_request = 3;
+    optional int64 max_request = 4;
+    optional float limit_multiplier = 5;
+    bool limits_adjustment_enabled = 6;
+    optional float target_percentile = 7;
+    optional float max_scale_up_percent = 8;
+    optional float max_scale_down_percent = 9;
+    // Pmax spike protection output
+    bool pmax_protection_active = 10;
+    int64 pmax_value = 11;
+    optional float pmax_ratio = 12;
+
+    // Whether to actively remove limits from workloads.
+    bool limits_removal_enabled = 13;
+
+    // Human-readable annotations from the engine: clamp messages, pmax /
+    // throttle / OOM floor activation, and "request exceeds existing limit"
+    // warnings. Surfaced through PreviewWorkloadRule so the UI can show why
+    // the produced BaseRequest differs from the user's expectation. Not
+    // persisted — recomputed on every generation/preview.
+    repeated string notes = 14;
+}
+
+message HPAMetricTrigger {
+    string type = 1;                          // "CPU", "Memory", "NetworkIngress", "NetworkEgress", "prometheus"
+    optional string target_utilization = 2;    // "0.70" for resource metrics
+    optional string target_value = 3;          // "50000000" for absolute metrics (bytes/sec)
+    optional string weight = 4;                // "0.5" for composite formula
+    map<string, string> metadata = 5;          // Free-form key-value for external scalers (e.g. serverAddress, query for Prometheus)
+    optional string server_address = 6;        // Frontend-friendly: Prometheus server URL (packed into metadata by service layer)
+    optional string query = 7;                 // Frontend-friendly: PromQL query (packed into metadata by service layer)
+}
+
+// HPABehavior, HPAScalingRules, HPAScalingPolicy are defined in common.proto
+message HPAFallback {
+    int32 replicas = 1;
+    string behavior = 2;                        // "static", "currentReplicas", "currentReplicasIfHigher", "currentReplicasIfLower"
+    int32 failure_threshold = 3;
+}
+
+// Per-container resource config (core subset: enabled + request bounds + limits).
+message ContainerResourceConfig {
+    bool enabled = 1;
+    int64 base_request = 2;
+    optional int64 min_request = 3;
+    optional int64 max_request = 4;
+    optional float limit_multiplier = 5;
+    bool limits_adjustment_enabled = 6;
+    bool limits_removal_enabled = 7;
+    // Engine-selected target percentile for this container (0.0–1.0).
+    // Carried so the UI can surface profiling's per-container percentile
+    // pick alongside the workload-level chip.
+    optional float target_percentile = 8;
+
+    // Human-readable annotations from the engine for this container.
+    // See ResourceRuleConfig.notes for semantics.
+    repeated string notes = 9;
+}
+
+// Per-container resource rule config with CPU/Memory/GPU.
+message ContainerResourceRuleConfig {
+    string container_name = 1;
+    ContainerResourceConfig cpu_rule = 2;
+    ContainerResourceConfig memory_rule = 3;
+    ContainerResourceConfig gpu_rule = 4;
+}
+
+message HPARuleConfig {
+    bool enabled = 1;
+    optional int32 min_replicas = 2;
+    optional int32 max_replicas = 3;
+    optional float target_utilization = 4;
+    optional HPAMetricType primary_metric = 5;
+    optional float max_replica_change_percent = 6;
+    repeated HPAMetricTrigger metrics = 7;
+    optional HPABehavior behavior = 8;
+    optional string composite_formula = 9;
+    optional HPAFallback fallback = 10;
+    optional int32 scale_down_cooldown_seconds = 11;
+    // Target memory utilization (0.0-1.0). Separate from target_utilization (CPU)
+    // to allow independent tuning per resource.
+    optional float target_memory_utilization = 12;
+}
+
+message EmergencyResponseConfig {
+    bool oom_enabled = 1;
+    float oom_memory_multiplier = 2;
+    int32 oom_max_reactions = 3;
+    int32 oom_cooldown_seconds = 4;
+    bool cpu_throttling_enabled = 5;
+    float cpu_throttling_threshold = 6;
+    float cpu_throttling_multiplier = 7;
+}
+
+// PercentileValues contains pre-computed percentile values for a single resource axis
+message PercentileValues {
+    int64 p50 = 1;
+    int64 p80 = 2;
+    int64 p90 = 3;
+    int64 p95 = 4;
+    int64 p99 = 5;
+}
+
+// ResourcePercentiles contains percentile sets for all resource axes
+message ResourcePercentiles {
+    PercentileValues cpu = 1;
+    PercentileValues memory = 2;
+    PercentileValues network = 3;
+    PercentileValues disk = 4;
+}
+
+// BurstinessRatios contains the p95/p50 ratio for each resource axis
+message BurstinessRatios {
+    double cpu = 1;
+    double memory = 2;
+    double network = 3;
+    double disk = 4;
+    double pmax_cpu = 5;   // pmax/p50 ratio for CPU (spike severity)
+    double pmax_mem = 6;   // pmax/p50 ratio for memory (spike severity)
+}
+
+// WorkloadClassification contains workload classification based on resource dominance and burstiness
+message WorkloadClassification {
+    string dominant_resource = 1;  // cpu, memory, gpu, network, disk, unknown
+    BurstinessRatios burstiness = 2;
+}
+
+message BatchWorkloadRules {
+    repeated WorkloadRule rules = 1;
+    repeated string rule_ids_to_delete = 2;  // rule IDs whose CRDs should be deleted from cluster
+}
+
 message WorkloadWithActiveRecommendations {
     repeated WorkloadIdentifier workloads = 1; // picking this pattern since caller has to iterate over the list anyway
     // TODO support pagination
+}
+
+// GenericResourceRecommendation definitions
+message GenericResourceRecommendation {
+    string recommendation_id = 1;
+    string cluster_id = 2;
+    string team_id = 3;
+    string namespace = 4;
+    string name = 5;
+    // Generic kind
+    string kind = 6;
+
+    // "CREATE", "UPDATE", "DELETE"
+    string action = 10;
+    // JSON/YAML content of the resource
+    string manifest = 11;
+
+    google.protobuf.Timestamp timestamp = 20;
+
+    // Optional: Policy ID that generated this recommendation
+    string policy_id = 21;
+
+    // Status of the recommendation
+    RecommendationStatus status = 22;
+    // Error message if status is failed
+    optional string error = 23;
+    // Timestamps
+    google.protobuf.Timestamp created_at = 24;
+    google.protobuf.Timestamp updated_at = 25;
+}
+
+message BatchGenericResourceRecommendations {
+    repeated GenericResourceRecommendation recommendations = 1;
+}
+
+message BatchPvcStorageRecommendations {
+    repeated PvcStorageRecommendation recommendations = 1;
+}
+
+message GeneratePodDisruptionBudgetRequest {
+    string cluster_id = 1;
+    string team_id = 2;
+    WorkloadIdentifier workload = 3;
+}
+
+message GeneratePodDisruptionBudgetResponse {
+    GenericResourceRecommendation recommendation = 1;
+}
+
+message GenerateAndCreatePodDisruptionBudgetRequest {
+    string cluster_id = 1;
+    string team_id = 2;
+    WorkloadIdentifier workload = 3;
+}
+
+message GenerateAndCreatePodDisruptionBudgetResponse {
+    GenericResourceRecommendation recommendation = 1;
+}
+
+message CreatePodDisruptionBudgetRequest {
+    string team_id = 1;
+    GenericResourceRecommendation recommendation = 2;
+}
+
+message CreatePodDisruptionBudgetResponse {
+    GenericResourceRecommendation recommendation = 1;
+}
+
+message GetPDBRecommendationForWorkloadRequest {
+    string cluster_id = 1;
+    WorkloadIdentifier workload = 2;
+}
+
+message GetPDBRecommendationForWorkloadResponse {
+    // The existing PDB recommendation for the workload, or null if none exists
+    optional GenericResourceRecommendation recommendation = 1;
 }
 
 message ReconcileWorkload {
@@ -1304,6 +1688,10 @@ message VerticalScalingOptimizationTarget {
 
     // default MPA behavior is to recommend not adjusting req if they are not set; this flag overrides that behavior.
     bool adjust_req_even_if_not_set = 41;
+
+    // Whether to actively remove limits from workloads (CPU only for now).
+    // Takes precedence over limits_adjustment_enabled when true.
+    bool limits_removal_enabled = 42;
 }
 
 message HorizontalScalingOptimizationTarget {
@@ -1333,6 +1721,21 @@ message HorizontalScalingOptimizationTarget {
     // Target network throughput per replica in bytes/sec
     // 0 = auto-detect from P95 + 15% headroom based on selected metric direction (ingress/egress)
     optional int64 network_target_throughput_bytes_per_sec = 41;
+
+    // Target memory utilization for HPA scaling (0.0-1.0, e.g. 0.80 = 80%)
+    // If unset, defaults to 0.80 (same as CPU default)
+    optional float target_memory_utilization = 51;
+
+    // Composite formula for multi-metric HPA scaling
+    // Available variables: "cpu", "memory", "networkingress", "networkegress"
+    // Each variable is the metric's current/target ratio (>1.0 = above target)
+    // Example: "cpu * 0.6 + memory * 0.4"
+    optional string composite_formula = 52;
+
+    // Scale-down cooldown in seconds. Overrides the default K8s stabilization
+    // window (300s). Use a higher value for workloads with slow drain or
+    // connection-draining requirements.
+    optional int32 scale_down_cooldown_seconds = 53;
 }
 
 message WorkloadRecommendationPolicy {
@@ -1408,6 +1811,29 @@ message WorkloadRecommendationPolicy {
     // Global cooldown configuration
     // Minutes to wait between applying recommendations (prevents thrashing)
     optional int32 cooldown_minutes = 96;
+
+    // Deprecated: no longer used. The legacy policy flow no longer creates workload rules.
+    // Workload rules are created via auto-optimization or the new WorkloadOptimizationPolicy flow.
+    // Field retained for wire-compatibility; will be reserved in a future cleanup.
+    bool enable_incluster_mpa = 97;
+
+    // Feature flag: Enable In-Place Pod Vertical Scaling for this policy.
+    // Requires Kubernetes >= v1.33 on all attached clusters.
+    // When enabled, recommendations resize running pods via the /resize subresource
+    // without triggering rolling restarts.
+    bool enable_in_place_vertical_scaling = 103;
+
+    // Policy-driven automation: enable PDB creation for workloads under this policy
+    bool pdb_enabled = 98;
+
+    EmergencyResponseConfig emergency_response = 99;
+
+    // Pmax spike protection: raises resource requests to cover peak usage
+    // when the max-observed-to-recommendation ratio exceeds the threshold.
+    bool enable_pmax_protection = 100;
+    optional float pmax_ratio_threshold = 101; // default: 3.0
+
+    optional google.protobuf.Timestamp deleted_at = 102;
 }
 
 message GetPolicyRecommendedDefaultsRequest {
@@ -1441,6 +1867,32 @@ message BalanceApplyRecommendationResponse {
     RecommendationType type = 2;
     bool success = 3;
     optional string error = 4;
+    // Optional live migration metadata, populated when recommendation used live migration.
+    optional LiveMigrationResult live_migration_result = 5;
+}
+
+// LiveMigrationResult provides structured metadata about a live migration attempt.
+message LiveMigrationResult {
+    // Whether the migration was degraded (restore failed, fell back to cold start).
+    // When true, success on parent message is still true (resources are applied).
+    bool degraded = 1;
+    // Which stage failed: "checkpoint" or "restore". Empty if no failure.
+    string failure_stage = 2;
+    // Duration of the checkpoint operation in milliseconds.
+    int64 checkpoint_duration_ms = 3;
+    // Duration of the restore operation in milliseconds (0 if restore was not attempted or failed).
+    int64 restore_duration_ms = 4;
+    // The node where the checkpoint was created.
+    string source_node = 5;
+    // The node where the restore was attempted (may differ for cross-node migration).
+    string target_node = 6;
+    // Checkpoint image size in bytes.
+    int64 checkpoint_size_bytes = 7;
+}
+
+message NodeGroupReference {
+    string cluster_id = 1;
+    string node_group_name = 2;
 }
 
 message NodeGroupRecommendation {
@@ -1457,6 +1909,26 @@ message NodeGroupRecommendation {
     optional NodeGroupRecommendationPolicy policy = 61;
 }
 
+enum CostPeriod {
+    COST_PERIOD_UNSPECIFIED = 0;
+    COST_PERIOD_MONTH = 1;
+    COST_PERIOD_RUN = 2;
+}
+
+message CostImpact {
+    google.type.Money current_cost_per_month = 1;
+    google.type.Money recommended_cost_per_month = 2;
+    google.type.Money current_cpu_cost_per_month = 3;
+    google.type.Money current_memory_cost_per_month = 4;
+    google.type.Money recommended_cpu_cost_per_month = 5;
+    google.type.Money recommended_memory_cost_per_month = 6;
+    google.type.Money current_gpu_cost_per_month = 7;
+    google.type.Money recommended_gpu_cost_per_month = 8;
+    int32 instance_count = 10;
+    CostPeriod cost_period = 11;
+    optional int32 estimated_runs_per_month = 12;  // CronJobs only
+}
+
 message WorkloadRecommendation {
     string recommendation_id = 1;
     string workload_uid = 2;
@@ -1470,8 +1942,7 @@ message WorkloadRecommendation {
     int32 recommended_replica_count = 8;
 
     google.protobuf.Timestamp timestamp = 9;
-
-    
+   
     repeated KedaScaledObjectRecommendation keda_scaled_object_recommendation = 10;
     optional string cluster_id = 11;
 
@@ -1495,7 +1966,26 @@ message WorkloadRecommendation {
     optional WorkloadPolicyTarget policy_target = 71;
     optional string policy_target_id = 72;
 
+    optional string rule_id = 73;
+
     ActionToTake replica_count_action = 81; // suggests if operator should set recommended_replica_count
+
+    // Result of live migration when this recommendation was applied with use_live_migration (populated after apply).
+    optional LiveMigrationResult live_migration_result = 82;
+
+    // Error message when status is failed or apply failed.
+    optional string error = 83;
+
+    // Backend-computed cost impact (current vs recommended).
+    optional CostImpact cost_impact = 91;
+
+    // Whether this recommendation should be applied using in-place pod vertical scaling.
+    // When true, the operator resizes running pods via the /resize subresource
+    // without triggering rolling restarts (requires k8s >= v1.33).
+    bool use_in_place_vertical_scaling = 92;
+
+    // Impact score (0-1) indicating optimization opportunity. Higher = more waste.
+    double impact_score = 93;
 }
 
 enum LiveMigDeletionPropagation {
@@ -1511,15 +2001,19 @@ enum RecommendationStatus {
   RECOMMENDATION_STATUS_APPLIED = 2 [deprecated = true]; // Deprecated: Applied is now moving to applied-on-schedule or applied-on-detection
   RECOMMENDATION_STATUS_FAILED = 3  [deprecated = true]; // Deprecated: Applied is now moving to applied-on-schedule or applied-on-detection
   RECOMMENDATION_STATUS_PREVIEW = 4;
+  RECOMMENDATION_STATUS_SUPERSEDED = 5; // Recommendation was replaced by a newer one with significant changes
 
   RECOMMENDATION_STATUS_CRD_SAVED_SUCCESS = 11;
-  RECOMMENDATION_STATUS_CRD_SAVED_FAIL = 12;  
-  
+  RECOMMENDATION_STATUS_CRD_SAVED_FAIL = 12;
+
   RECOMMENDATION_STATUS_APPLIED_ON_SCHEDULE_SUCCESS = 21;
   RECOMMENDATION_STATUS_APPLIED_ON_SCHEDULE_FAIL = 22;
-  
+
   RECOMMENDATION_STATUS_APPLIED_ON_TRIGGER_SUCCESS = 31;
   RECOMMENDATION_STATUS_APPLIED_ON_TRIGGER_FAIL = 32;
+
+  RECOMMENDATION_STATUS_BLOCKED = 41;
+  RECOMMENDATION_STATUS_IGNORED = 42;
 }
 
 message GetAttachedNodeGroupPoliciesRequest {
@@ -1617,6 +2111,13 @@ message ApplyRecommendationRequest {
 
     string recommendation_id = 11;
     optional K8sObjectKind kind = 12; // if set, means its workload
+
+    // If true, generate a WorkloadRule instead of applying the recommendation directly.
+    // This is used when the policy has EnableInClusterMpa enabled, allowing the in-cluster
+    // MPA controller to evaluate the rule and generate recommendations locally.
+    bool generate_rule = 13;
+
+    optional WorkloadRecommendation workload_recommendation = 14;
 }
 
 message ApplyRecommendationResponse {
@@ -1666,6 +2167,183 @@ message SuggestedNodePolicyResponse {
     NodePolicy policy = 1;
 }
 
+message GenerateNodePoliciesFromKarpenterRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    // When true, the generated policies will be saved to the database
+    // and node policy targets will be created for each policy (with enabled=false).
+    bool persist_policies = 3;
+}
+
+message GenerateNodePoliciesFromKarpenterResponse {
+    repeated NodePolicy policies = 1;
+    // Targets created when persist_policies is true
+    repeated NodePolicyTarget targets = 2;
+}
+
+message GenerateNodePoliciesFromNodeGroupsRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    // When true, the generated policies will be saved to the database
+    // and node policy targets will be created for each policy (with enabled=false).
+    bool persist_policies = 3;
+}
+
+message GenerateNodePoliciesFromNodeGroupsResponse {
+    repeated NodePolicy policies = 1;
+    repeated NodePolicyTarget targets = 2;
+    repeated WorkloadCompatibilityWarning warnings = 3;
+    // eligibility carries per-node-group "may this be migrated?" information
+    // computed from the current node observations. The wizard reads this to
+    // disable Step 3 rows for groups the operator must NOT migrate, with a
+    // tooltip explaining why. Always parallel-keyed by group name (matches
+    // NodePolicy.name). Empty when every group is migratable.
+    repeated NodeGroupMigrationEligibility eligibility = 4;
+}
+
+// NodeGroupMigrationEligibility flags a node group as not-safe-to-migrate
+// for the CAS-migration wizard. Eligibility is preview-time only — it
+// describes the *current* state of the source pool, not a property of the
+// generated NodePolicy, so it's surfaced alongside the policies rather
+// than embedded in NodePolicy itself.
+message NodeGroupMigrationEligibility {
+    // group_name matches NodePolicy.name (the source node group's name).
+    string group_name = 1;
+    // migratable=false means the wizard MUST disable this row in Step 3
+    // (BLOCKING reason present). True (or absent) means safe-to-migrate;
+    // an ADVISORY reason may still be present, in which case the wizard
+    // should show a non-blocking yellow caveat next to the row.
+    bool migratable = 2;
+    // reasons documents why migration is blocked OR carries caveats.
+    // Stable identifier strings the wizard maps to human-readable messages.
+    //
+    // Blocking reasons (force migratable=false; row is disabled):
+    //   "system_pool"       — AKS pool with kubernetes.azure.com/mode=system
+    //                          or GKE pool with cloud.google.com/gke-system-only=true
+    //                          or the GKE system-only taint
+    //                          (CriticalAddonsOnly=true:NoSchedule). AKS
+    //                          requires ≥1 System pool to keep kube-system
+    //                          schedulable; draining the last one bricks
+    //                          the control plane.
+    //   "karpenter_ops_pool" — pool labelled devzero.io/karpenter-ops-pool=true
+    //                          by dz-installer (setup-azure.sh /
+    //                          setup-gcp.sh). Migrating the pool that runs
+    //                          karpenter itself is a chicken-and-egg —
+    //                          karpenter would have to drain itself.
+    //   "azure_sku_restricted" — source pool runs an AKS-restricted VM size
+    //                          (Basic A-series, B1s/B1ms, F1/F1s,
+    //                          A0/A1/A1_v2). kp-azure refuses to provision
+    //                          these. No workaround at the policy layer.
+    //   "azure_sku_confidential" — source pool runs a Confidential Compute
+    //                          SKU (DC* / EC*). kp-azure's isConfidential
+    //                          predicate excludes these.
+    //
+    // Advisory reasons (migratable stays true; show as caveat):
+    //   "azure_sku_nvme_under_cig" — source pool's SKU is NVMe-only
+    //                          (Standard_D*ads_v6 / D*alds_v6 / E*ads_v6 etc).
+    //                          kp-azure's default CIG image source isn't
+    //                          NVMe-tagged, so the controller filters these
+    //                          SKUs out of its catalog. Migration still
+    //                          works because the generated NodePool only
+    //                          requires sku-family (instance-category) —
+    //                          karpenter picks a compatible non-NVMe SKU
+    //                          from the same family. Operator should know
+    //                          the launched nodes won't exactly match the
+    //                          source pool.
+    repeated string reasons = 3;
+}
+
+message GetNodeAnnotationReadinessRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+}
+
+message GetNodeAnnotationReadinessResponse {
+    int32 total_nodes = 1;
+    int32 annotated_nodes = 2;
+    int32 unannotated_nodes = 3;
+    bool ready = 4;
+    repeated string unannotated_node_names = 5;
+    // supported is false when the cluster's cloud provider has no annotation
+    // schema yet (OCI today). The wizard renders a clear "not supported"
+    // state instead of polling indefinitely.
+    bool supported = 6;
+    // aks_cluster_resource_group is the resource group that hosts the AKS
+    // managed-cluster resource (NOT the MC_* node RG). Surfaced here so the
+    // wizard's Step 5 / Step 7 commands (`az aks nodepool update/scale`)
+    // can drop the <aks-resource-group> placeholder. Populated from
+    // devzero.io/azure-aks-cluster-rg on any annotated node. Empty when
+    // the cluster isn't Azure or when the controller wasn't configured
+    // with ARM_RESOURCE_GROUP — in either case the wizard falls back to
+    // the placeholder.
+    string aks_cluster_resource_group = 7;
+}
+
+// Migration wizard state
+message GetMigrationStateRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+}
+
+message GetMigrationStateResponse {
+    string id = 1;
+    string cluster_id = 2;
+    string status = 3;
+    int32 current_step = 4;
+    string state_json = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+}
+
+message UpdateMigrationStateRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string status = 3;
+    int32 current_step = 4;
+    string state_json = 5;
+}
+
+message UpdateMigrationStateResponse {
+    string id = 1;
+}
+
+// NodePool validation
+message ReportNodePoolValidationRequest {
+    string cluster_id = 1;
+    string nodepool_name = 2;
+    string node_name = 3;
+    string instance_type = 4;
+    string zone = 5;
+    string team_id = 6;
+}
+
+message ReportNodePoolValidationResponse {}
+
+message GetNodePoolValidationsRequest {
+    string cluster_id = 1;
+    string team_id = 2;
+}
+
+message NodePoolValidationReport {
+    string nodepool_name = 1;
+    string node_name = 2;
+    string instance_type = 3;
+    string zone = 4;
+    google.protobuf.Timestamp reported_at = 5;
+}
+
+message GetNodePoolValidationsResponse {
+    repeated NodePoolValidationReport validations = 1;
+}
+
+message WorkloadCompatibilityWarning {
+    string workload_name = 1;
+    string workload_namespace = 2;
+    string kind = 3;
+    string node_group = 4;
+    string reason = 5;
+}
+
 message ListNodePoliciesRequest {
     string team_id = 1;
 }
@@ -1684,6 +2362,68 @@ message UpdateNodePolicyResponse {
     NodePolicy policy = 1;
 }
 
+// NodeGroupCheckpointState classifies a node group's checkpoint-restore status.
+enum NodeGroupCheckpointState {
+    NODE_GROUP_CHECKPOINT_STATE_UNSPECIFIED = 0;
+    // Node group is not DevZero/dzkarp-managed (no matching node policy node
+    // pool). Customer is responsible for adding the checkpoint-node label.
+    NODE_GROUP_CHECKPOINT_STATE_NOT_DZ_MANAGED = 1;
+    // dz-managed (matches a policy's node pool) but no active node policy
+    // target for this cluster.
+    NODE_GROUP_CHECKPOINT_STATE_DZ_MANAGED_NO_ACTIVE_POLICY = 2;
+    // dz-managed + active policy, but the policy lacks the
+    // dakr.devzero.io/checkpoint-node label. Eligible for the one-click CTA.
+    NODE_GROUP_CHECKPOINT_STATE_POLICY_NO_LABEL = 3;
+    // dz-managed + active policy + label present. Intent declared; actual CRIU
+    // capability not (yet) verified.
+    NODE_GROUP_CHECKPOINT_STATE_CONFIGURED = 4;
+    // CONFIGURED and CRIU verified present on the node group's nodes.
+    NODE_GROUP_CHECKPOINT_STATE_ENABLED = 5;
+}
+
+message NodeGroupCheckpointStatus {
+    NodeGroupCheckpointState state = 1;
+    // Associated node policy (empty when NOT_DZ_MANAGED).
+    string policy_id = 2;
+    string policy_name = 3;
+    // For scope disclosure on the CTA: all node pool names this policy compiles
+    // to / clusters it targets — toggling the label affects all of them.
+    repeated string shared_node_pool_names = 4;
+    repeated string shared_cluster_ids = 5;
+}
+
+message GetNodeGroupsCheckpointStatusRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+}
+
+message GetNodeGroupsCheckpointStatusResponse {
+    // Keyed by node group name.
+    map<string, NodeGroupCheckpointStatus> by_node_group = 1;
+}
+
+message SetNodePolicyCheckpointLabelRequest {
+    string team_id = 1;
+    string policy_id = 2;
+    // true adds dakr.devzero.io/checkpoint-node=true; false removes the key.
+    bool enabled = 3;
+}
+
+message SetNodePolicyCheckpointLabelResponse {
+    bool success = 1;
+}
+
+message DeleteNodePolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+}
+
+message DeleteNodePolicyResponse {
+    bool success = 1;
+    // Number of NodePolicyTargets that were cascade-deleted along with the policy.
+    int32 deleted_target_count = 2;
+}
+
 message NodePolicy {
   string id = 1;
   string name = 2;
@@ -1697,6 +2437,11 @@ message NodePolicy {
   LabelSelector instance_hypervisors = 13; // self explanatory
   LabelSelector instance_generations = 14; // self explanatory; UI: Generation; e.g., 4 (Azure), 5 (AWS)
   LabelSelector instance_sizes = 15; // UI: Size; eg: Standard_D4s (Azure), large (AWS)
+  LabelSelector instance_types = 16; // UI: Type; eg: Standard_D4s_v2 (Azure), m4.2xlarge (AWS)
+  // AWS only — karpenter.k8s.aws/instance-local-nvme. Ephemeral NVMe GiB per
+  // node. Karpenter-provider-gcp/-azure/-oci have no equivalent label; this
+  // field is silently dropped on the compile path for those providers.
+  LabelSelector instance_local_nvme = 113;
 
   optional string instance_categories_tip = 26;
   optional string instance_families_tip = 27;
@@ -1704,6 +2449,7 @@ message NodePolicy {
   optional string instance_hypervisors_tip = 29;
   optional string instance_generations_tip = 30;
   optional string instance_sizes_tip = 31;
+  optional string instance_local_nvme_tip = 114;
 
   LabelSelector zones = 36; // abstract, per-cloud mapping
   LabelSelector architectures = 37;    // amd64, arm64
@@ -1720,10 +2466,12 @@ message NodePolicy {
   repeated Taint taints = 52;
   DisruptionPolicy disruption = 53;
   ResourceLimits limits = 54;
+  repeated Taint startup_taints = 55;
 
   optional string taints_tip = 57;
   optional string disruptions_tip = 58;
   optional string limits_tip = 59;
+  optional string startup_taints_tip = 60;
 
   string master_override_role_name = 61;
 
@@ -1735,6 +2483,14 @@ message NodePolicy {
   GCPNodeClassSpec gcp = 82;
   AzureNodeClassSpec azure = 83;
   OCINodeClassSpec oci = 84;
+
+  optional int64 cloud_provider_id = 85;
+  CloudProvider cloud_provider = 86;
+
+  // Cloud-agnostic opt-in for AZ outage handling (AWS ARC zonal shift today;
+  // analogous GCP behavior planned). The compile step translates this to
+  // provider-specific annotations on the Karpenter NodePool.
+  ZonalShiftConfig zonal_shift = 90;
 
   // Raw escape hatch for node pool
   repeated RawKarpenterSpec raw = 100;
@@ -1772,6 +2528,16 @@ message NodeRecommendationConfig {
 }
 
 
+message SuggestedKarpenterConfigRequest {
+    string cluster_id = 1;
+    string team_id = 2;
+}
+
+message SuggestedKarpenterConfigResponse {
+    map<string, NodeRecommendationConfig> ng_to_original = 1;
+    map<string, NodeRecommendationConfig> ng_to_suggested = 11;
+}
+
 message GetAvailableKindsByTargetingFiltersRequest {
   string team_id = 1;
   repeated string cluster_ids = 2;
@@ -1795,6 +2561,7 @@ message TargetFilters {
   repeated string labels = 4;
   repeated K8sObjectKind kind_filter = 5;          // Target specific workload kinds
   optional RegexPattern name_pattern = 6;           // Target workloads by name pattern
+  optional RegexPattern namespace_pattern = 7;      // Target namespaces by name pattern
 }
 
 
@@ -1867,6 +2634,7 @@ message NodePolicyTarget {
   string description = 3;
 
   string team_id = 4;
+  // Invariant: at most 1 entry. Server rejects >1. Will be narrowed to a scalar once all clients migrate.
   repeated string cluster_ids = 5; // uuid[]
   string policy_id = 6;
 
@@ -1875,6 +2643,45 @@ message NodePolicyTarget {
   google.protobuf.Timestamp created_at = 110;
   google.protobuf.Timestamp updated_at = 111;
   google.protobuf.Timestamp deleted_at = 112;
+
+  // Runtime status conditions read from the compiled Karpenter NodePool in the
+  // target cluster (e.g. ZonalShiftReady / ZonalShiftActive). Populated by
+  // ListNodePolicyTargets via a join against k8s_karpenter_resources. Empty
+  // when no conditions are observed for this target.
+  NodePolicyTargetStatus status = 120;
+}
+
+message NodePolicyCondition {
+  // e.g. "ZonalShiftReady", "ZonalShiftActive"
+  string type = 1;
+  // "True" | "False" | "Unknown"
+  string status = 2;
+  // Machine-readable reason code (e.g. "Ready", "ZonePinned", "NoFallbackZones",
+  // "NoActiveShift", "AwayFrom", "ZoneConstraintConflict").
+  string reason = 3;
+  // Human-readable detail (e.g. impacted zone names).
+  string message = 4;
+  google.protobuf.Timestamp last_transition_time = 5;
+}
+
+message NodePolicyTargetStatus {
+  repeated NodePolicyCondition conditions = 1;
+}
+
+// Cloud-agnostic config for how a node policy should react to AZ outage
+// signals from the cloud provider (AWS ARC zonal shift today; GCP analogue
+// planned). The compile step maps these intents to provider-specific
+// annotations on the resulting Karpenter NodePool.
+message ZonalShiftConfig {
+  // Master opt-in. When false the other two fields are ignored.
+  bool respect_zonal_shift = 1;
+  // Also terminate existing nodes in the impacted zone, forcing reschedule.
+  // Respects pod disruption budgets. Only meaningful when respect_zonal_shift is true.
+  bool evict_impacted_nodes = 2;
+  // If the policy is pinned to a single zone and that zone is impacted, expand
+  // to other zones available on the node class. Only meaningful when
+  // respect_zonal_shift is true.
+  bool allow_zone_fallback = 3;
 }
 
 message Taint {
@@ -1957,6 +2764,46 @@ message InstanceSize {
   string provider_name = 2;
 }
 
+message InstanceCategory {
+  string key = 1;            // e.g., "c", "D", "n"
+  string label = 2;          // e.g., "Compute Optimized"
+  string provider_name = 3;  // e.g., "AWS", "Azure", "GCP"
+}
+
+message InstanceCPU {
+  int32 vcpu = 1;             // e.g., 2, 4, 8, 16
+  string provider_name = 2;   // e.g., "AWS", "Azure"
+}
+
+message InstanceTypeName {
+  string name = 1;            // e.g., "m5.large", "Standard_D4s_v3"
+  string provider_name = 2;   // e.g., "AWS", "Azure"
+}
+
+message GetInstanceCategoriesRequest {
+  repeated string cloud_providers = 1;
+}
+
+message GetInstanceCategoriesResponse {
+  repeated InstanceCategory instance_categories = 1;
+}
+
+message GetInstanceCPUsRequest {
+  repeated string cloud_providers = 1;
+}
+
+message GetInstanceCPUsResponse {
+  repeated InstanceCPU instance_cpus = 1;
+}
+
+message GetInstanceTypeNamesRequest {
+  repeated string cloud_providers = 1;
+}
+
+message GetInstanceTypeNamesResponse {
+  repeated InstanceTypeName instance_types = 1;
+}
+
 message SubnetSelectorTerm {
   map<string, string> tags = 1;
   string id = 2;
@@ -2029,7 +2876,26 @@ message MetadataOptions {
 
 message GCPNodeClassSpec {
   string service_account = 1;
-  repeated string image_selector_terms = 2;
+  repeated GCPImageSelectorTerm image_selector_terms = 2;
+  optional string image_family = 3;
+  optional KubeletConfiguration kubelet_configuration = 4;
+  map<string, string> labels = 5;
+  map<string, string> metadata = 6;
+  repeated string network_tags = 7;
+  repeated GCPDisk disks = 8;
+}
+
+message GCPImageSelectorTerm {
+  string alias = 1;
+  string id = 2;
+}
+
+message GCPDisk {
+  int32 size_gib = 1;
+  string category = 2;
+  bool boot = 3;
+  string secondary_boot_image = 4;
+  string secondary_boot_mode = 5;
 }
 
 message AzureNodeClassSpec {
@@ -2055,10 +2921,61 @@ message AzureKubeletConfiguration {
   optional int64 pod_pids_limit = 10;
 }
 
+message OCIImageSelectorTerm {
+  string id = 1;
+  string name = 2;
+  string compartment_id = 3;
+}
+
+message OCISubnetSelectorTerm {
+  string id = 1;
+  string name = 2;
+}
+
+message OCISecurityGroupSelectorTerm {
+  string id = 1;
+  string name = 2;
+}
+
+message OCIBootConfig {
+  int64 boot_volume_size_in_gbs = 1;
+  int64 boot_volume_vpus_per_gb = 2;
+}
+
+message OCILaunchOptions {
+  optional string boot_volume_type = 1;
+  optional string firmware = 2;
+  optional string network_type = 3;
+  optional string remote_data_volume_type = 4;
+  optional bool is_consistent_volume_naming_enabled = 5;
+}
+
+message OCIVolumeAttributes {
+  int64 size_in_gbs = 1;
+  int64 vpus_per_gb = 2;
+}
+
 message OCINodeClassSpec {
-  string compartment = 1;
-  string subnet = 2;
-  string image = 3;
+  string vcn_id = 1;
+  repeated OCIImageSelectorTerm image_selector = 2;
+  repeated OCISubnetSelectorTerm subnet_selector = 3;
+  repeated OCISecurityGroupSelectorTerm security_group_selector = 4;
+  optional string user_data = 5;
+  optional string pre_install_script = 6;
+  map<string, string> meta_data = 7;
+  string image_family = 8;
+  map<string, string> tags = 9;
+  map<string, string> free_form_tags = 10;
+  OCIBootConfig boot_config = 11;
+  OCILaunchOptions launch_options = 12;
+  repeated OCIVolumeAttributes block_devices = 13;
+  repeated string agent_list = 14;
+}
+
+message KarpenterSettingsRecommendation {
+    // contents is the full KarpenterSettings YAML (devzero.karpenter.sh/v1alpha1, name "default").
+    bytes contents = 1;
+    string recommendation_id = 2;
 }
 
 message RawKarpenterSpec {
@@ -2069,6 +2986,8 @@ message RawKarpenterSpec {
 message NodeRecommendation {
     AWSKarpenterSpec aws = 1;
     AKSKarpenterSpec aks = 2;
+    GCPKarpenterSpec gcp = 3;
+    OCIKarpenterSpec oci = 4;
 
     string node_rec_cfg_id = 41;
 }
@@ -2095,6 +3014,24 @@ message AKSNodeClass {
     bytes contents = 1; // can be marshaled into github.com/Azure/karpenter-provider-azure/pkg/apis/v1beta1.AKSNodeClass 
 }
 
+message GCPKarpenterSpec {
+    repeated NodePool np = 1;
+    repeated GCENodeClass node_classes = 2;
+}
+
+message GCENodeClass {
+    bytes contents = 1; // can be marshaled into github.com/cloudpilot-ai/karpenter-provider-gcp/pkg/apis/v1alpha1.GCENodeClass
+}
+
+message OCIKarpenterSpec {
+    repeated NodePool np = 1;
+    repeated OCINodeClass node_classes = 2;
+}
+
+message OCINodeClass {
+    bytes contents = 1; // can be marshaled into github.com/zoom/karpenter-oci/pkg/apis/v1alpha1.OciNodeClass
+}
+
 // Enums
 
 enum ActionTrigger {
@@ -2108,6 +3045,7 @@ enum WorkloadDetectionTrigger {
     DETECTION_TRIGGER_UNSPECIFIED = 0;
     DETECTION_TRIGGER_POD_CREATION = 1;
     DETECTION_TRIGGER_POD_UPDATE = 2;
+    DETECTION_TRIGGER_POD_EVICT = 3;
 }
 
 enum NodeGroupDetectionTrigger {
@@ -2136,6 +3074,10 @@ enum RecommendationType {
     RECOMMENDATION_TYPE_WORKLOAD = 1;
     RECOMMENDATION_TYPE_NODE_GROUP = 2;
     RECOMMENDATION_TYPE_NODE_CRD = 3;
+    RECOMMENDATION_TYPE_GENERIC_RESOURCE = 4;
+    RECOMMENDATION_TYPE_PVC_STORAGE = 5;
+    RECOMMENDATION_TYPE_WORKLOAD_RULE = 6;
+    RECOMMENDATION_TYPE_KARPENTER_SETTINGS = 7;
 }
 
 enum HPAMetricType {
@@ -2145,4 +3087,775 @@ enum HPAMetricType {
     HPA_METRIC_TYPE_GPU = 3;
     HPA_METRIC_TYPE_NETWORK_INGRESS = 4;
     HPA_METRIC_TYPE_NETWORK_EGRESS = 5;
+}
+
+// StorageRecommendationPolicy represents a policy for PVC/storage optimization
+message StorageRecommendationPolicy {
+    string policy_id = 1;
+    string team_id = 2;
+    string name = 3;
+    string description = 4;
+
+    ActionTrigger action_trigger = 5;
+    repeated ActionTrigger action_triggers = 6;
+    optional string cron_schedule = 7;
+    optional int32 lookback_period_seconds = 8;
+
+    // Storage-specific parameters
+    optional float target_utilization_percent = 10;
+    optional int32 warn_days_to_full = 11;
+    optional float max_expansion_per_action = 12;
+    optional int32 min_data_points = 13;
+
+    // New storage policy fields
+    optional int32 critical_days_to_full = 14;
+    optional int32 headroom_days = 15;
+    optional int32 min_resize_increment_gib = 16;
+    optional float max_monthly_cost_usd = 17;
+    optional int32 cooldown_window_seconds = 18;
+
+    bool is_default_policy = 50;
+    google.protobuf.Timestamp created_at = 51;
+    google.protobuf.Timestamp updated_at = 52;
+}
+
+message CreateStorageRecommendationPolicyRequest {
+    string team_id = 1;
+    string name = 2;
+    string description = 3;
+    repeated ActionTrigger action_triggers = 4;
+    optional string cron_schedule = 5;
+    optional int32 lookback_period_seconds = 6;
+    optional float target_utilization_percent = 7;
+    optional int32 warn_days_to_full = 8;
+    optional float max_expansion_per_action = 9;
+    optional int32 min_data_points = 10;
+    optional int32 critical_days_to_full = 11;
+    optional int32 headroom_days = 12;
+    optional int32 min_resize_increment_gib = 13;
+    optional float max_monthly_cost_usd = 14;
+    optional int32 cooldown_window_seconds = 15;
+}
+
+message CreateStorageRecommendationPolicyResponse {
+    StorageRecommendationPolicy policy = 1;
+}
+
+message GetStorageRecommendationPolicyRequest {
+    string policy_id = 1;
+}
+
+message GetStorageRecommendationPolicyResponse {
+    StorageRecommendationPolicy policy = 1;
+}
+
+message ListStorageRecommendationPoliciesRequest {
+    string team_id = 1;
+}
+
+message ListStorageRecommendationPoliciesResponse {
+    repeated StorageRecommendationPolicy policies = 1;
+}
+
+message UpdateStorageRecommendationPolicyRequest {
+    string policy_id = 1;
+    string team_id = 2;
+    string name = 3;
+    string description = 4;
+    repeated ActionTrigger action_triggers = 5;
+    optional string cron_schedule = 6;
+    optional int32 lookback_period_seconds = 7;
+    optional float target_utilization_percent = 8;
+    optional int32 warn_days_to_full = 9;
+    optional float max_expansion_per_action = 10;
+    optional int32 min_data_points = 11;
+    optional int32 critical_days_to_full = 12;
+    optional int32 headroom_days = 13;
+    optional int32 min_resize_increment_gib = 14;
+    optional float max_monthly_cost_usd = 15;
+    optional int32 cooldown_window_seconds = 16;
+}
+
+message UpdateStorageRecommendationPolicyResponse {
+    StorageRecommendationPolicy policy = 1;
+}
+
+message DeleteStorageRecommendationPolicyRequest {
+    string policy_id = 1;
+    string team_id = 2;
+}
+
+message DeleteStorageRecommendationPolicyResponse {
+    bool success = 1;
+}
+
+// StoragePolicyTarget maps a storage policy to clusters with targeting filters
+message StoragePolicyTarget {
+    string target_id = 1;
+    string name = 2;
+    string description = 3;
+
+    string team_id = 4;
+    repeated string cluster_ids = 5;
+    string policy_id = 6;
+
+    bool enabled = 10;
+
+    // Targeting filters
+    optional LabelSelector namespace_selector = 20;  // Target namespaces by labels
+    repeated string storage_classes = 21;            // Target specific storage classes
+
+    google.protobuf.Timestamp created_at = 50;
+    google.protobuf.Timestamp updated_at = 51;
+}
+
+message CreateStoragePolicyTargetRequest {
+    string name = 1;
+    string description = 2;
+    string team_id = 3;
+    repeated string cluster_ids = 4;
+    string policy_id = 5;
+    bool enabled = 6;
+    optional LabelSelector namespace_selector = 20;
+    repeated string storage_classes = 21;
+}
+
+message CreateStoragePolicyTargetResponse {
+    StoragePolicyTarget target = 1;
+}
+
+message ListStoragePolicyTargetsRequest {
+    string team_id = 1;
+    optional string cluster_id = 2;
+}
+
+message ListStoragePolicyTargetsResponse {
+    repeated StoragePolicyTarget targets = 1;
+}
+
+message UpdateStoragePolicyTargetRequest {
+    StoragePolicyTarget target = 1;
+}
+
+message UpdateStoragePolicyTargetResponse {
+    StoragePolicyTarget target = 1;
+}
+
+message DeleteStoragePolicyTargetRequest {
+    string target_id = 1;
+    string team_id = 2;
+}
+
+message DeleteStoragePolicyTargetResponse {
+    bool success = 1;
+}
+
+enum PvcOperationType {
+    PVC_OPERATION_TYPE_UNSPECIFIED = 0;
+    PVC_OPERATION_TYPE_EXPAND = 1;
+    PVC_OPERATION_TYPE_SHRINK = 2;
+}
+
+// PvcStorageRecommendation represents a specific recommendation for a PVC
+message PvcStorageRecommendation {
+    string recommendation_id = 1;
+    string pvc_uid = 2;
+    string pvc_name = 3;
+    string namespace = 4;
+    string cluster_id = 5;
+    string team_id = 6;
+
+    int64 current_capacity_bytes = 10;
+    int64 recommended_capacity_bytes = 11;
+    int64 used_bytes_at_time = 12;
+    double utilization_pct = 13;
+    double growth_rate_bytes_per_day = 14;
+    double days_to_full = 15;
+    double confidence_score = 16;
+
+    string policy_id = 20;
+    optional string policy_target_id = 21;
+
+    double cost_current_monthly_usd = 25;
+    double cost_recommended_monthly_usd = 26;
+    double cost_delta_monthly_usd = 27;
+
+    RecommendationStatus status = 30;
+    optional string reasoning = 31;
+    optional string error = 32;
+
+    google.protobuf.Timestamp timestamp = 40;
+    optional google.protobuf.Timestamp applied_at = 41;
+    google.protobuf.Timestamp created_at = 50;
+    google.protobuf.Timestamp updated_at = 51;
+
+    PvcOperationType operation_type = 60;
+    optional string workload_kind = 61;
+    optional string workload_name = 62;
+    optional string workload_uid = 63;
+}
+
+// PVC Storage Recommendation RPCs
+
+message GetPvcStorageRecommendationRequest {
+    string recommendation_id = 1;
+}
+
+message GetPvcStorageRecommendationResponse {
+    PvcStorageRecommendation recommendation = 1;
+}
+
+message ListPvcStorageRecommendationsRequest {
+    string team_id = 1;
+    optional string cluster_id = 2;
+    optional Pagination pagination = 3;
+}
+
+message ListPvcStorageRecommendationsResponse {
+    repeated PvcStorageRecommendation recommendations = 1;
+    optional Pagination pagination = 2;
+}
+
+message GeneratePvcStorageRecommendationRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string pvc_uid = 3;
+    string policy_id = 4;
+}
+
+message GeneratePvcStorageRecommendationResponse {
+    PvcStorageRecommendation recommendation = 1;
+    // When no recommendation is generated (e.g., low confidence, no resize needed),
+    // this field explains why
+    optional string skip_reason = 2;
+}
+
+message PreviewPvcStorageRecommendationRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string pvc_uid = 3;
+    string policy_id = 4;
+}
+
+message PreviewPvcStorageRecommendationResponse {
+    PvcStorageRecommendation recommendation = 1;
+    optional string skip_reason = 2;
+}
+
+// OOM Events messages
+
+message WorkloadRuleOOMEvent {
+    string id = 1;
+    string rule_id = 2;
+    string cluster_id = 3;
+    string namespace = 4;
+    string workload_name = 5;
+    string container_name = 6;
+    google.protobuf.Timestamp timestamp = 7;
+    int64 rule_generation = 8;
+    int64 memory_request_at = 9;
+    int64 memory_limit_at = 10;
+    int64 memory_usage_at = 11;
+    bool emergency_reaction = 12;
+    optional int64 new_memory_after = 13;
+    optional int32 restart_count = 14;
+    google.protobuf.Timestamp created_at = 15;
+}
+
+message ListWorkloadRuleOOMEventsRequest {
+    string rule_id = 1;
+    optional int64 generation = 2;
+    optional int32 limit = 3;
+    optional int32 offset = 4;
+}
+
+message ListWorkloadRuleOOMEventsResponse {
+    repeated WorkloadRuleOOMEvent events = 1;
+    int64 total = 2;
+}
+
+message ListWorkloadOOMEventsRequest {
+    string cluster_id = 1;
+    string namespace = 2;
+    string workload_name = 3;
+    optional int32 limit = 4;
+    optional int32 offset = 5;
+}
+
+message ListWorkloadOOMEventsResponse {
+    repeated WorkloadRuleOOMEvent events = 1;
+    int64 total = 2;
+}
+
+// CPU Throttle Events messages
+
+message WorkloadRuleCPUThrottleEvent {
+    string id = 1;
+    string rule_id = 2;
+    string cluster_id = 3;
+    string namespace = 4;
+    string workload_name = 5;
+    string container_name = 6;
+    google.protobuf.Timestamp timestamp = 7;
+    int64 rule_generation = 8;
+    int64 cpu_request_at = 9;
+    int64 cpu_limit_at = 10;
+    int64 cpu_usage_at = 11;
+    double throttled_fraction = 12;
+    bool emergency_reaction = 13;
+    optional int64 new_cpu_after = 14;
+    google.protobuf.Timestamp created_at = 15;
+}
+
+message ListWorkloadRuleCPUThrottleEventsRequest {
+    string rule_id = 1;
+    optional int64 generation = 2;
+    optional int32 limit = 3;
+    optional int32 offset = 4;
+}
+
+message ListWorkloadRuleCPUThrottleEventsResponse {
+    repeated WorkloadRuleCPUThrottleEvent events = 1;
+    int64 total = 2;
+}
+
+message ListWorkloadCPUThrottleEventsRequest {
+    string cluster_id = 1;
+    string namespace = 2;
+    string workload_name = 3;
+    optional int32 limit = 4;
+    optional int32 offset = 5;
+}
+
+message ListWorkloadCPUThrottleEventsResponse {
+    repeated WorkloadRuleCPUThrottleEvent events = 1;
+    int64 total = 2;
+}
+
+// ============================================================================
+// MPA V3: Workload Optimization Policy messages
+// ============================================================================
+
+message WorkloadOptimizationPolicyProto {
+    string id = 1;
+    string team_id = 2;
+    string name = 3;
+    optional string description = 4;
+    bool enabled = 5;
+    repeated string cluster_ids = 6;
+    repeated string namespace_selector = 7;
+    google.protobuf.Timestamp created_at = 8;
+    google.protobuf.Timestamp updated_at = 9;
+    map<string, string> cluster_names = 10;  // cluster_id → display name
+
+    // Scheduling & Triggers
+    repeated ActionTrigger action_triggers = 11;
+    optional string cron_schedule = 12;
+    optional int32 cooldown_minutes = 13;
+    repeated WorkloadDetectionTrigger detection_triggers = 14;
+
+    // Scheduler Optimization
+    repeated string scheduler_plugins = 15;
+    optional string defragmentation_schedule = 16;
+    bool live_migration_enabled = 17;
+    bool use_in_place_vertical_scaling = 18;
+
+    // HPA: when true, WorkloadRules generated from this policy have HPA
+    // enabled. Two-way bound to HPARuleConfig.Enabled on the WorkloadRule CRD.
+    bool hpa_enabled = 19;
+}
+
+message CreateWorkloadOptimizationPolicyRequest {
+    string team_id = 1;
+    string name = 2;
+    optional string description = 3;
+    bool enabled = 4;
+    repeated string cluster_ids = 5;
+    repeated string namespace_selector = 6;
+
+    // Scheduling & Triggers
+    repeated ActionTrigger action_triggers = 7;
+    optional string cron_schedule = 8;
+    optional int32 cooldown_minutes = 9;
+    repeated WorkloadDetectionTrigger detection_triggers = 10;
+
+    // Scheduler Optimization
+    repeated string scheduler_plugins = 11;
+    optional string defragmentation_schedule = 12;
+    bool live_migration_enabled = 13;
+    bool use_in_place_vertical_scaling = 14;
+
+    bool hpa_enabled = 15;
+}
+
+message CreateWorkloadOptimizationPolicyResponse {
+    WorkloadOptimizationPolicyProto policy = 1;
+}
+
+message ListWorkloadOptimizationPoliciesRequest {
+    string team_id = 1;
+    // Optional. When set, restricts the listing to policies that target this
+    // cluster — either explicitly via cluster_ids, or implicitly via an empty
+    // cluster_ids array (which means "all clusters" and therefore applies
+    // to this cluster too).
+    string cluster_id = 2;
+}
+
+message ListWorkloadOptimizationPoliciesResponse {
+    repeated WorkloadOptimizationPolicyProto policies = 1;
+}
+
+message GetWorkloadOptimizationPolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+}
+
+message GetWorkloadOptimizationPolicyResponse {
+    WorkloadOptimizationPolicyProto policy = 1;
+}
+
+message UpdateWorkloadOptimizationPolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+    optional string name = 3;
+    optional string description = 4;
+    optional bool enabled = 5;
+    repeated string cluster_ids = 6;
+    repeated string namespace_selector = 7;
+
+    // Scheduling & Triggers
+    repeated ActionTrigger action_triggers = 8;
+    optional string cron_schedule = 9;
+    optional int32 cooldown_minutes = 10;
+    repeated WorkloadDetectionTrigger detection_triggers = 11;
+
+    // Scheduler Optimization
+    repeated string scheduler_plugins = 12;
+    optional string defragmentation_schedule = 13;
+    optional bool live_migration_enabled = 14;
+    optional bool use_in_place_vertical_scaling = 15;
+
+    optional bool hpa_enabled = 16;
+}
+
+message UpdateWorkloadOptimizationPolicyResponse {
+    WorkloadOptimizationPolicyProto policy = 1;
+}
+
+message DeleteWorkloadOptimizationPolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+    bool delete_rules = 3;  // if true, delete associated rules; if false, detach (set policy_id=null)
+}
+
+message DeleteWorkloadOptimizationPolicyResponse {}
+
+// ============================================================================
+// MPA V3: Workload Rule listing messages
+// ============================================================================
+
+message GetWorkloadRulesByPolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+}
+
+message GetWorkloadRulesByPolicyResponse {
+    repeated WorkloadRule managed_rules = 1;
+    repeated WorkloadRule excluded_rules = 2;
+    map<string, string> cluster_names = 3;
+}
+
+message ListWorkloadRulesRequest {
+    string team_id = 1;
+    optional string cluster_id = 2;
+}
+
+message ListWorkloadRulesResponse {
+    repeated WorkloadRule rules = 1;
+    map<string, string> cluster_names = 2;  // cluster_id → display name
+    map<string, string> policy_names = 3;   // policy_id → policy name
+}
+
+message GetWorkloadRuleByIDRequest {
+    string team_id = 1;
+    string rule_id = 2;
+}
+
+message GetWorkloadRuleByIDResponse {
+    WorkloadRule rule = 1;
+    string cluster_name = 2;   // display name of rule.cluster_id
+    string policy_name = 3;    // display name of rule.policy_id (empty if no policy attached)
+}
+
+// GetWorkloadRuleByWorkloadRequest looks up a single rule by workload coordinates.
+message GetWorkloadRuleByWorkloadRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string namespace = 3;
+    string kind = 4;
+    string workload_name = 5;
+}
+
+// GetWorkloadRuleByWorkloadResponse returns the rule for a workload (if any) plus display metadata.
+// Returns found = false (with rule unset) when no rule exists for the given coordinates;
+// internal errors continue to surface as gRPC error statuses.
+message GetWorkloadRuleByWorkloadResponse {
+    WorkloadRule rule = 1;
+    string cluster_name = 2;   // display name of rule.cluster_id (when found)
+    string policy_name = 3;    // display name of rule.policy_id (empty if no policy attached)
+    bool found = 4;            // true when a matching rule exists
+}
+
+// GetWorkloadByWorkloadRuleRequest resolves the live workload UID for a rule.
+// Lightweight lookup — does not return full workload data, just the uid that
+// downstream RPCs (e.g. GetWorkloadProfiles, GetWorkload) require.
+message GetWorkloadByWorkloadRuleRequest {
+    string team_id = 1;
+    string rule_id = 2;
+}
+
+message GetWorkloadByWorkloadRuleResponse {
+    string workload_uid = 1;   // empty when no live workload matches the rule's coordinates
+}
+
+message DeleteWorkloadRuleRequest {
+    string team_id = 1;
+    string rule_id = 2;
+}
+
+message DeleteWorkloadRuleResponse {}
+
+// ManualRuleFields carries the user-configurable rule fields shared by the
+// Upsert and Preview RPCs. Extracted as its own message so the two request
+// messages stay shape-aligned and the Go conversion logic has a single entry
+// point.
+message ManualRuleFields {
+    ResourceRuleConfig cpu_rule = 1;
+    ResourceRuleConfig memory_rule = 2;
+    ResourceRuleConfig gpu_rule = 3;
+    HPARuleConfig hpa_rule = 4;
+    EmergencyResponseConfig emergency_response = 5;
+    repeated ActionTrigger action_triggers = 6;
+    optional int64 startup_period_seconds = 7;
+    optional string cron_schedule = 8;
+    optional int32 cooldown_minutes = 9;
+    repeated WorkloadDetectionTrigger detection_triggers = 10;
+    repeated string scheduler_plugins = 11;
+    optional string defragmentation_schedule = 12;
+    bool live_migration_enabled = 13;
+    bool use_in_place_vertical_scaling = 14;
+    // Per-container resource configs (VPA). When empty, workload-level rules apply to all containers.
+    repeated ContainerResourceRuleConfig containers = 15;
+}
+
+// WorkloadRuleSource identifies who created/last-modified a WorkloadRule.
+// Mirrors models.WorkloadRuleSource on the server. New IaC ecosystems get
+// their own value so audit + UI can attribute rules accurately.
+enum WorkloadRuleSource {
+    WORKLOAD_RULE_SOURCE_UNSPECIFIED = 0;
+    WORKLOAD_RULE_SOURCE_CRD = 1;                // kubectl / in-cluster CRD edit
+    WORKLOAD_RULE_SOURCE_POLICY = 2;             // workload_optimization_policy loop
+    WORKLOAD_RULE_SOURCE_AUTO_OPTIMIZATION = 3;  // engine-driven auto rule
+    WORKLOAD_RULE_SOURCE_MANUAL = 4;             // UI form
+    // IaC providers — split per mode so audit + UI can tell whether the user
+    // hand-specified the rule fields or asked the engine to auto-generate.
+    WORKLOAD_RULE_SOURCE_PULUMI_MANUAL = 5;      // pulumi, auto_generate=false
+    WORKLOAD_RULE_SOURCE_PULUMI_AUTO = 6;        // pulumi, auto_generate=true
+    WORKLOAD_RULE_SOURCE_TERRAFORM_MANUAL = 7;   // terraform, auto_generate=false
+    WORKLOAD_RULE_SOURCE_TERRAFORM_AUTO = 8;     // terraform, auto_generate=true
+}
+
+message UpsertManualWorkloadRuleRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string namespace = 3;
+    string kind = 4;
+    string name = 5;
+    bool auto_generate = 6;
+
+    // Manual fields (only used when auto_generate = false).
+    ManualRuleFields fields = 10;
+
+    // Optional: identifies which caller is upserting this rule. When unset,
+    // the server defaults to WORKLOAD_RULE_SOURCE_MANUAL (legacy UI behavior).
+    // External IaC providers (pulumi, terraform) MUST set this so the rule
+    // can be attributed in audit and UI surfaces.
+    WorkloadRuleSource source = 11;
+}
+
+message UpsertManualWorkloadRuleResponse {
+    WorkloadRule rule = 1;
+}
+
+// PreviewWorkloadRuleRequest mirrors the upsert request but does not
+// persist anything; returns a side-by-side preview instead.
+message PreviewWorkloadRuleRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string namespace = 3;
+    string kind = 4;
+    string name = 5;
+    // Required so the server can fetch the workload's profile (percentiles,
+    // behavior). The form already has uid for any existing workload.
+    string workload_uid = 6;
+
+    ManualRuleFields fields = 10;
+}
+
+message PreviewWorkloadRuleResponse {
+    // Materialized rule — engine output overlaid with the user's draft as
+    // constraints (engine's BaseRequest clamped to user's min/max, multipliers
+    // overridden, etc.). When `fields` is empty/missing, equals engine_projection.
+    // Same shape as a saved rule.
+    WorkloadRule materialized_rule = 1;
+
+    // Engine projection — pure-engine recommendation (classification-driven,
+    // no user constraints). Stable benchmark; same maths Apply uses for auto.
+    // Empty when profile data is insufficient; see engine_projection_unavailable_reason.
+    WorkloadRule engine_projection = 2;
+
+    // Observed profile (per-container percentiles, behavior, classification,
+    // currently configured resources). Same shape as GetWorkloadProfiles
+    // single-workload result.
+    WorkloadProfileResult profile = 3;
+
+    // Set when the engine couldn't produce a projection (insufficient data,
+    // workload not yet emitting metrics, etc.). FE renders the materialized
+    // draft + observed view without an engine column.
+    string engine_projection_unavailable_reason = 4;
+}
+
+message GetWorkloadContainerNamesRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    string namespace = 3;
+    string kind = 4;
+    string name = 5;
+}
+
+message GetWorkloadContainerNamesResponse {
+    repeated string container_names = 1;
+}
+
+// Batch auto-optimize
+
+message BatchAutoOptimizeWorkload {
+    string namespace = 1;
+    string kind = 2;
+    string name = 3;
+}
+
+message BatchAutoOptimizeWorkloadsRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    repeated BatchAutoOptimizeWorkload workloads = 3;
+}
+
+message BatchAutoOptimizeWorkloadResult {
+    string namespace = 1;
+    string kind = 2;
+    string name = 3;
+    bool success = 4;
+    string error = 5;
+    WorkloadRule rule = 6;
+}
+
+message BatchAutoOptimizeWorkloadsResponse {
+    repeated BatchAutoOptimizeWorkloadResult results = 1;
+}
+
+// WorkloadProfileManifest is the authoritative key set for a single emit cycle
+// of profile snapshots for a (cluster, window) pair. The server sends exactly
+// one manifest followed by zero or more BatchWorkloadProfiles, all tagged with
+// the same emit_id. The operator uses the manifest's keys to GC local
+// WorkloadProfile CRs whose workload_uid is absent from `keys` once the emit
+// cycle finalizes.
+message WorkloadProfileManifest {
+    ProfileWindow window = 1;
+    repeated ProfileKey keys = 2;
+    google.protobuf.Timestamp issued_at = 3;
+    // emit_id is a UUID that identifies this emit cycle. Required. The operator
+    // buffers batches with a matching emit_id and finalizes the prior cycle
+    // when a manifest with a new emit_id arrives.
+    string emit_id = 4;
+}
+
+// BatchWorkloadProfiles is a chunk of WorkloadProfileSnapshot values for a
+// single emit cycle. Up to 128 profiles per batch. The emit_id MUST match the
+// manifest's emit_id for the same cycle; operators discard batches whose
+// emit_id does not match the currently-buffered cycle.
+message BatchWorkloadProfiles {
+    ProfileWindow window = 1;
+    repeated WorkloadProfileSnapshot profiles = 2;
+    // emit_id matches the manifest emit_id for this cycle. Required.
+    string emit_id = 3;
+}
+
+message NodeConfigApplyEvent {
+    string config_id = 1;
+    string cluster_id = 2;
+    string status = 3;
+    string error = 4;
+    google.protobuf.Timestamp applied_at = 5;
+}
+
+message GetNodeRecommendationStatusRequest {
+    string team_id = 1;
+    string cluster_id = 2;
+    int32 history_limit = 3;
+}
+
+message GetNodeRecommendationStatusResponse {
+    NodeRecommendationConfig current_config = 1;
+    repeated NodeConfigApplyEvent history = 2;
+}
+
+// EnableCheckpointForPolicyRequest is the orchestration request for the C/R
+// toggle on a node policy. enabled=true sets dakr.devzero.io/checkpoint-node
+// on the policy template AND enqueues per-node label patches for all live nodes
+// in the policy's matched groups. enabled=false unsets the label and enqueues
+// the corresponding unset patches.
+message EnableCheckpointForPolicyRequest {
+    string team_id = 1;
+    string policy_id = 2;
+    bool enabled = 3;
+}
+
+message EnableCheckpointForPolicyResponse {
+    // UUID grouping the enqueued per-node patches; empty when no live nodes
+    // needed enqueueing (policy template still got patched).
+    string batch_id = 1;
+    uint32 enqueued_nodes = 2;
+    // cluster_ids whose live nodes were NOT enqueued because their dakr
+    // operator reports a version lower than MinVersionNodeLabelApply (the
+    // operator release carrying the Node `patch` RBAC verb + the
+    // dakr.devzero.io/* allowlist for SSA). The policy template was still
+    // patched for these clusters, so newly-provisioned nodes inherit the
+    // label via the NodePool template; existing nodes will be picked up the
+    // next time the user re-runs this action after the operator upgrade.
+    repeated string skipped_clusters = 3;
+}
+
+message GetCheckpointApplyStatusRequest {
+    string team_id = 1;
+    string policy_id = 2;
+}
+
+message GetCheckpointApplyStatusResponse {
+    // batch_id of the most-recent EnableCheckpointForPolicy batch for the
+    // supplied policy, or empty when no batch exists yet.
+    string batch_id = 1;
+    uint32 pending = 2;
+    uint32 applied = 3;
+    uint32 failed = 4;
+    // rejected lumps every other terminal status (superseded, blocked, ignored,
+    // and the operator's Rejected) — the UI surfaces them collectively as "did
+    // not apply".
+    uint32 rejected = 5;
+    repeated NodeApplyFailure failures = 6;
+}
+
+message NodeApplyFailure {
+    string node_name = 1;
+    string error = 2;
 }

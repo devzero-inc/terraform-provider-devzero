@@ -1,0 +1,270 @@
+syntax = "proto3";
+
+package api.v1;
+
+import "api/v1/common.proto";
+import "api/v1/k8s.proto";
+import "google/protobuf/timestamp.proto";
+
+
+option go_package = "github.com/devzero-inc/services/dakr/gen/api/v1;gen";
+
+// ClusterService provides cluster information operations
+service ClusterService {
+  // GetClustersBasicInfo retrieves basic information for all clusters in a team
+  rpc GetClustersBasicInfo(GetClustersBasicInfoRequest) returns (GetClustersBasicInfoResponse);
+
+  // GetClusterBasicInfo retrieves basic information for a single cluster (singular form of GetClustersBasicInfo)
+  rpc GetClusterBasicInfo(GetClusterBasicInfoRequest) returns (GetClusterBasicInfoResponse);
+
+  // GetClustersWithMetrics retrieves clusters with full metrics using optimized batch queries
+  rpc GetClustersWithMetrics(GetClustersWithMetricsRequest) returns (GetClustersWithMetricsResponse);
+
+  // CreateClusterToken creates a new cluster registration with authentication token
+  rpc CreateClusterToken(CreateClusterTokenRequest) returns (CreateClusterTokenResponse);
+
+  // GetClustersDeltaMetrics retrieves lightweight aggregate metrics for delta/comparison calculations
+  rpc GetClustersDeltaMetrics(GetClustersDeltaMetricsRequest) returns (GetClustersDeltaMetricsResponse);
+
+  // GetNetworkDependencies returns workload-level network dependencies for visualization
+  rpc GetNetworkDependencies(GetNetworkDependenciesRequest) returns (GetNetworkDependenciesResponse);
+
+  // GetNetworkMetricsTimeSeries returns time-bucketed network metrics for charts
+  rpc GetNetworkMetricsTimeSeries(GetNetworkMetricsTimeSeriesRequest) returns (GetNetworkMetricsTimeSeriesResponse);
+
+  // GetNodeTypeCounts retrieves node type breakdown for given clusters and time range
+  rpc GetNodeTypeCounts(GetNodeTypeCountsRequest) returns (GetNodeTypeCountsResponse);
+
+  // GetClusterIDByName retrieves the ID of the first active cluster matching the given team and name
+  rpc GetClusterIDByName(GetClusterIDByNameRequest) returns (GetClusterIDByNameResponse);
+
+  // GetClusterInfoByName retrieves full info of the first active cluster matching the given team and name
+  rpc GetClusterInfoByName(GetClusterInfoByNameRequest) returns (GetClusterInfoByNameResponse);
+}
+
+// GetClustersBasicInfoRequest is used to fetch basic cluster information for all clusters in a team
+message GetClustersBasicInfoRequest {
+  string team_id = 1; // Unique identifier for the team.
+  bool with_provider = 2;
+}
+
+// GetClustersBasicInfoResponse contains basic information for all clusters in a team
+message GetClustersBasicInfoResponse {
+  repeated Cluster clusters = 1; // List of clusters with basic info.
+}
+
+// GetClusterBasicInfoRequest is used to fetch basic information for a single cluster
+message GetClusterBasicInfoRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+}
+
+// GetClusterBasicInfoResponse contains basic information for a single cluster
+// (id, name, displayName/custom_name, cloudProvider, isDisconnected). Mirrors a single
+// entry from GetClustersBasicInfoResponse.clusters — operator versions are NOT included.
+message GetClusterBasicInfoResponse {
+  Cluster cluster = 1;
+}
+
+// GetClustersWithMetricsRequest is used to fetch clusters with full metrics (optimized version)
+message GetClustersWithMetricsRequest {
+  string team_id = 1; // Unique identifier for the team.
+  optional google.protobuf.Timestamp start_time = 11;
+  optional google.protobuf.Timestamp end_time = 12;
+  optional int32 bucket_size = 13;
+  repeated string node_group_names = 14; // Optional filter for node groups
+  bool include_disconnected = 15; // If true, include disconnected clusters; if false, only connected clusters
+}
+
+// GetClustersWithMetricsResponse contains clusters with full metrics (optimized version)
+message GetClustersWithMetricsResponse {
+  repeated Cluster clusters = 1; // List of clusters.
+  ResourceMetrics resource_metrics = 2; // Aggregated resource metrics across clusters.
+  CostInfo cost_info = 3; // Aggregated cost information across clusters.
+  NodeInfo node_info = 4; // Aggregated node information across clusters.
+  repeated CostDataPoint cost_data_points = 5; // Time-series cost data points.
+  repeated ResourceDataPoint resource_data_points = 6; // Time-series resource utilization data points.
+}
+
+// GetClustersDeltaMetricsRequest is used to fetch lightweight aggregate metrics for delta comparisons
+message GetClustersDeltaMetricsRequest {
+  string team_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  bool include_disconnected = 4; // If true, include disconnected clusters; if false, only connected clusters
+}
+
+// ClusterDeltaMetrics contains aggregate metrics for a single cluster used in delta calculations
+message ClusterDeltaMetrics {
+  string id = 1;
+  CostInfo cost_info = 2;
+  ResourceMetrics resource_metrics = 3;
+}
+
+// GetClustersDeltaMetricsResponse contains lightweight aggregate metrics per cluster
+message GetClustersDeltaMetricsResponse {
+  repeated ClusterDeltaMetrics clusters = 1;
+}
+
+// CreateClusterTokenRequest creates a new cluster with authentication token
+message CreateClusterTokenRequest {
+  string cluster_name = 1; // Name for the new cluster.
+  string k8s_provider = 2; // Kubernetes provider (aws, azure, gcp, oci, other).
+}
+
+// CreateClusterTokenResponse returns the authentication token and cluster ID
+message CreateClusterTokenResponse {
+  string token = 1; // Authentication token for the cluster.
+  string cluster_id = 2; // Unique identifier for the created cluster.
+}
+
+// Request for network dependency graph (workload-level aggregation)
+message GetNetworkDependenciesRequest {
+  string cluster_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  repeated string src_namespaces = 4;   // Filter by source namespaces (optional)
+  repeated string src_node_groups = 5;  // Filter by source node groups (optional)
+}
+
+// A workload node in the dependency graph
+message WorkloadNode {
+  string workload_name = 1;
+  string namespace = 2;
+  string workload_kind = 3;
+}
+
+// An external destination (domain)
+message ExternalNode {
+  string domain = 1;
+  string ip = 2;
+}
+
+// A service destination
+message ServiceNode {
+  string service_name = 1;
+  string namespace = 2;
+}
+
+// A cloud managed resource (PrivateLink, ControlPlane, CloudAPI, etc)
+message CloudResourceNode {
+  string domain = 1;
+  string ip = 2;
+  string resource_kind = 4; // "PrivateLink", "ControlPlane", "CloudAPI"
+}
+
+// An edge in the dependency graph
+message DependencyEdge {
+  WorkloadNode src_workload = 1;
+  WorkloadNode dst_workload = 2;
+  ExternalNode dst_external = 3;
+  ServiceNode dst_service = 8;
+  CloudResourceNode dst_cloud_resource = 10;
+  string dst_type = 9;   // "pod", "service", "node", "external", "endpoint", "private_link", "k8s_control_plane", etc
+  string traffic_type = 4;
+  int64 tx_bytes = 5;
+  int64 rx_bytes = 6;
+  double cost = 7;
+}
+
+// Response containing dependency edges
+message GetNetworkDependenciesResponse {
+  repeated DependencyEdge edges = 1;
+}
+
+// Request for network metrics time-series data
+message GetNetworkMetricsTimeSeriesRequest {
+  string cluster_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  repeated string src_namespaces = 4;     // Filter by source namespaces (optional)
+  repeated string src_workloads = 5;      // Filter by source workloads (optional)
+  repeated string traffic_types = 6;      // Filter by traffic types (optional)
+  int32 max_data_points = 7;              // Maximum data points to return (default 288)
+}
+
+// Response with time-bucketed network metrics
+message GetNetworkMetricsTimeSeriesResponse {
+  repeated NetworkTimeSeriesBucket buckets = 1;
+  repeated TimeSeriesZone zones = 2;
+}
+
+// Describes a resolution zone in the response
+message TimeSeriesZone {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  string bucket_size = 3;                 // "15m", "30m", "1h", "12h", "1d", "7d"
+  int32 point_count = 4;
+}
+
+// A single time-series data point
+message NetworkTimeSeriesBucket {
+  google.protobuf.Timestamp timestamp = 1;
+  string traffic_type = 2;
+  int64 tx_bytes = 3;
+  int64 rx_bytes = 4;
+  double cost = 5;
+  int64 tx_packets = 6;
+  int64 rx_packets = 7;
+  int32 sample_count = 8;
+  NetworkPercentileValues tx_bytes_percentiles = 9;
+  NetworkPercentileValues rx_bytes_percentiles = 10;
+  NetworkPercentileValues cost_percentiles = 11;
+  string zone_bucket_size = 12;           // Bucket size of the zone this point belongs to
+}
+
+// Percentile values extracted from tdigest for network metrics
+message NetworkPercentileValues {
+  double p50 = 1;
+  double p75 = 2;
+  double p90 = 3;
+  double p95 = 4;
+  double p99 = 5;
+}
+
+// GetNodeTypeCountsRequest is used to fetch node type counts for clusters
+message GetNodeTypeCountsRequest {
+  string team_id = 1;
+  repeated string cluster_ids = 2;
+  optional google.protobuf.Timestamp start_time = 11;
+  optional google.protobuf.Timestamp end_time = 12;
+}
+
+// GetNodeTypeCountsResponse contains aggregated node type breakdown
+message GetNodeTypeCountsResponse {
+  NodeInfo node_info = 1;
+}
+
+// ClusterLivenessPreference controls whether GetClusterIDByName considers
+// zxporter heartbeat freshness when picking among multiple matching rows.
+enum ClusterLivenessPreference {
+  CLUSTER_LIVENESS_PREFERENCE_UNSPECIFIED = 0;  // = IGNORE
+  CLUSTER_LIVENESS_PREFERENCE_IGNORE = 1;       // pure created_at DESC
+  CLUSTER_LIVENESS_PREFERENCE_PREFER_LIVE = 2;  // live rows first, fall back to newest
+  CLUSTER_LIVENESS_PREFERENCE_REQUIRE_LIVE = 3; // 404 if no row pinged within 60m
+}
+
+// GetClusterIDByNameRequest looks up a cluster by team and name
+message GetClusterIDByNameRequest {
+  string team_id = 1;
+  string name = 2;
+  optional string region = 3;          // e.g. "us-east-1" — joined against regions.name
+  optional string cloud_provider = 4;  // e.g. "aws"      — joined against cloud_providers.name
+  optional ClusterLivenessPreference liveness = 5;
+}
+
+// GetClusterIDByNameResponse returns just the cluster ID
+message GetClusterIDByNameResponse {
+  string id = 1;
+}
+
+// GetClusterInfoByNameRequest looks up a cluster by team and name
+message GetClusterInfoByNameRequest {
+  string team_id = 1;
+  string name = 2;
+}
+
+// GetClusterInfoByNameResponse returns full cluster info
+message GetClusterInfoByNameResponse {
+  Cluster cluster = 1;
+}

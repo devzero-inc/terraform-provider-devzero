@@ -11,6 +11,21 @@ lint:
 
 generate:
 	cd tools; go generate ./...
+	@echo "Patching workload_rule docs: removing internal-only fields..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		sed -i '' '/`cooldown_minutes`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`startup_period_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`oom_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`scale_down_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '' '/`oom_max_reactions`/d' docs/resources/workload_rule.md; \
+	else \
+		sed -i '/`cooldown_minutes`/d' docs/resources/workload_rule.md; \
+		sed -i '/`startup_period_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '/`oom_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '/`scale_down_cooldown_seconds`/d' docs/resources/workload_rule.md; \
+		sed -i '/`oom_max_reactions`/d' docs/resources/workload_rule.md; \
+	fi
+	@echo "Patch complete."
 
 fmt:
 	gofmt -s -w -e .
@@ -34,9 +49,10 @@ TARGET_PROTO_DIR = internal/proto/api/v1
 TARGET_GEN_PB_DIR = internal/gen/api/v1
 TARGET_GEN_CONNECT_DIR = internal/gen/api/v1/apiv1connect
 
-PROTO_FILES = common.proto k8s.proto recommendation.proto
-GEN_PB_FILES = common.pb.go k8s.pb.go recommendation.pb.go
-GEN_CONNECT_FILES = k8s.connect.go recommendation.connect.go
+PROTO_FILES       = common.proto instance.proto k8s.proto recommendation.proto cluster.proto profiling.proto
+GEN_PB_FILES      = common.pb.go instance.pb.go k8s.pb.go recommendation.pb.go cluster.pb.go cluster_grpc.pb.go profiling.pb.go profiling_grpc.pb.go
+GEN_CONNECT_FILES = k8s.connect.go recommendation.connect.go cluster.connect.go profiling.connect.go
+
 
 .PHONY: proto
 proto:

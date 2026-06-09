@@ -1,0 +1,199 @@
+syntax = "proto3";
+
+package api.v1;
+
+option go_package = "github.com/devzero-inc/services/dakr/gen/api/v1;gen";
+option java_multiple_files = true;
+option java_package = "gen.api.v1";
+
+// Instance related messages
+message Instance {
+  int64 id = 1;
+  int64 region_id = 2;
+  Region region = 3;
+  optional int64 availability_zone_id = 4;
+  optional AvailabilityZone availability_zone = 5;
+  int64 instance_type_id = 6;
+  InstanceType instance_type = 7;
+  float cost_on_demand = 8;  // Hourly cost for on-demand instances
+  optional string cost_spot = 9;
+  optional string cost_reserved = 10;
+  bool is_active = 11;
+  int64 operating_system_id = 12;
+  OperatingSystem operating_system = 13;
+  string created_at = 14;
+  string updated_at = 15;
+}
+
+message InstanceType {
+  int64 id = 1;
+  int64 cloud_provider_id = 2;
+  CloudProvider cloud_provider = 3;
+  string provider_type_id = 4;
+  string name = 5;
+  bool current_generation = 6;
+  bool bare_metal = 7;
+  bool free_tier_eligible = 8;
+  int32 memory_mib = 9;
+  int32 vcpu_count = 10;
+  int32 default_cores = 11;
+  int32 default_threads_per_core = 12;
+  double sustained_clock_speed_ghz = 13;
+  string processor_manufacturer = 14;
+  string cpu_architecture = 15;
+  optional string gpu_architecture = 16;
+  int32 gpu_memory_mib = 17;
+  int32 gpu_count = 18;
+}
+
+message GetInstanceRequest {
+  int64 instance_id = 1;
+}
+
+message GetInstanceResponse {
+  Instance instance = 1;
+}
+
+message GetInstancesRequest {
+  optional int64 region_id = 1;
+  optional int64 availability_zone_id = 2;
+  optional int64 operating_system_id = 3;
+  optional int64 cloud_provider_id = 4;
+  optional int64 instance_type_id = 5;
+}
+
+message GetInstancesResponse {
+  repeated Instance instances = 1;
+}
+
+// InstanceType related messages
+message GetInstanceTypeRequest {
+  int64 instance_type_id = 1;
+}
+
+message GetInstanceTypeResponse {
+  InstanceType instance_type = 1;
+}
+
+message GetInstanceTypesRequest {
+  optional int64 cloud_provider_id = 1;
+}
+
+message GetInstanceTypesResponse {
+  repeated InstanceType instance_types = 1;
+}
+
+// Region related messages
+message Region {
+  int64 id = 1;
+  int64 cloud_provider_id = 2;
+  string name = 3;
+  string code = 4;
+  string pricing_location = 5;
+  repeated AvailabilityZone availability_zones = 6;
+}
+
+message GetRegionRequest {
+  int64 region_id = 1;
+}
+
+message GetRegionResponse {
+  Region region = 1;
+}
+
+message GetRegionsRequest {}
+
+message GetRegionsResponse {
+  repeated Region regions = 1;
+}
+
+// AvailabilityZone related messages
+message AvailabilityZone {
+  int64 id = 1;
+  int64 region_id = 2;
+  string name = 3;
+  string code = 4;
+}
+
+message GetAvailabilityZoneRequest {
+  int64 availability_zone_id = 1;
+}
+
+message GetAvailabilityZoneResponse {
+  AvailabilityZone availability_zone = 1;
+}
+
+message GetAvailabilityZonesRequest {
+  optional int64 region_id = 1;
+}
+
+message GetAvailabilityZonesResponse {
+  repeated AvailabilityZone availability_zones = 1;
+}
+
+// Operating Systems related messages
+message OperatingSystem {
+  int64 id = 1;
+  string name = 2;
+}
+
+message GetOperatingSystemRequest {
+  int64 operating_system_id = 1;
+}
+
+message GetOperatingSystemResponse {
+  OperatingSystem operating_system = 1;
+}
+
+message GetOperatingSystemsRequest {}
+
+message GetOperatingSystemsResponse {
+  repeated OperatingSystem operating_systems = 1;
+}
+
+// CloudProvider related messages
+message CloudProvider {
+  int64 id = 1;
+  string name = 2;
+}
+
+message GetCloudProviderRequest {
+  int64 cloud_provider_id = 1;
+}
+
+message GetCloudProviderResponse {
+  CloudProvider cloud_provider = 1;
+}
+
+message GetCloudProvidersRequest {}
+
+message GetCloudProvidersResponse {
+  repeated CloudProvider cloud_providers = 1;
+}
+
+service InstanceService {
+  rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
+  rpc GetInstances(GetInstancesRequest) returns (GetInstancesResponse);
+
+  rpc GetInstanceType(GetInstanceTypeRequest) returns (GetInstanceTypeResponse);
+  rpc GetInstanceTypes(GetInstanceTypesRequest)
+      returns (GetInstanceTypesResponse);
+
+  rpc GetRegion(GetRegionRequest) returns (GetRegionResponse);
+  rpc GetRegions(GetRegionsRequest) returns (GetRegionsResponse);
+
+  rpc GetAvailabilityZone(GetAvailabilityZoneRequest)
+      returns (GetAvailabilityZoneResponse);
+  rpc GetAvailabilityZones(GetAvailabilityZonesRequest)
+      returns (GetAvailabilityZonesResponse);
+
+  rpc GetOperatingSystem(GetOperatingSystemRequest)
+      returns (GetOperatingSystemResponse);
+  rpc GetOperatingSystems(GetOperatingSystemsRequest)
+      returns (GetOperatingSystemsResponse);
+
+  rpc GetCloudProvider(GetCloudProviderRequest)
+      returns (GetCloudProviderResponse);
+  rpc GetCloudProviders(GetCloudProvidersRequest)
+      returns (GetCloudProvidersResponse);
+}
