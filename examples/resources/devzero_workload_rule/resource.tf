@@ -14,7 +14,7 @@ resource "devzero_workload_rule" "manual" {
   kind       = "Deployment"
   name       = "my-api"
 
-  action_triggers    = ["on_schedule"]
+  action_triggers    = ["on_schedule", "on_detection"]
   cron_schedule      = "0 2 * * *"
   detection_triggers = ["pod_creation", "pod_update"]
 
