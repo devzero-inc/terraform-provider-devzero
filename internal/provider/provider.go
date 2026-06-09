@@ -20,6 +20,7 @@ import (
 type ClientSet struct {
 	TeamId                string
 	ClusterMutationClient apiv1connect.ClusterMutationServiceClient
+	ClusterServiceClient  apiv1connect.ClusterServiceClient
 	K8SServiceClient      apiv1connect.K8SServiceClient
 	RecommendationClient  apiv1connect.K8SRecommendationServiceClient
 }
@@ -175,6 +176,12 @@ func (p *DevzeroProvider) Configure(ctx context.Context, req provider.ConfigureR
 			connect.WithGRPC(),
 			connect.WithInterceptors(authInterceptor),
 		),
+		ClusterServiceClient: apiv1connect.NewClusterServiceClient(
+			client,
+			url,
+			connect.WithGRPC(),
+			connect.WithInterceptors(authInterceptor),
+		),
 		K8SServiceClient: apiv1connect.NewK8SServiceClient(
 			client,
 			url,
@@ -206,7 +213,9 @@ func (p *DevzeroProvider) Resources(ctx context.Context) []func() resource.Resou
 }
 
 func (p *DevzeroProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewClusterIDByNameDataSource,
+	}
 }
 
 func New(version string) func() provider.Provider {
