@@ -35,35 +35,35 @@ resource "devzero_workload_rule" "manual" {
 
   cpu_rule = {
     enabled                   = true
-    min_request               = 100
-    max_request               = 4000
+    min_request               = 10
+    max_request               = 32000
     target_percentile         = 0.95
     limits_adjustment_enabled = true
-    limit_multiplier          = 1.5
+    limit_multiplier          = 1.0
   }
 
   memory_rule = {
     enabled                   = true
-    min_request               = 134217728  # 128Mi in bytes
-    max_request               = 2147483648 # 2Gi in bytes
-    target_percentile         = 0.9
+    min_request               = 67108864    # 64Mi in bytes
+    max_request               = 68719476736 # 64Gi in bytes
+    target_percentile         = 0.95
     limits_adjustment_enabled = true
   }
 
   hpa_rule = {
     enabled            = true
-    min_replicas       = 2
+    min_replicas       = 1
     max_replicas       = 10
-    target_utilization = 0.7
+    target_utilization = 0.70
     primary_metric     = "cpu"
   }
 
   emergency_response = {
     oom_enabled               = true
-    oom_memory_multiplier     = 2.0
+    oom_memory_multiplier     = 1.5
     cpu_throttling_enabled    = true
-    cpu_throttling_threshold  = 0.8
-    cpu_throttling_multiplier = 1.5
+    cpu_throttling_threshold  = 0.20
+    cpu_throttling_multiplier = 1.25
   }
 
   live_migration_enabled        = false
@@ -85,13 +85,13 @@ resource "devzero_workload_rule" "per_container" {
       container_name = "app"
       cpu_rule = {
         enabled     = true
-        min_request = 100
-        max_request = 2000
+        min_request = 10
+        max_request = 32000
       }
       memory_rule = {
         enabled     = true
-        min_request = 67108864  # 64Mi
-        max_request = 536870912 # 512Mi
+        min_request = 67108864    # 64Mi
+        max_request = 68719476736 # 64Gi
       }
     },
     {
