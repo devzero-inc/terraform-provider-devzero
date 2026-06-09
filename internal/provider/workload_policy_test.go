@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -44,6 +45,8 @@ func TestWorkloadPolicyResourceModel(t *testing.T) {
 			MaxScaleDownPercent:     types.Float32Value(25.0),
 			LimitMultiplier:         types.Float32Value(2.0),
 			MinDataPoints:           types.Int32Value(10),
+			AdjustReqEvenIfNotSet:   types.BoolValue(true),
+			LimitsRemovalEnabled:    types.BoolValue(true),
 		}
 
 		// Test toProto
@@ -80,6 +83,26 @@ func TestWorkloadPolicyResourceModel(t *testing.T) {
 		}
 		if *proto.MinDataPoints != 10 {
 			t.Errorf("Expected MinDataPoints to be 10, got %d", *proto.MinDataPoints)
+		}
+		if !proto.AdjustReqEvenIfNotSet {
+			t.Error("Expected AdjustReqEvenIfNotSet to be true")
+		}
+		if !proto.LimitsRemovalEnabled {
+			t.Error("Expected LimitsRemovalEnabled to be true")
+		}
+	})
+
+	// Test VerticalScalingOptions new fields default to false
+	t.Run("VerticalScalingOptionsDefaults", func(t *testing.T) {
+		opts := &VerticalScalingOptions{
+			Enabled: types.BoolValue(true),
+		}
+		proto := opts.toProto()
+		if proto.AdjustReqEvenIfNotSet {
+			t.Error("Expected AdjustReqEvenIfNotSet to default to false")
+		}
+		if proto.LimitsRemovalEnabled {
+			t.Error("Expected LimitsRemovalEnabled to default to false")
 		}
 	})
 
@@ -123,6 +146,35 @@ func TestWorkloadPolicyResourceModel(t *testing.T) {
 		}
 	})
 
+	// Test pmax protection fields on WorkloadPolicyResourceModel
+	t.Run("PmaxProtection", func(t *testing.T) {
+		ctx := context.Background()
+		var diagnostics diag.Diagnostics
+
+		model := &WorkloadPolicyResourceModel{
+			Name:                    types.StringValue("test"),
+			Description:             types.StringValue(""),
+			CronSchedule:            types.StringValue("*/15 * * * *"),
+			DefragmentationSchedule: types.StringValue("*/15 * * * *"),
+			ActionTriggers:          types.ListValueMust(types.StringType, nil),
+			DetectionTriggers:       types.ListValueMust(types.StringType, nil),
+			SchedulerPlugins:        types.ListValueMust(types.StringType, nil),
+			EnablePmaxProtection:    types.BoolValue(true),
+			PmaxRatioThreshold:      types.Float32Value(3.0),
+		}
+
+		proto := model.toProto(ctx, &diagnostics, "team-123")
+		if proto == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if !proto.EnablePmaxProtection {
+			t.Error("Expected EnablePmaxProtection to be true")
+		}
+		if proto.PmaxRatioThreshold == nil || *proto.PmaxRatioThreshold != 3.0 {
+			t.Errorf("Expected PmaxRatioThreshold to be 3.0, got %v", proto.PmaxRatioThreshold)
+		}
+	})
+
 	// Test HPAMetric conversions
 	t.Run("HPAMetricConversions", func(t *testing.T) {
 		opts := &HorizontalScalingOptions{}
@@ -160,11 +212,11 @@ func TestWorkloadPolicyResourceModel(t *testing.T) {
 	})
 }
 
-func validateSchema(t *testing.T, schema schema.Schema) {
+func validateSchema(t *testing.T, s schema.Schema) {
 	// Validate required attributes
 	requiredAttrs := []string{"name", "action_triggers"}
 	for _, attr := range requiredAttrs {
-		if _, exists := schema.Attributes[attr]; !exists {
+		if _, exists := s.Attributes[attr]; !exists {
 			t.Errorf("Required attribute %s not found in schema", attr)
 		}
 	}
@@ -172,7 +224,7 @@ func validateSchema(t *testing.T, schema schema.Schema) {
 	// Validate computed attributes
 	computedAttrs := []string{"id"}
 	for _, attr := range computedAttrs {
-		if attrSchema, exists := schema.Attributes[attr]; exists {
+		if attrSchema, exists := s.Attributes[attr]; exists {
 			if !attrSchema.IsComputed() {
 				t.Errorf("Attribute %s should be computed", attr)
 			}
@@ -180,11 +232,27 @@ func validateSchema(t *testing.T, schema schema.Schema) {
 	}
 
 	// Validate nested attributes exist
-	if _, exists := schema.Attributes["cpu_vertical_scaling"]; !exists {
+	if _, exists := s.Attributes["cpu_vertical_scaling"]; !exists {
 		t.Error("cpu_vertical_scaling attribute not found")
 	}
 
-	if _, exists := schema.Attributes["horizontal_scaling"]; !exists {
+	if _, exists := s.Attributes["horizontal_scaling"]; !exists {
 		t.Error("horizontal_scaling attribute not found")
+	}
+
+	// Validate pmax fields exist at top level
+	for _, attr := range []string{"enable_pmax_protection", "pmax_ratio_threshold"} {
+		if _, exists := s.Attributes[attr]; !exists {
+			t.Errorf("Expected top-level attribute %q not found in schema", attr)
+		}
+	}
+
+	// Validate new vertical scaling fields exist inside cpu_vertical_scaling
+	if cpuVs, ok := s.Attributes["cpu_vertical_scaling"].(schema.SingleNestedAttribute); ok {
+		for _, attr := range []string{"adjust_req_even_if_not_set", "limits_removal_enabled"} {
+			if _, exists := cpuVs.Attributes[attr]; !exists {
+				t.Errorf("Expected vertical_scaling attribute %q not found in cpu_vertical_scaling", attr)
+			}
+		}
 	}
 }
