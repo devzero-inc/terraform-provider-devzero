@@ -461,10 +461,12 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 					"oom_max_reactions": schema.Int32Attribute{
 						Description: "Maximum number of OOM reactions before giving up",
 						Optional:    true,
+						Computed:    true,
 					},
 					"oom_cooldown_seconds": schema.Int32Attribute{
 						Description: "Seconds to wait between OOM reactions",
 						Optional:    true,
+						Computed:    true,
 					},
 					"cpu_throttling_enabled": schema.BoolAttribute{
 						Description: "React to CPU throttling by increasing CPU request",
