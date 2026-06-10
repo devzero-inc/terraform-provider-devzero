@@ -49,9 +49,9 @@ type WorkloadPolicyTargetResourceModel struct {
 	NamespaceSelector *LabelSelector `tfsdk:"namespace_selector"`
 	WorkloadSelector  *LabelSelector `tfsdk:"workload_selector"`
 	KindFilter        types.List     `tfsdk:"kind_filter"`
-	NamePattern        *RegexPattern  `tfsdk:"name_pattern"`
-	NamespacePattern   *RegexPattern  `tfsdk:"namespace_pattern"`
-	WorkloadNames      types.List     `tfsdk:"workload_names"`
+	NamePattern       *RegexPattern  `tfsdk:"name_pattern"`
+	NamespacePattern  *RegexPattern  `tfsdk:"namespace_pattern"`
+	WorkloadNames     types.List     `tfsdk:"workload_names"`
 	NodeGroupNames    types.List     `tfsdk:"node_group_names"`
 	ClusterIds        types.List     `tfsdk:"cluster_ids"`
 }
