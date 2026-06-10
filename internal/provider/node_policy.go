@@ -665,8 +665,8 @@ func labelSelectorAttribute(description string) schema.SingleNestedAttribute {
 							Required:    true,
 						},
 						"operator": schema.StringAttribute{
-							Description:         "Operator (In, NotIn, Exists, DoesNotExist)",
-							MarkdownDescription: "Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.",
+							Description:         "Operator (In, NotIn, Exists, DoesNotExist, Gt, Lt)",
+							MarkdownDescription: "Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.",
 							Required:            true,
 						},
 						"values": schema.ListAttribute{

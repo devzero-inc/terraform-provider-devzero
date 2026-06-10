@@ -341,7 +341,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -462,7 +462,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -508,7 +508,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -530,7 +530,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -552,7 +552,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -574,7 +574,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -596,7 +596,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -618,7 +618,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -640,7 +640,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -671,7 +671,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -712,7 +712,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
