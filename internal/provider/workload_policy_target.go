@@ -49,8 +49,9 @@ type WorkloadPolicyTargetResourceModel struct {
 	NamespaceSelector *LabelSelector `tfsdk:"namespace_selector"`
 	WorkloadSelector  *LabelSelector `tfsdk:"workload_selector"`
 	KindFilter        types.List     `tfsdk:"kind_filter"`
-	NamePattern       *RegexPattern  `tfsdk:"name_pattern"`
-	WorkloadNames     types.List     `tfsdk:"workload_names"`
+	NamePattern        *RegexPattern  `tfsdk:"name_pattern"`
+	NamespacePattern   *RegexPattern  `tfsdk:"namespace_pattern"`
+	WorkloadNames      types.List     `tfsdk:"workload_names"`
 	NodeGroupNames    types.List     `tfsdk:"node_group_names"`
 	ClusterIds        types.List     `tfsdk:"cluster_ids"`
 }
@@ -201,6 +202,12 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Optional:            true,
 				Attributes:          regexPatternAttributes,
 			},
+			"namespace_pattern": schema.SingleNestedAttribute{
+				Description:         "Regex to match namespace names",
+				MarkdownDescription: "Regex to match namespace names. Useful when namespaces follow a naming convention (e.g., `^prod-`).",
+				Optional:            true,
+				Attributes:          regexPatternAttributes,
+			},
 			"workload_names": schema.ListAttribute{
 				Description:         "Explicit list of workload names to include",
 				MarkdownDescription: "Explicit list of workload names to include",
@@ -302,6 +309,7 @@ func (r *WorkloadPolicyTargetResource) Create(ctx context.Context, req resource.
 		WorkloadSelector:  workloadSelector,
 		KindFilter:        kindFilters,
 		NamePattern:       data.NamePattern.toProto(),
+		NamespacePattern:  data.NamespacePattern.toProto(),
 		WorkloadNames:     workloadNames,
 		NodeGroupNames:    nodeGroupNames,
 		ClusterIds:        clusterIds,
@@ -416,6 +424,7 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		WorkloadSelector:  workloadSelector,
 		KindFilter:        kindFilters,
 		NamePattern:       data.NamePattern.toProto(),
+		NamespacePattern:  data.NamespacePattern.toProto(),
 		WorkloadNames:     workloadNames,
 		NodeGroupNames:    nodeGroupNames,
 		ClusterIds:        clusterIds,
@@ -631,6 +640,7 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 	m.WorkloadSelector.fromProto(target.WorkloadSelector)
 	m.KindFilter = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilter))
 	m.NamePattern.fromProto(target.NamePattern)
+	m.NamespacePattern.fromProto(target.NamespacePattern)
 	m.WorkloadNames = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNames))
 	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames))
 	m.ClusterIds = types.ListValueMust(types.StringType, fromStringList(target.ClusterIds))
