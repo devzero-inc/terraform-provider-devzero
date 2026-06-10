@@ -13,37 +13,42 @@ Defines which workloads a policy applies to by selecting namespaces, workloads, 
 ## Example Usage
 
 ```terraform
-resource "devzero_cluster" "cluster" {
-  name = "terraform-example"
+resource "devzero_cluster" "production" {
+  name = "production-cluster"
 }
 
-resource "devzero_workload_policy" "workload_policy" {
-  name = "terraform-example"
+resource "devzero_workload_policy" "cost_saving" {
+  name = "cost-saving-policy"
 }
 
-# Only required attributes
-resource "devzero_workload_policy_target" "workload_policy_target" {
-  name        = "terraform-example"
-  policy_id   = devzero_workload_policy.workload_policy.id
-  cluster_ids = [devzero_cluster.cluster.id]
+# Minimal — only required attributes
+resource "devzero_workload_policy_target" "minimal" {
+  name        = "production-target"
+  policy_id   = devzero_workload_policy.cost_saving.id
+  cluster_ids = [devzero_cluster.production.id]
 }
 
 # All attributes
-resource "devzero_workload_policy_target" "workload_policy_target" {
+resource "devzero_workload_policy_target" "full" {
   name        = "terraform-example"
   description = "some description"
-  policy_id   = devzero_workload_policy.workload_policy.id
-  cluster_ids = [devzero_cluster.cluster.id]
+  policy_id   = devzero_workload_policy.cost_saving.id
+  cluster_ids = [devzero_cluster.production.id]
   priority    = 1
   enabled     = true
 
   workload_names   = ["workload-1", "workload-2"]     # Empty list means all workloads
   node_group_names = ["node-group-1", "node-group-2"] # Empty list means all node groups
-  kind_filter      = ["Deployment", "ReplicaSet"]     # Empty list means all kinds
+  kind_filter      = ["Deployment", "StatefulSet"]    # Empty list means all kinds
 
   name_pattern = {
     pattern = "terraform-example"
     flags   = "i"
+  }
+
+  namespace_pattern = {
+    pattern = "^prod-"
+    flags   = "i" # case-insensitive
   }
 
   namespace_selector = {
@@ -75,6 +80,7 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
 - `enabled` (Boolean) Enable or disable this target. When disabled, the associated policy will not apply to the selected workloads.
 - `kind_filter` (List of String) Restrict matching to specific Kubernetes kinds. Allowed values: `Pod`, `Job`, `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`, `CronJob`, `ReplicationController`, `Rollout`.
 - `name_pattern` (Attributes) Regex to match workload names. Useful to target rollouts or name conventions (e.g., `^api-.*`). (see [below for nested schema](#nestedatt--name_pattern))
+- `namespace_pattern` (Attributes) Regex to match namespace names. Useful when namespaces follow a naming convention (e.g., `^prod-`). (see [below for nested schema](#nestedatt--namespace_pattern))
 - `namespace_selector` (Attributes) Select namespaces by labels. Uses the same semantics as Kubernetes label selectors. (see [below for nested schema](#nestedatt--namespace_selector))
 - `node_group_names` (List of String) Restrict matching to specific node groups by name
 - `priority` (Number) Evaluation priority among multiple targets. Higher values take precedence when multiple targets overlap.
@@ -87,6 +93,15 @@ resource "devzero_workload_policy_target" "workload_policy_target" {
 
 <a id="nestedatt--name_pattern"></a>
 ### Nested Schema for `name_pattern`
+
+Optional:
+
+- `flags` (String) Regex flags to modify matching behavior. Supported: `i` (case-insensitive), `m` (multi-line).
+- `pattern` (String) Regular expression applied to workload names. Uses RE2 syntax. Example: `^api-(staging|prod)-.*$`.
+
+
+<a id="nestedatt--namespace_pattern"></a>
+### Nested Schema for `namespace_pattern`
 
 Optional:
 

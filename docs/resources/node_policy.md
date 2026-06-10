@@ -108,10 +108,9 @@ resource "devzero_node_policy" "aws_comprehensive" {
 
   # Disruption policy for cost optimization
   disruption = {
-    consolidate_after       = "15m"
-    consolidation_policy    = "WhenEmptyOrUnderutilized"
-    expire_after            = "720h" # 30 days
-    ttl_seconds_after_empty = 300    # 5 minutes
+    consolidate_after    = "15m"
+    consolidation_policy = "WhenEmptyOrUnderutilized"
+    expire_after         = "720h" # 30 days
 
     budgets = [
       {

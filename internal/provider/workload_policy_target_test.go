@@ -307,6 +307,51 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 		}
 	})
 
+	// Test NamespacePattern toProto
+	t.Run("NamespacePattern_ToProto", func(t *testing.T) {
+		pattern := &RegexPattern{
+			Pattern: types.StringValue("^prod-"),
+			Flags:   types.StringValue("i"),
+		}
+
+		proto := pattern.toProto()
+		if proto == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if proto.Pattern != "^prod-" {
+			t.Errorf("Expected pattern '^prod-', got %s", proto.Pattern)
+		}
+		if proto.Flags != "i" {
+			t.Errorf("Expected flags 'i', got %s", proto.Flags)
+		}
+	})
+
+	// Test NamespacePattern nil toProto
+	t.Run("NamespacePattern_NilToProto", func(t *testing.T) {
+		var pattern *RegexPattern
+		proto := pattern.toProto()
+		if proto != nil {
+			t.Errorf("Expected nil proto for nil NamespacePattern, got %v", proto)
+		}
+	})
+
+	// Test NamespacePattern fromProto
+	t.Run("NamespacePattern_FromProto", func(t *testing.T) {
+		protoPattern := &apiv1.RegexPattern{
+			Pattern: "^prod-",
+			Flags:   "i",
+		}
+
+		pattern := &RegexPattern{}
+		pattern.fromProto(protoPattern)
+		if pattern.Pattern.ValueString() != "^prod-" {
+			t.Errorf("Expected pattern '^prod-', got %s", pattern.Pattern.ValueString())
+		}
+		if pattern.Flags.ValueString() != "i" {
+			t.Errorf("Expected flags 'i', got %s", pattern.Flags.ValueString())
+		}
+	})
+
 	// Test LabelSelector with empty collections returns null
 	t.Run("LabelSelector_EmptyCollectionsToNull", func(t *testing.T) {
 		// Create a proto selector with empty match labels and expressions
@@ -453,5 +498,9 @@ func validateTargetSchema(t *testing.T, schema schema.Schema) {
 
 	if _, exists := schema.Attributes["name_pattern"]; !exists {
 		t.Error("name_pattern attribute not found")
+	}
+
+	if _, exists := schema.Attributes["namespace_pattern"]; !exists {
+		t.Error("namespace_pattern attribute not found")
 	}
 }

@@ -65,6 +65,8 @@ type WorkloadPolicyResourceModel struct {
 	DriftDeltaPercent       types.Float32             `tfsdk:"drift_delta_percent"`
 	MinVpaWindowDataPoints  types.Int32               `tfsdk:"min_vpa_window_data_points"`
 	CooldownMinutes         types.Int32               `tfsdk:"cooldown_minutes"`
+	EnablePmaxProtection    types.Bool                `tfsdk:"enable_pmax_protection"`
+	PmaxRatioThreshold      types.Float32             `tfsdk:"pmax_ratio_threshold"`
 }
 
 type VerticalScalingOptions struct {
@@ -78,6 +80,8 @@ type VerticalScalingOptions struct {
 	MaxScaleDownPercent     types.Float32 `tfsdk:"max_scale_down_percent"`
 	LimitMultiplier         types.Float32 `tfsdk:"limit_multiplier"`
 	MinDataPoints           types.Int32   `tfsdk:"min_data_points"`
+	AdjustReqEvenIfNotSet   types.Bool    `tfsdk:"adjust_req_even_if_not_set"`
+	LimitsRemovalEnabled    types.Bool    `tfsdk:"limits_removal_enabled"`
 }
 
 type HorizontalScalingOptions struct {
@@ -155,6 +159,20 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Optional:    true,
 				Computed:    true,
 				Default:     int32default.StaticInt32(15),
+			},
+			"adjust_req_even_if_not_set": schema.BoolAttribute{
+				Description:         "Recommend requests even when the workload has no existing requests set",
+				MarkdownDescription: "When true, the recommender will suggest resource requests even if the workload currently has none set. Default: false.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+			"limits_removal_enabled": schema.BoolAttribute{
+				Description:         "Actively remove resource limits from workloads",
+				MarkdownDescription: "When true, the recommender will remove resource limits from workloads (CPU axis only — memory limits removal is not supported). Default: false.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
 			},
 		}
 	}
@@ -382,6 +400,20 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Computed:    true,
 				Default:     int32default.StaticInt32(30),
 			},
+			"enable_pmax_protection": schema.BoolAttribute{
+				Description:         "Raise requests to cover observed peak usage when the peak/recommendation ratio exceeds pmax_ratio_threshold",
+				MarkdownDescription: "When true, the recommender raises requests to cover observed peak usage when the peak-to-recommendation ratio exceeds `pmax_ratio_threshold`. Default: false.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+			"pmax_ratio_threshold": schema.Float32Attribute{
+				Description:         "Peak-to-recommendation ratio above which pmax protection activates",
+				MarkdownDescription: "Peak-to-recommendation ratio above which pmax protection activates. Example: 3.0 — triggers when peak is 3× the recommendation. Default: 3.0.",
+				Optional:            true,
+				Computed:            true,
+				Default:             float32default.StaticFloat32(3.0),
+			},
 		},
 	}
 }
@@ -593,6 +625,8 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		DriftDeltaPercent:       m.DriftDeltaPercent.ValueFloat32Pointer(),
 		MinVpaWindowDataPoints:  m.MinVpaWindowDataPoints.ValueInt32Pointer(),
 		CooldownMinutes:         m.CooldownMinutes.ValueInt32Pointer(),
+		EnablePmaxProtection:    m.EnablePmaxProtection.ValueBool(),
+		PmaxRatioThreshold:      m.PmaxRatioThreshold.ValueFloat32Pointer(),
 	}
 }
 
@@ -676,6 +710,10 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	if policy.CooldownMinutes != nil {
 		m.CooldownMinutes = types.Int32Value(*policy.CooldownMinutes)
 	}
+	m.EnablePmaxProtection = types.BoolValue(policy.EnablePmaxProtection)
+	if policy.PmaxRatioThreshold != nil {
+		m.PmaxRatioThreshold = types.Float32Value(*policy.PmaxRatioThreshold)
+	}
 }
 
 func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTarget {
@@ -693,6 +731,8 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 		MaxScaleDownPercent:     o.MaxScaleDownPercent.ValueFloat32Pointer(),
 		LimitMultiplier:         o.LimitMultiplier.ValueFloat32Pointer(),
 		MinDataPoints:           o.MinDataPoints.ValueInt32Pointer(),
+		AdjustReqEvenIfNotSet:   o.AdjustReqEvenIfNotSet.ValueBool(),
+		LimitsRemovalEnabled:    o.LimitsRemovalEnabled.ValueBool(),
 	}
 }
 
@@ -733,6 +773,8 @@ func (o *VerticalScalingOptions) fromProto(target *apiv1.VerticalScalingOptimiza
 	if target.MinDataPoints != nil {
 		o.MinDataPoints = types.Int32Value(*target.MinDataPoints)
 	}
+	o.AdjustReqEvenIfNotSet = types.BoolValue(target.AdjustReqEvenIfNotSet)
+	o.LimitsRemovalEnabled = types.BoolValue(target.LimitsRemovalEnabled)
 }
 
 func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizationTarget {
