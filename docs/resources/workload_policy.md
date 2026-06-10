@@ -76,7 +76,7 @@ resource "devzero_workload_policy" "cost_saving" {
 - `cron_schedule` (String) Cron expression for scheduled application. Uses standard 5-field cron format in the cluster timezone.
 - `defragmentation_schedule` (String) Cron expression for background defragmentation that can move workloads to reduce fragmentation.
 - `description` (String) Free-form description of the policy to help others understand its intent and scope.
-- `detection_triggers` (List of String) Detection triggers for when to apply the workload policy. Only one of `pod_creation` or `pod_update` is allowed.The `pod_creation` trigger is used to apply the workload policy when a pod is created.The `pod_update` trigger is used to apply the workload policy when a pod is updated.
+- `detection_triggers` (List of String) Detection triggers for when to apply the workload policy. Valid values: `pod_creation`, `pod_update`, `pod_evict`.The `pod_creation` trigger is used to apply the workload policy when a pod is created.The `pod_update` trigger is used to apply the workload policy when a pod is updated.The `pod_evict` trigger is used to apply the workload policy when a pod is evicted.
 - `drift_delta_percent` (Number) Percentage drift from baseline that triggers VPA refresh
 - `enable_pmax_protection` (Boolean) When true, the recommender raises requests to cover observed peak usage when the peak-to-recommendation ratio exceeds `pmax_ratio_threshold`. Default: false.
 - `gpu_vertical_scaling` (Attributes) GPU vertical scaling options (see [below for nested schema](#nestedatt--gpu_vertical_scaling))

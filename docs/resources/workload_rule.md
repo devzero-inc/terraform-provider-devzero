@@ -31,7 +31,7 @@ resource "devzero_workload_rule" "manual" {
 
   action_triggers    = ["on_schedule", "on_detection"]
   cron_schedule      = "0 2 * * *"
-  detection_triggers = ["pod_creation", "pod_update"]
+  detection_triggers = ["pod_creation", "pod_update", "pod_evict"]
 
   cpu_rule = {
     enabled                   = true
@@ -56,6 +56,19 @@ resource "devzero_workload_rule" "manual" {
     max_replicas       = 10
     target_utilization = 0.70
     primary_metric     = "cpu"
+
+    # External/Prometheus metric trigger
+    metrics = [
+      {
+        type           = "prometheus"
+        target_value   = "100"
+        server_address = "http://prometheus.monitoring.svc.cluster.local:9090"
+        query          = "rate(http_requests_total{job=\"my-api\"}[5m])"
+        metadata = {
+          "customKey" = "customValue"
+        }
+      }
+    ]
   }
 
   emergency_response = {
@@ -324,6 +337,9 @@ Required:
 
 Optional:
 
+- `metadata` (Map of String) Free-form key-value metadata for external scalers (e.g. serverAddress, query for Prometheus).
+- `query` (String) PromQL query string. Packed into metadata by the service layer.
+- `server_address` (String) Prometheus server URL. Packed into metadata by the service layer.
 - `target_utilization` (String) Target utilization as a decimal string. Example: '0.70'
 - `target_value` (String) Absolute target value as a string. Example: '50000000'
 - `weight` (String) Weight for composite formula scaling (0-1 decimal string). Example: '0.5'

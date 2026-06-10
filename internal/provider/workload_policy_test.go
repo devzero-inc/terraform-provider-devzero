@@ -4,10 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	apiv1 "github.com/devzero-inc/terraform-provider-devzero/internal/gen/api/v1"
 )
 
 func TestWorkloadPolicyResourceSchema(t *testing.T) {
@@ -208,6 +211,49 @@ func TestWorkloadPolicyResourceModel(t *testing.T) {
 		result = opts.fromHPAMetric(4) // Network
 		if result != "network" {
 			t.Errorf("Expected 'network', got %s", result)
+		}
+	})
+
+	t.Run("DetectionTrigger_PodEvict_ToProto", func(t *testing.T) {
+		ctx := context.Background()
+		m := &WorkloadPolicyResourceModel{
+			Name:                    types.StringValue("test"),
+			Description:             types.StringValue(""),
+			ActionTriggers:          types.ListValueMust(types.StringType, nil),
+			DetectionTriggers:       types.ListValueMust(types.StringType, []attr.Value{types.StringValue("pod_evict")}),
+			SchedulerPlugins:        types.ListValueMust(types.StringType, nil),
+			CronSchedule:            types.StringValue("*/15 * * * *"),
+			DefragmentationSchedule: types.StringValue("*/15 * * * *"),
+		}
+		var diags diag.Diagnostics
+		proto := m.toProto(ctx, &diags, "team-1")
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if len(proto.DetectionTriggers) != 1 {
+			t.Fatalf("Expected 1 detection trigger, got %d", len(proto.DetectionTriggers))
+		}
+		if proto.DetectionTriggers[0] != apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_EVICT {
+			t.Errorf("Expected DETECTION_TRIGGER_POD_EVICT, got %v", proto.DetectionTriggers[0])
+		}
+	})
+
+	t.Run("DetectionTrigger_PodEvict_FromProto", func(t *testing.T) {
+		policy := &apiv1.WorkloadRecommendationPolicy{
+			PolicyId: "p1",
+			Name:     "test",
+			DetectionTriggers: []apiv1.WorkloadDetectionTrigger{
+				apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_EVICT,
+			},
+		}
+		var m WorkloadPolicyResourceModel
+		m.fromProto(policy)
+		elems := m.DetectionTriggers.Elements()
+		if len(elems) != 1 {
+			t.Fatalf("Expected 1 detection trigger, got %d", len(elems))
+		}
+		if sv, ok := elems[0].(types.String); !ok || sv.ValueString() != "pod_evict" {
+			t.Errorf("Expected pod_evict, got %v", elems[0])
 		}
 	})
 }

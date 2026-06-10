@@ -90,6 +90,9 @@ type HPAMetricTriggerModel struct {
 	TargetUtilization types.String `tfsdk:"target_utilization"`
 	TargetValue       types.String `tfsdk:"target_value"`
 	Weight            types.String `tfsdk:"weight"`
+	Metadata          types.Map    `tfsdk:"metadata"`
+	ServerAddress     types.String `tfsdk:"server_address"`
+	Query             types.String `tfsdk:"query"`
 }
 
 type HPAFallbackModel struct {
@@ -387,6 +390,19 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 								},
 								"weight": schema.StringAttribute{
 									Description: "Weight for composite formula scaling (0-1 decimal string). Example: '0.5'",
+									Optional:    true,
+								},
+								"metadata": schema.MapAttribute{
+									Description: "Free-form key-value metadata for external scalers (e.g. serverAddress, query for Prometheus).",
+									Optional:    true,
+									ElementType: types.StringType,
+								},
+								"server_address": schema.StringAttribute{
+									Description: "Prometheus server URL. Packed into metadata by the service layer.",
+									Optional:    true,
+								},
+								"query": schema.StringAttribute{
+									Description: "PromQL query string. Packed into metadata by the service layer.",
 									Optional:    true,
 								},
 							},
@@ -1259,6 +1275,23 @@ func hpaMetricTriggersToProto(ms []HPAMetricTriggerModel) []*apiv1.HPAMetricTrig
 			v := m.Weight.ValueString()
 			t.Weight = &v
 		}
+		if !m.Metadata.IsNull() && !m.Metadata.IsUnknown() {
+			meta := make(map[string]string)
+			for k, v := range m.Metadata.Elements() {
+				if sv, ok := v.(types.String); ok {
+					meta[k] = sv.ValueString()
+				}
+			}
+			t.Metadata = meta
+		}
+		if !m.ServerAddress.IsNull() && !m.ServerAddress.IsUnknown() {
+			v := m.ServerAddress.ValueString()
+			t.ServerAddress = &v
+		}
+		if !m.Query.IsNull() && !m.Query.IsUnknown() {
+			v := m.Query.ValueString()
+			t.Query = &v
+		}
 		result[i] = t
 	}
 	return result
@@ -1275,6 +1308,9 @@ func hpaMetricTriggersFromProto(ps []*apiv1.HPAMetricTrigger) []HPAMetricTrigger
 			TargetUtilization: types.StringNull(),
 			TargetValue:       types.StringNull(),
 			Weight:            types.StringNull(),
+			Metadata:          types.MapNull(types.StringType),
+			ServerAddress:     types.StringNull(),
+			Query:             types.StringNull(),
 		}
 		if p.TargetUtilization != nil {
 			m.TargetUtilization = types.StringValue(*p.TargetUtilization)
@@ -1284,6 +1320,15 @@ func hpaMetricTriggersFromProto(ps []*apiv1.HPAMetricTrigger) []HPAMetricTrigger
 		}
 		if p.Weight != nil {
 			m.Weight = types.StringValue(*p.Weight)
+		}
+		if len(p.Metadata) > 0 {
+			m.Metadata = types.MapValueMust(types.StringType, fromStringMap(p.Metadata))
+		}
+		if p.ServerAddress != nil {
+			m.ServerAddress = types.StringValue(*p.ServerAddress)
+		}
+		if p.Query != nil {
+			m.Query = types.StringValue(*p.Query)
 		}
 		result = append(result, m)
 	}
