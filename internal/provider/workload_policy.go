@@ -232,9 +232,10 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 			},
 			"detection_triggers": schema.ListAttribute{
 				Description: "Events that trigger application of this policy",
-				MarkdownDescription: "Detection triggers for when to apply the workload policy. Only one of `pod_creation` or `pod_update` is allowed." +
+				MarkdownDescription: "Detection triggers for when to apply the workload policy. Valid values: `pod_creation`, `pod_update`, `pod_evict`." +
 					"The `pod_creation` trigger is used to apply the workload policy when a pod is created." +
-					"The `pod_update` trigger is used to apply the workload policy when a pod is updated.",
+					"The `pod_update` trigger is used to apply the workload policy when a pod is updated." +
+					"The `pod_evict` trigger is used to apply the workload policy when a pod is evicted.",
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
@@ -585,6 +586,8 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_CREATION, nil
 		case "pod_update":
 			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE, nil
+		case "pod_evict":
+			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_EVICT, nil
 		default:
 			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_UNSPECIFIED, fmt.Errorf("invalid detection trigger: %s", value)
 		}
@@ -660,6 +663,8 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 			trigger = types.StringValue("pod_creation")
 		case apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE:
 			trigger = types.StringValue("pod_update")
+		case apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_EVICT:
+			trigger = types.StringValue("pod_evict")
 		}
 		detectionTriggers = append(detectionTriggers, trigger)
 	}

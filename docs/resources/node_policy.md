@@ -307,6 +307,7 @@ resource "devzero_node_policy" "azure_example" {
 - `instance_hypervisors_tip` (String) Tooltip for instance hypervisors
 - `instance_sizes` (Attributes) Instance sizes selector (e.g., Standard_D4s for Azure, large for AWS) (see [below for nested schema](#nestedatt--instance_sizes))
 - `instance_sizes_tip` (String) Tooltip for instance sizes
+- `instance_types` (Attributes) Instance types selector — explicit full type names (e.g., m5.xlarge for AWS, Standard_D4s_v2 for Azure) (see [below for nested schema](#nestedatt--instance_types))
 - `labels` (Map of String) Map of Kubernetes labels to apply to nodes provisioned with this policy.
 - `limits` (Attributes) Maximum resource limits for nodes provisioned with this policy. (see [below for nested schema](#nestedatt--limits))
 - `limits_tip` (String) Tooltip for limits
@@ -340,7 +341,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -461,7 +462,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -507,7 +508,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -529,7 +530,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -551,7 +552,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -573,7 +574,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -595,7 +596,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -617,7 +618,29 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
+
+Optional:
+
+- `values` (List of String) List of values for In/NotIn operators
+
+
+
+<a id="nestedatt--instance_types"></a>
+### Nested Schema for `instance_types`
+
+Optional:
+
+- `match_expressions` (Attributes List) List of label selector requirements (see [below for nested schema](#nestedatt--instance_types--match_expressions))
+- `match_labels` (Map of String) Map of label key-value pairs to match
+
+<a id="nestedatt--instance_types--match_expressions"></a>
+### Nested Schema for `instance_types.match_expressions`
+
+Required:
+
+- `key` (String) Label key
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -648,7 +671,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 
@@ -689,7 +712,7 @@ Optional:
 Required:
 
 - `key` (String) Label key
-- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
 
 Optional:
 

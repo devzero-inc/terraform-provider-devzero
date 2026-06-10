@@ -355,6 +355,9 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 					TargetUtilization: types.StringNull(),
 					TargetValue:       types.StringValue("100"),
 					Weight:            types.StringValue("0.5"),
+					Metadata:          types.MapNull(types.StringType),
+					ServerAddress:     types.StringNull(),
+					Query:             types.StringNull(),
 				},
 			},
 			Fallback: &HPAFallbackModel{
@@ -1597,6 +1600,68 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			if m.AutoGenerate.ValueBool() {
 				t.Errorf("Expected AutoGenerate=false for source %q", src)
 			}
+		}
+	})
+	t.Run("HPAMetricTrigger_ServerAddress_Query_Metadata_ToProto", func(t *testing.T) {
+		addr := "http://prometheus:9090"
+		query := "rate(http_requests_total[5m])"
+		ms := []HPAMetricTriggerModel{
+			{
+				Type:          types.StringValue("prometheus"),
+				TargetValue:   types.StringValue("100"),
+				ServerAddress: types.StringValue(addr),
+				Query:         types.StringValue(query),
+				Metadata: types.MapValueMust(types.StringType, map[string]attr.Value{
+					"customKey": types.StringValue("customValue"),
+				}),
+				TargetUtilization: types.StringNull(),
+				Weight:            types.StringNull(),
+			},
+		}
+		protos := hpaMetricTriggersToProto(ms)
+		if len(protos) != 1 {
+			t.Fatalf("Expected 1 trigger, got %d", len(protos))
+		}
+		p := protos[0]
+		if p.ServerAddress == nil || *p.ServerAddress != addr {
+			t.Errorf("Expected ServerAddress=%q, got %v", addr, p.ServerAddress)
+		}
+		if p.Query == nil || *p.Query != query {
+			t.Errorf("Expected Query=%q, got %v", query, p.Query)
+		}
+		if p.Metadata["customKey"] != "customValue" {
+			t.Errorf("Expected Metadata[customKey]=customValue, got %v", p.Metadata)
+		}
+	})
+
+	t.Run("HPAMetricTrigger_ServerAddress_Query_Metadata_FromProto", func(t *testing.T) {
+		addr := "http://prometheus:9090"
+		query := "rate(http_requests_total[5m])"
+		protos := []*apiv1.HPAMetricTrigger{
+			{
+				Type:          "prometheus",
+				ServerAddress: &addr,
+				Query:         &query,
+				Metadata:      map[string]string{"customKey": "customValue"},
+			},
+		}
+		ms := hpaMetricTriggersFromProto(protos)
+		if len(ms) != 1 {
+			t.Fatalf("Expected 1 model, got %d", len(ms))
+		}
+		m := ms[0]
+		if m.ServerAddress.ValueString() != addr {
+			t.Errorf("Expected ServerAddress=%q, got %s", addr, m.ServerAddress.ValueString())
+		}
+		if m.Query.ValueString() != query {
+			t.Errorf("Expected Query=%q, got %s", query, m.Query.ValueString())
+		}
+		if m.Metadata.IsNull() {
+			t.Fatal("Expected non-null Metadata")
+		}
+		metaElems := m.Metadata.Elements()
+		if sv, ok := metaElems["customKey"].(types.String); !ok || sv.ValueString() != "customValue" {
+			t.Errorf("Expected Metadata[customKey]=customValue, got %v", metaElems)
 		}
 	})
 }

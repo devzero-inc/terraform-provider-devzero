@@ -50,6 +50,7 @@ type NodePolicyResourceModel struct {
 	InstanceHypervisors    *LabelSelector    `tfsdk:"instance_hypervisors"`
 	InstanceGenerations    *LabelSelector    `tfsdk:"instance_generations"`
 	InstanceSizes          *LabelSelector    `tfsdk:"instance_sizes"`
+	InstanceTypes          *LabelSelector    `tfsdk:"instance_types"`
 	InstanceCategoriesTip  types.String      `tfsdk:"instance_categories_tip"`
 	InstanceFamiliesTip    types.String      `tfsdk:"instance_families_tip"`
 	InstanceCpusTip        types.String      `tfsdk:"instance_cpus_tip"`
@@ -118,31 +119,65 @@ type MetadataOptions struct {
 	HttpTokens              types.String `tfsdk:"http_tokens"`
 }
 
+// KubeletConfiguration defines AWS kubelet configuration overrides.
+type KubeletConfiguration struct {
+	ClusterDns                  types.List  `tfsdk:"cluster_dns"`
+	MaxPods                     types.Int32 `tfsdk:"max_pods"`
+	PodsPerCore                 types.Int32 `tfsdk:"pods_per_core"`
+	SystemReserved              types.Map   `tfsdk:"system_reserved"`
+	KubeReserved                types.Map   `tfsdk:"kube_reserved"`
+	EvictionHard                types.Map   `tfsdk:"eviction_hard"`
+	EvictionSoft                types.Map   `tfsdk:"eviction_soft"`
+	EvictionSoftGracePeriod     types.Map   `tfsdk:"eviction_soft_grace_period"`
+	EvictionMaxPodGracePeriod   types.Int32 `tfsdk:"eviction_max_pod_grace_period"`
+	ImageGcHighThresholdPercent types.Int32 `tfsdk:"image_gc_high_threshold_percent"`
+	ImageGcLowThresholdPercent  types.Int32 `tfsdk:"image_gc_low_threshold_percent"`
+	CpuCfsQuota                 types.Bool  `tfsdk:"cpu_cfs_quota"`
+}
+
+// AzureKubeletConfiguration defines Azure kubelet configuration overrides.
+type AzureKubeletConfiguration struct {
+	CpuManagerPolicy            types.String `tfsdk:"cpu_manager_policy"`
+	CpuCfsQuota                 types.Bool   `tfsdk:"cpu_cfs_quota"`
+	CpuCfsQuotaPeriod           types.String `tfsdk:"cpu_cfs_quota_period"`
+	ImageGcHighThresholdPercent types.Int32  `tfsdk:"image_gc_high_threshold_percent"`
+	ImageGcLowThresholdPercent  types.Int32  `tfsdk:"image_gc_low_threshold_percent"`
+	TopologyManagerPolicy       types.String `tfsdk:"topology_manager_policy"`
+	AllowedUnsafeSysctls        types.List   `tfsdk:"allowed_unsafe_sysctls"`
+	ContainerLogMaxSize         types.String `tfsdk:"container_log_max_size"`
+	ContainerLogMaxFiles        types.Int32  `tfsdk:"container_log_max_files"`
+	PodPidsLimit                types.Int64  `tfsdk:"pod_pids_limit"`
+}
+
 // AWSNodeClass defines AWS-specific node configuration.
 type AWSNodeClass struct {
-	SubnetSelectorTerms        types.List       `tfsdk:"subnet_selector_terms"`
-	SecurityGroupSelectorTerms types.List       `tfsdk:"security_group_selector_terms"`
-	AmiSelectorTerms           types.List       `tfsdk:"ami_selector_terms"`
-	AmiFamily                  types.String     `tfsdk:"ami_family"`
-	UserData                   types.String     `tfsdk:"user_data"`
-	Role                       types.String     `tfsdk:"role"`
-	InstanceProfile            types.String     `tfsdk:"instance_profile"`
-	Tags                       types.Map        `tfsdk:"tags"`
-	BlockDeviceMappings        types.List       `tfsdk:"block_device_mappings"`
-	InstanceStorePolicy        types.String     `tfsdk:"instance_store_policy"`
-	DetailedMonitoring         types.Bool       `tfsdk:"detailed_monitoring"`
-	AssociatePublicIpAddress   types.Bool       `tfsdk:"associate_public_ip_address"`
-	MetadataOptions            *MetadataOptions `tfsdk:"metadata_options"`
+	SubnetSelectorTerms              types.List            `tfsdk:"subnet_selector_terms"`
+	SecurityGroupSelectorTerms       types.List            `tfsdk:"security_group_selector_terms"`
+	CapacityReservationSelectorTerms types.List            `tfsdk:"capacity_reservation_selector_terms"`
+	AmiSelectorTerms                 types.List            `tfsdk:"ami_selector_terms"`
+	AmiFamily                        types.String          `tfsdk:"ami_family"`
+	UserData                         types.String          `tfsdk:"user_data"`
+	Role                             types.String          `tfsdk:"role"`
+	InstanceProfile                  types.String          `tfsdk:"instance_profile"`
+	Tags                             types.Map             `tfsdk:"tags"`
+	Kubelet                          *KubeletConfiguration `tfsdk:"kubelet"`
+	BlockDeviceMappings              types.List            `tfsdk:"block_device_mappings"`
+	InstanceStorePolicy              types.String          `tfsdk:"instance_store_policy"`
+	DetailedMonitoring               types.Bool            `tfsdk:"detailed_monitoring"`
+	AssociatePublicIpAddress         types.Bool            `tfsdk:"associate_public_ip_address"`
+	MetadataOptions                  *MetadataOptions      `tfsdk:"metadata_options"`
+	Context                          types.String          `tfsdk:"context"`
 }
 
 // AzureNodeClass defines Azure-specific node configuration.
 type AzureNodeClass struct {
-	VnetSubnetId types.String `tfsdk:"vnet_subnet_id"`
-	OsDiskSizeGb types.Int32  `tfsdk:"os_disk_size_gb"`
-	ImageFamily  types.String `tfsdk:"image_family"`
-	FipsMode     types.String `tfsdk:"fips_mode"`
-	Tags         types.Map    `tfsdk:"tags"`
-	MaxPods      types.Int32  `tfsdk:"max_pods"`
+	VnetSubnetId types.String               `tfsdk:"vnet_subnet_id"`
+	OsDiskSizeGb types.Int32                `tfsdk:"os_disk_size_gb"`
+	ImageFamily  types.String               `tfsdk:"image_family"`
+	FipsMode     types.String               `tfsdk:"fips_mode"`
+	Tags         types.Map                  `tfsdk:"tags"`
+	Kubelet      *AzureKubeletConfiguration `tfsdk:"kubelet"`
+	MaxPods      types.Int32                `tfsdk:"max_pods"`
 }
 
 // RawKarpenterSpec defines raw Karpenter YAML specs.
@@ -194,6 +229,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"instance_hypervisors": labelSelectorAttribute("Instance hypervisors selector"),
 			"instance_generations": labelSelectorAttribute("Instance generations selector (e.g., 4 for Azure, 5 for AWS)"),
 			"instance_sizes":       labelSelectorAttribute("Instance sizes selector (e.g., Standard_D4s for Azure, large for AWS)"),
+			"instance_types":       labelSelectorAttribute("Instance types selector — explicit full type names (e.g., m5.xlarge for AWS, Standard_D4s_v2 for Azure)"),
 			// Tooltip fields for instance selectors
 			"instance_categories_tip":  tooltipAttribute("Tooltip for instance categories"),
 			"instance_families_tip":    tooltipAttribute("Tooltip for instance families"),
@@ -629,8 +665,8 @@ func labelSelectorAttribute(description string) schema.SingleNestedAttribute {
 							Required:    true,
 						},
 						"operator": schema.StringAttribute{
-							Description:         "Operator (In, NotIn, Exists, DoesNotExist)",
-							MarkdownDescription: "Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`.",
+							Description:         "Operator (In, NotIn, Exists, DoesNotExist, Gt, Lt)",
+							MarkdownDescription: "Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.",
 							Required:            true,
 						},
 						"values": schema.ListAttribute{
@@ -867,6 +903,14 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 		}
 		policy.InstanceSizes = selector
 	}
+	if m.InstanceTypes != nil {
+		selector, err := m.InstanceTypes.toProto(ctx)
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert instance types: %s", err))
+			return nil
+		}
+		policy.InstanceTypes = selector
+	}
 
 	// Tooltip fields (pointers for optional)
 	if !m.InstanceCategoriesTip.IsNull() {
@@ -1058,6 +1102,9 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	if policy.InstanceSizes != nil {
 		m.InstanceSizes = labelSelectorFromProto(policy.InstanceSizes)
 	}
+	if policy.InstanceTypes != nil {
+		m.InstanceTypes = labelSelectorFromProto(policy.InstanceTypes)
+	}
 
 	// Tooltip fields
 	m.InstanceCategoriesTip = stringPointerValue(policy.InstanceCategoriesTip)
@@ -1204,6 +1251,27 @@ func stringPointerValue(val *string) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(*val)
+}
+
+func int32PointerValue(val *int32) types.Int32 {
+	if val == nil {
+		return types.Int32Null()
+	}
+	return types.Int32Value(*val)
+}
+
+func boolPointerValue(val *bool) types.Bool {
+	if val == nil {
+		return types.BoolNull()
+	}
+	return types.BoolValue(*val)
+}
+
+func stringMapOrNull(m map[string]string) types.Map {
+	if len(m) == 0 {
+		return types.MapNull(types.StringType)
+	}
+	return types.MapValueMust(types.StringType, fromStringMap(m))
 }
 
 // Helper function to convert a string to types.String, returning null for empty strings.
@@ -1601,6 +1669,119 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 		spec.MetadataOptions = metadataOpts
 	}
 
+	// Capacity reservation selector terms
+	if !aws.CapacityReservationSelectorTerms.IsNull() && !aws.CapacityReservationSelectorTerms.IsUnknown() {
+		var terms []*apiv1.CapacityReservationSelectorTerm
+		for _, elem := range aws.CapacityReservationSelectorTerms.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			term := &apiv1.CapacityReservationSelectorTerm{}
+			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
+				term.Id = id.ValueString()
+			}
+			if ownerId, ok := attrs["owner_id"].(types.String); ok && !ownerId.IsNull() {
+				term.OwnerId = ownerId.ValueString()
+			}
+			if tags, ok := attrs["tags"].(types.Map); ok && !tags.IsNull() {
+				tagMap, err := getStringMap(ctx, tags.Elements())
+				if err != nil {
+					diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert capacity reservation tags: %s", err))
+					return nil
+				}
+				term.Tags = tagMap
+			}
+			terms = append(terms, term)
+		}
+		spec.CapacityReservationSelectorTerms = terms
+	}
+
+	// Kubelet configuration
+	if aws.Kubelet != nil {
+		kubelet := &apiv1.KubeletConfiguration{}
+		if !aws.Kubelet.ClusterDns.IsNull() {
+			dns, err := getStringList(ctx, aws.Kubelet.ClusterDns.Elements())
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert cluster_dns: %s", err))
+				return nil
+			}
+			kubelet.ClusterDns = dns
+		}
+		if !aws.Kubelet.MaxPods.IsNull() {
+			val := aws.Kubelet.MaxPods.ValueInt32()
+			kubelet.MaxPods = &val
+		}
+		if !aws.Kubelet.PodsPerCore.IsNull() {
+			val := aws.Kubelet.PodsPerCore.ValueInt32()
+			kubelet.PodsPerCore = &val
+		}
+		if !aws.Kubelet.SystemReserved.IsNull() {
+			m, err := getStringMap(ctx, aws.Kubelet.SystemReserved.Elements())
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert system_reserved: %s", err))
+				return nil
+			}
+			kubelet.SystemReserved = m
+		}
+		if !aws.Kubelet.KubeReserved.IsNull() {
+			m, err := getStringMap(ctx, aws.Kubelet.KubeReserved.Elements())
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert kube_reserved: %s", err))
+				return nil
+			}
+			kubelet.KubeReserved = m
+		}
+		if !aws.Kubelet.EvictionHard.IsNull() {
+			m, err := getStringMap(ctx, aws.Kubelet.EvictionHard.Elements())
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert eviction_hard: %s", err))
+				return nil
+			}
+			kubelet.EvictionHard = m
+		}
+		if !aws.Kubelet.EvictionSoft.IsNull() {
+			m, err := getStringMap(ctx, aws.Kubelet.EvictionSoft.Elements())
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert eviction_soft: %s", err))
+				return nil
+			}
+			kubelet.EvictionSoft = m
+		}
+		if !aws.Kubelet.EvictionSoftGracePeriod.IsNull() {
+			m, err := getStringMap(ctx, aws.Kubelet.EvictionSoftGracePeriod.Elements())
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert eviction_soft_grace_period: %s", err))
+				return nil
+			}
+			kubelet.EvictionSoftGracePeriod = m
+		}
+		if !aws.Kubelet.EvictionMaxPodGracePeriod.IsNull() {
+			val := aws.Kubelet.EvictionMaxPodGracePeriod.ValueInt32()
+			kubelet.EvictionMaxPodGracePeriod = &val
+		}
+		if !aws.Kubelet.ImageGcHighThresholdPercent.IsNull() {
+			val := aws.Kubelet.ImageGcHighThresholdPercent.ValueInt32()
+			kubelet.ImageGcHighThresholdPercent = &val
+		}
+		if !aws.Kubelet.ImageGcLowThresholdPercent.IsNull() {
+			val := aws.Kubelet.ImageGcLowThresholdPercent.ValueInt32()
+			kubelet.ImageGcLowThresholdPercent = &val
+		}
+		if !aws.Kubelet.CpuCfsQuota.IsNull() {
+			val := aws.Kubelet.CpuCfsQuota.ValueBool()
+			kubelet.CpuCfsQuota = &val
+		}
+		spec.Kubelet = kubelet
+	}
+
+	// Context
+	if !aws.Context.IsNull() {
+		val := aws.Context.ValueString()
+		spec.Context = &val
+	}
+
 	return spec
 }
 
@@ -1918,6 +2099,70 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		aws.MetadataOptions = metadataOpts
 	}
 
+	// Capacity reservation selector terms
+	if len(spec.CapacityReservationSelectorTerms) > 0 {
+		terms := make([]attr.Value, 0, len(spec.CapacityReservationSelectorTerms))
+		for _, term := range spec.CapacityReservationSelectorTerms {
+			termAttrs := map[string]attr.Value{
+				"id":       stringValue(term.Id),
+				"owner_id": stringValue(term.OwnerId),
+			}
+			if term.Tags != nil {
+				termAttrs["tags"] = types.MapValueMust(types.StringType, fromStringMap(term.Tags))
+			} else {
+				termAttrs["tags"] = types.MapNull(types.StringType)
+			}
+			terms = append(terms, types.ObjectValueMust(
+				map[string]attr.Type{
+					"id":       types.StringType,
+					"owner_id": types.StringType,
+					"tags":     types.MapType{ElemType: types.StringType},
+				},
+				termAttrs,
+			))
+		}
+		aws.CapacityReservationSelectorTerms = types.ListValueMust(
+			types.ObjectType{AttrTypes: map[string]attr.Type{
+				"id":       types.StringType,
+				"owner_id": types.StringType,
+				"tags":     types.MapType{ElemType: types.StringType},
+			}},
+			terms,
+		)
+	} else {
+		aws.CapacityReservationSelectorTerms = types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{
+			"id":       types.StringType,
+			"owner_id": types.StringType,
+			"tags":     types.MapType{ElemType: types.StringType},
+		}})
+	}
+
+	// Kubelet configuration
+	if spec.Kubelet != nil {
+		k := spec.Kubelet
+		kubelet := &KubeletConfiguration{}
+		if len(k.ClusterDns) > 0 {
+			kubelet.ClusterDns = types.ListValueMust(types.StringType, fromStringList(k.ClusterDns))
+		} else {
+			kubelet.ClusterDns = types.ListNull(types.StringType)
+		}
+		kubelet.MaxPods = int32PointerValue(k.MaxPods)
+		kubelet.PodsPerCore = int32PointerValue(k.PodsPerCore)
+		kubelet.SystemReserved = stringMapOrNull(k.SystemReserved)
+		kubelet.KubeReserved = stringMapOrNull(k.KubeReserved)
+		kubelet.EvictionHard = stringMapOrNull(k.EvictionHard)
+		kubelet.EvictionSoft = stringMapOrNull(k.EvictionSoft)
+		kubelet.EvictionSoftGracePeriod = stringMapOrNull(k.EvictionSoftGracePeriod)
+		kubelet.EvictionMaxPodGracePeriod = int32PointerValue(k.EvictionMaxPodGracePeriod)
+		kubelet.ImageGcHighThresholdPercent = int32PointerValue(k.ImageGcHighThresholdPercent)
+		kubelet.ImageGcLowThresholdPercent = int32PointerValue(k.ImageGcLowThresholdPercent)
+		kubelet.CpuCfsQuota = boolPointerValue(k.CpuCfsQuota)
+		aws.Kubelet = kubelet
+	}
+
+	// Context
+	aws.Context = stringPointerValue(spec.Context)
+
 	return aws
 }
 
@@ -1956,6 +2201,56 @@ func (azure *AzureNodeClass) toProto(ctx context.Context, diags *diag.Diagnostic
 		spec.MaxPods = &val
 	}
 
+	if azure.Kubelet != nil {
+		k := &apiv1.AzureKubeletConfiguration{}
+		if !azure.Kubelet.CpuManagerPolicy.IsNull() {
+			val := azure.Kubelet.CpuManagerPolicy.ValueString()
+			k.CpuManagerPolicy = &val
+		}
+		if !azure.Kubelet.CpuCfsQuota.IsNull() {
+			val := azure.Kubelet.CpuCfsQuota.ValueBool()
+			k.CpuCfsQuota = &val
+		}
+		if !azure.Kubelet.CpuCfsQuotaPeriod.IsNull() {
+			val := azure.Kubelet.CpuCfsQuotaPeriod.ValueString()
+			k.CpuCfsQuotaPeriod = &val
+		}
+		if !azure.Kubelet.ImageGcHighThresholdPercent.IsNull() {
+			val := azure.Kubelet.ImageGcHighThresholdPercent.ValueInt32()
+			k.ImageGcHighThresholdPercent = &val
+		}
+		if !azure.Kubelet.ImageGcLowThresholdPercent.IsNull() {
+			val := azure.Kubelet.ImageGcLowThresholdPercent.ValueInt32()
+			k.ImageGcLowThresholdPercent = &val
+		}
+		if !azure.Kubelet.TopologyManagerPolicy.IsNull() {
+			val := azure.Kubelet.TopologyManagerPolicy.ValueString()
+			k.TopologyManagerPolicy = &val
+		}
+		if !azure.Kubelet.AllowedUnsafeSysctls.IsNull() {
+			elems := azure.Kubelet.AllowedUnsafeSysctls.Elements()
+			strs, err := getStringList(ctx, elems)
+			if err != nil {
+				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert allowed_unsafe_sysctls: %s", err))
+				return nil
+			}
+			k.AllowedUnsafeSysctls = strs
+		}
+		if !azure.Kubelet.ContainerLogMaxSize.IsNull() {
+			val := azure.Kubelet.ContainerLogMaxSize.ValueString()
+			k.ContainerLogMaxSize = &val
+		}
+		if !azure.Kubelet.ContainerLogMaxFiles.IsNull() {
+			val := azure.Kubelet.ContainerLogMaxFiles.ValueInt32()
+			k.ContainerLogMaxFiles = &val
+		}
+		if !azure.Kubelet.PodPidsLimit.IsNull() {
+			val := azure.Kubelet.PodPidsLimit.ValueInt64()
+			k.PodPidsLimit = &val
+		}
+		spec.Kubelet = k
+	}
+
 	return spec
 }
 
@@ -1966,17 +2261,20 @@ func isAWSSpecEmpty(spec *apiv1.AWSNodeClassSpec) bool {
 	}
 	return len(spec.SubnetSelectorTerms) == 0 &&
 		len(spec.SecurityGroupSelectorTerms) == 0 &&
+		len(spec.CapacityReservationSelectorTerms) == 0 &&
 		len(spec.AmiSelectorTerms) == 0 &&
 		spec.AmiFamily == nil &&
 		spec.UserData == nil &&
 		spec.Role == nil &&
 		spec.InstanceProfile == nil &&
 		spec.Tags == nil &&
+		spec.Kubelet == nil &&
 		len(spec.BlockDeviceMappings) == 0 &&
 		spec.InstanceStorePolicy == nil &&
 		spec.DetailedMonitoring == nil &&
 		spec.AssociatePublicIpAddress == nil &&
-		spec.MetadataOptions == nil
+		spec.MetadataOptions == nil &&
+		spec.Context == nil
 }
 
 // Helper to check if Azure spec is empty (all fields are nil).
@@ -1989,6 +2287,7 @@ func isAzureSpecEmpty(spec *apiv1.AzureNodeClassSpec) bool {
 		spec.ImageFamily == nil &&
 		spec.FipsMode == nil &&
 		spec.Tags == nil &&
+		spec.Kubelet == nil &&
 		spec.MaxPods == nil
 }
 
@@ -2016,6 +2315,29 @@ func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {
 		azure.MaxPods = types.Int32Value(*spec.MaxPods)
 	} else {
 		azure.MaxPods = types.Int32Null()
+	}
+
+	if spec.Kubelet != nil {
+		k := &AzureKubeletConfiguration{}
+		k.CpuManagerPolicy = stringPointerValue(spec.Kubelet.CpuManagerPolicy)
+		k.CpuCfsQuota = boolPointerValue(spec.Kubelet.CpuCfsQuota)
+		k.CpuCfsQuotaPeriod = stringPointerValue(spec.Kubelet.CpuCfsQuotaPeriod)
+		k.ImageGcHighThresholdPercent = int32PointerValue(spec.Kubelet.ImageGcHighThresholdPercent)
+		k.ImageGcLowThresholdPercent = int32PointerValue(spec.Kubelet.ImageGcLowThresholdPercent)
+		k.TopologyManagerPolicy = stringPointerValue(spec.Kubelet.TopologyManagerPolicy)
+		if len(spec.Kubelet.AllowedUnsafeSysctls) > 0 {
+			k.AllowedUnsafeSysctls = types.ListValueMust(types.StringType, fromStringList(spec.Kubelet.AllowedUnsafeSysctls))
+		} else {
+			k.AllowedUnsafeSysctls = types.ListNull(types.StringType)
+		}
+		k.ContainerLogMaxSize = stringPointerValue(spec.Kubelet.ContainerLogMaxSize)
+		k.ContainerLogMaxFiles = int32PointerValue(spec.Kubelet.ContainerLogMaxFiles)
+		if spec.Kubelet.PodPidsLimit != nil {
+			k.PodPidsLimit = types.Int64Value(*spec.Kubelet.PodPidsLimit)
+		} else {
+			k.PodPidsLimit = types.Int64Null()
+		}
+		azure.Kubelet = k
 	}
 
 	return azure

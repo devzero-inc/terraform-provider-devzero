@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	apiv1 "github.com/devzero-inc/terraform-provider-devzero/internal/gen/api/v1"
 )
 
 func TestNodePolicyResourceSchema(t *testing.T) {
@@ -794,6 +796,222 @@ func TestNodePolicyResourceModel(t *testing.T) {
 			t.Errorf("Expected snapshot_id 'snap-12345', got %v", bdm.Ebs.SnapshotId)
 		}
 	})
+
+	// Test AWS kubelet configuration
+	t.Run("AWSKubelet_ToProto", func(t *testing.T) {
+		awsConfig := &AWSNodeClass{
+			SubnetSelectorTerms:              types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			SecurityGroupSelectorTerms:       types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			CapacityReservationSelectorTerms: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			AmiSelectorTerms:                 types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			BlockDeviceMappings:              types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			Kubelet: &KubeletConfiguration{
+				MaxPods:                     types.Int32Value(110),
+				PodsPerCore:                 types.Int32Value(10),
+				CpuCfsQuota:                 types.BoolValue(true),
+				ClusterDns:                  types.ListValueMust(types.StringType, []attr.Value{types.StringValue("10.96.0.10")}),
+				SystemReserved:              types.MapNull(types.StringType),
+				KubeReserved:                types.MapNull(types.StringType),
+				EvictionHard:                types.MapNull(types.StringType),
+				EvictionSoft:                types.MapNull(types.StringType),
+				EvictionSoftGracePeriod:     types.MapNull(types.StringType),
+				EvictionMaxPodGracePeriod:   types.Int32Null(),
+				ImageGcHighThresholdPercent: types.Int32Value(85),
+				ImageGcLowThresholdPercent:  types.Int32Value(70),
+			},
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := awsConfig.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.Kubelet == nil {
+			t.Fatal("Expected non-nil Kubelet")
+		}
+		if proto.Kubelet.MaxPods == nil || *proto.Kubelet.MaxPods != 110 {
+			t.Errorf("Expected MaxPods=110, got %v", proto.Kubelet.MaxPods)
+		}
+		if proto.Kubelet.ImageGcHighThresholdPercent == nil || *proto.Kubelet.ImageGcHighThresholdPercent != 85 {
+			t.Errorf("Expected ImageGcHighThresholdPercent=85, got %v", proto.Kubelet.ImageGcHighThresholdPercent)
+		}
+		if len(proto.Kubelet.ClusterDns) != 1 || proto.Kubelet.ClusterDns[0] != "10.96.0.10" {
+			t.Errorf("Expected ClusterDns=[10.96.0.10], got %v", proto.Kubelet.ClusterDns)
+		}
+	})
+
+	// Test AWS kubelet from proto
+	t.Run("AWSKubelet_FromProto", func(t *testing.T) {
+		maxPods := int32(110)
+		high := int32(85)
+		low := int32(70)
+		proto := &apiv1.AWSNodeClassSpec{
+			Kubelet: &apiv1.KubeletConfiguration{
+				MaxPods:                     &maxPods,
+				ImageGcHighThresholdPercent: &high,
+				ImageGcLowThresholdPercent:  &low,
+				ClusterDns:                  []string{"10.96.0.10"},
+			},
+		}
+		aws := awsNodeClassFromProto(proto)
+		if aws.Kubelet == nil {
+			t.Fatal("Expected non-nil Kubelet")
+		}
+		if aws.Kubelet.MaxPods.ValueInt32() != 110 {
+			t.Errorf("Expected MaxPods=110, got %d", aws.Kubelet.MaxPods.ValueInt32())
+		}
+		if aws.Kubelet.ImageGcHighThresholdPercent.ValueInt32() != 85 {
+			t.Errorf("Expected ImageGcHighThresholdPercent=85, got %d", aws.Kubelet.ImageGcHighThresholdPercent.ValueInt32())
+		}
+		clusterDnsElems := aws.Kubelet.ClusterDns.Elements()
+		if len(clusterDnsElems) != 1 {
+			t.Fatalf("Expected 1 DNS entry, got %d", len(clusterDnsElems))
+		}
+	})
+
+	// Test AWS context
+	t.Run("AWSContext_ToProto", func(t *testing.T) {
+		awsConfig := &AWSNodeClass{
+			SubnetSelectorTerms:              types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			SecurityGroupSelectorTerms:       types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			CapacityReservationSelectorTerms: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			AmiSelectorTerms:                 types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			BlockDeviceMappings:              types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			Context:                          types.StringValue("arn:aws:ec2:us-east-1:123456789012:launch-template/lt-1234"),
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := awsConfig.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.Context == nil || *proto.Context != "arn:aws:ec2:us-east-1:123456789012:launch-template/lt-1234" {
+			t.Errorf("Expected Context ARN, got %v", proto.Context)
+		}
+	})
+
+	// Test Azure kubelet
+	t.Run("AzureKubelet_ToProto", func(t *testing.T) {
+		azureConfig := &AzureNodeClass{
+			Kubelet: &AzureKubeletConfiguration{
+				CpuManagerPolicy:            types.StringValue("static"),
+				CpuCfsQuota:                 types.BoolValue(true),
+				CpuCfsQuotaPeriod:           types.StringValue("100ms"),
+				ImageGcHighThresholdPercent: types.Int32Value(85),
+				ImageGcLowThresholdPercent:  types.Int32Value(70),
+				TopologyManagerPolicy:       types.StringValue("restricted"),
+				AllowedUnsafeSysctls:        types.ListValueMust(types.StringType, []attr.Value{types.StringValue("net.ipv4.tcp_syncookies")}),
+				ContainerLogMaxSize:         types.StringValue("50Mi"),
+				ContainerLogMaxFiles:        types.Int32Value(5),
+				PodPidsLimit:                types.Int64Value(4096),
+			},
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := azureConfig.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.Kubelet == nil {
+			t.Fatal("Expected non-nil Kubelet")
+		}
+		if proto.Kubelet.CpuManagerPolicy == nil || *proto.Kubelet.CpuManagerPolicy != "static" {
+			t.Errorf("Expected CpuManagerPolicy=static, got %v", proto.Kubelet.CpuManagerPolicy)
+		}
+		if proto.Kubelet.CpuCfsQuota == nil || !*proto.Kubelet.CpuCfsQuota {
+			t.Error("Expected CpuCfsQuota=true")
+		}
+		if proto.Kubelet.ContainerLogMaxSize == nil || *proto.Kubelet.ContainerLogMaxSize != "50Mi" {
+			t.Errorf("Expected ContainerLogMaxSize=50Mi, got %v", proto.Kubelet.ContainerLogMaxSize)
+		}
+		if proto.Kubelet.PodPidsLimit == nil || *proto.Kubelet.PodPidsLimit != 4096 {
+			t.Errorf("Expected PodPidsLimit=4096, got %v", proto.Kubelet.PodPidsLimit)
+		}
+		if len(proto.Kubelet.AllowedUnsafeSysctls) != 1 {
+			t.Errorf("Expected 1 sysctl, got %d", len(proto.Kubelet.AllowedUnsafeSysctls))
+		}
+	})
+
+	// Test Azure kubelet from proto
+	t.Run("AzureKubelet_FromProto", func(t *testing.T) {
+		policy := "static"
+		high := int32(85)
+		low := int32(70)
+		logSize := "50Mi"
+		logFiles := int32(5)
+		podPids := int64(4096)
+		proto := &apiv1.AzureNodeClassSpec{
+			Kubelet: &apiv1.AzureKubeletConfiguration{
+				CpuManagerPolicy:            &policy,
+				ImageGcHighThresholdPercent: &high,
+				ImageGcLowThresholdPercent:  &low,
+				ContainerLogMaxSize:         &logSize,
+				ContainerLogMaxFiles:        &logFiles,
+				PodPidsLimit:                &podPids,
+				AllowedUnsafeSysctls:        []string{"net.ipv4.tcp_syncookies"},
+			},
+		}
+		azure := azureNodeClassFromProto(proto)
+		if azure.Kubelet == nil {
+			t.Fatal("Expected non-nil Kubelet")
+		}
+		if azure.Kubelet.CpuManagerPolicy.ValueString() != "static" {
+			t.Errorf("Expected CpuManagerPolicy=static, got %s", azure.Kubelet.CpuManagerPolicy.ValueString())
+		}
+		if azure.Kubelet.ImageGcHighThresholdPercent.ValueInt32() != 85 {
+			t.Errorf("Expected ImageGcHighThresholdPercent=85, got %d", azure.Kubelet.ImageGcHighThresholdPercent.ValueInt32())
+		}
+		if azure.Kubelet.PodPidsLimit.ValueInt64() != 4096 {
+			t.Errorf("Expected PodPidsLimit=4096, got %d", azure.Kubelet.PodPidsLimit.ValueInt64())
+		}
+		sysctls := azure.Kubelet.AllowedUnsafeSysctls.Elements()
+		if len(sysctls) != 1 {
+			t.Fatalf("Expected 1 sysctl, got %d", len(sysctls))
+		}
+	})
+
+	// Test instance_types via LabelSelector conversion
+	t.Run("InstanceTypes_LabelSelector_ToProto", func(t *testing.T) {
+		ctx := context.Background()
+		sel := &LabelSelector{
+			MatchLabels: types.MapValueMust(types.StringType, map[string]attr.Value{
+				"karpenter.k8s.aws/instance-type": types.StringValue("m5.xlarge"),
+			}),
+			MatchExpressions: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{
+				"key":      types.StringType,
+				"operator": types.StringType,
+				"values":   types.ListType{ElemType: types.StringType},
+			}}),
+		}
+		proto, err := sel.toProto(ctx)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if proto == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if proto.MatchLabels["karpenter.k8s.aws/instance-type"] != "m5.xlarge" {
+			t.Errorf("Expected match_labels to contain instance type, got %v", proto.MatchLabels)
+		}
+	})
+
+	// Test instance_types via LabelSelector fromProto
+	t.Run("InstanceTypes_LabelSelector_FromProto", func(t *testing.T) {
+		proto := &apiv1.LabelSelector{
+			MatchLabels: map[string]string{"karpenter.k8s.aws/instance-type": "m5.xlarge"},
+		}
+		sel := labelSelectorFromProto(proto)
+		if sel == nil {
+			t.Fatal("Expected non-nil selector")
+		}
+		if sel.MatchLabels.IsNull() {
+			t.Fatal("Expected non-null MatchLabels")
+		}
+		elems := sel.MatchLabels.Elements()
+		if len(elems) != 1 {
+			t.Errorf("Expected 1 label, got %d", len(elems))
+		}
+	})
 }
 
 func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
@@ -820,6 +1038,7 @@ func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
 		"description", "weight",
 		"instance_categories", "instance_families", "instance_cpus",
 		"instance_hypervisors", "instance_generations", "instance_sizes",
+		"instance_types",
 		"zones", "architectures", "capacity_types", "operating_systems",
 		"labels", "taints", "disruption", "limits",
 		"node_pool_name", "node_class_name",
