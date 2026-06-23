@@ -154,6 +154,18 @@ func TestNodePolicyResourceModel(t *testing.T) {
 			FipsMode:     types.StringValue("Disabled"),
 			Tags:         types.MapValueMust(types.StringType, map[string]attr.Value{"Environment": types.StringValue("production")}),
 			MaxPods:      types.Int32Value(110),
+			Kubelet: &AzureKubeletConfiguration{
+				CpuManagerPolicy:            types.StringValue("static"),
+				CpuCfsQuota:                 types.BoolValue(true),
+				CpuCfsQuotaPeriod:           types.StringValue("100ms"),
+				ImageGcHighThresholdPercent: types.Int32Value(85),
+				ImageGcLowThresholdPercent:  types.Int32Value(70),
+				TopologyManagerPolicy:       types.StringValue("restricted"),
+				AllowedUnsafeSysctls:        types.ListValueMust(types.StringType, []attr.Value{types.StringValue("net.ipv4.tcp_syncookies")}),
+				ContainerLogMaxSize:         types.StringValue("50Mi"),
+				ContainerLogMaxFiles:        types.Int32Value(5),
+				PodPidsLimit:                types.Int64Value(4096),
+			},
 		}
 
 		if azureConfig.VnetSubnetId.ValueString() == "" {
@@ -167,6 +179,18 @@ func TestNodePolicyResourceModel(t *testing.T) {
 		}
 		if azureConfig.MaxPods.ValueInt32() != 110 {
 			t.Errorf("Expected max_pods to be 110, got %d", azureConfig.MaxPods.ValueInt32())
+		}
+		if azureConfig.Kubelet == nil {
+			t.Fatal("Expected Kubelet to be non-nil")
+		}
+		if azureConfig.Kubelet.CpuManagerPolicy.ValueString() != "static" {
+			t.Errorf("Expected CpuManagerPolicy to be 'static', got %s", azureConfig.Kubelet.CpuManagerPolicy.ValueString())
+		}
+		if !azureConfig.Kubelet.CpuCfsQuota.ValueBool() {
+			t.Error("Expected CpuCfsQuota to be true")
+		}
+		if azureConfig.Kubelet.PodPidsLimit.ValueInt64() != 4096 {
+			t.Errorf("Expected PodPidsLimit to be 4096, got %d", azureConfig.Kubelet.PodPidsLimit.ValueInt64())
 		}
 	})
 
@@ -1014,6 +1038,10 @@ func TestNodePolicyResourceModel(t *testing.T) {
 	})
 }
 
+// singleNestedSchema is a local alias to allow type-asserting schema.Attribute
+// to access nested Attributes without importing internal framework packages.
+type singleNestedSchema = schema.SingleNestedAttribute
+
 func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
 	// Validate required attributes
 	requiredAttrs := []string{"name"}
@@ -1069,5 +1097,50 @@ func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
 
 	if _, exists := schema.Attributes["azure"]; !exists {
 		t.Error("Azure configuration not found in schema")
+	}
+
+	// Validate azure nested attributes include kubelet (regression test for missing kubelet schema bug)
+	azureRaw, ok := schema.Attributes["azure"]
+	if !ok {
+		t.Fatal("azure attribute not found in schema")
+	}
+	azureSingle, ok := azureRaw.(singleNestedSchema)
+	if !ok {
+		t.Fatal("azure attribute is not a SingleNestedAttribute")
+	}
+	azureKubeletFields := []string{
+		"kubelet",
+		"vnet_subnet_id",
+		"os_disk_size_gb",
+		"image_family",
+		"fips_mode",
+		"tags",
+		"max_pods",
+	}
+	for _, field := range azureKubeletFields {
+		if _, exists := azureSingle.Attributes[field]; !exists {
+			t.Errorf("azure schema is missing '%s' attribute", field)
+		}
+	}
+
+	// Validate kubelet sub-attributes
+	kubeletRaw, ok := azureSingle.Attributes["kubelet"]
+	if !ok {
+		t.Fatal("azure schema is missing 'kubelet' attribute")
+	}
+	kubeletSingle, ok := kubeletRaw.(singleNestedSchema)
+	if !ok {
+		t.Fatal("azure.kubelet is not a SingleNestedAttribute")
+	}
+	kubeletFields := []string{
+		"cpu_manager_policy", "cpu_cfs_quota", "cpu_cfs_quota_period",
+		"image_gc_high_threshold_percent", "image_gc_low_threshold_percent",
+		"topology_manager_policy", "allowed_unsafe_sysctls",
+		"container_log_max_size", "container_log_max_files", "pod_pids_limit",
+	}
+	for _, field := range kubeletFields {
+		if _, exists := kubeletSingle.Attributes[field]; !exists {
+			t.Errorf("azure.kubelet schema is missing '%s' attribute", field)
+		}
 	}
 }
