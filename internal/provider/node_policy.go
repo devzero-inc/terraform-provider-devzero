@@ -616,6 +616,53 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						Description: "Maximum number of pods per node",
 						Optional:    true,
 					},
+					"kubelet": schema.SingleNestedAttribute{
+						Description: "Azure kubelet configuration overrides",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"cpu_manager_policy": schema.StringAttribute{
+								Description: "CPU manager policy (None, static)",
+								Optional:    true,
+							},
+							"cpu_cfs_quota": schema.BoolAttribute{
+								Description: "Enable CPU CFS quota enforcement",
+								Optional:    true,
+							},
+							"cpu_cfs_quota_period": schema.StringAttribute{
+								Description: "CPU CFS quota period",
+								Optional:    true,
+							},
+							"image_gc_high_threshold_percent": schema.Int32Attribute{
+								Description: "Image GC high threshold percent",
+								Optional:    true,
+							},
+							"image_gc_low_threshold_percent": schema.Int32Attribute{
+								Description: "Image GC low threshold percent",
+								Optional:    true,
+							},
+							"topology_manager_policy": schema.StringAttribute{
+								Description: "Topology manager policy",
+								Optional:    true,
+							},
+							"allowed_unsafe_sysctls": schema.ListAttribute{
+								Description: "List of allowed unsafe sysctls",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"container_log_max_size": schema.StringAttribute{
+								Description: "Maximum container log file size",
+								Optional:    true,
+							},
+							"container_log_max_files": schema.Int32Attribute{
+								Description: "Maximum number of container log files",
+								Optional:    true,
+							},
+							"pod_pids_limit": schema.Int64Attribute{
+								Description: "Maximum number of PIDs per pod",
+								Optional:    true,
+							},
+						},
+					},
 				},
 			},
 			// Raw Karpenter specs

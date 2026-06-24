@@ -442,10 +442,28 @@ Optional:
 
 - `fips_mode` (String) FIPS 140-2 mode. Valid values: `FIPS`, `Disabled`.
 - `image_family` (String) Azure image family. Valid values: `Ubuntu`, `Ubuntu2204`, `Ubuntu2404`, `AzureLinux`.
+- `kubelet` (Attributes) Azure kubelet configuration overrides (see [below for nested schema](#nestedatt--azure--kubelet))
 - `max_pods` (Number) Maximum number of pods per node
 - `os_disk_size_gb` (Number) OS disk size in GB
 - `tags` (Map of String) Azure tags to apply to resources
 - `vnet_subnet_id` (String) VNet subnet ID
+
+<a id="nestedatt--azure--kubelet"></a>
+### Nested Schema for `azure.kubelet`
+
+Optional:
+
+- `allowed_unsafe_sysctls` (List of String) List of allowed unsafe sysctls
+- `container_log_max_files` (Number) Maximum number of container log files
+- `container_log_max_size` (String) Maximum container log file size
+- `cpu_cfs_quota` (Boolean) Enable CPU CFS quota enforcement
+- `cpu_cfs_quota_period` (String) CPU CFS quota period
+- `cpu_manager_policy` (String) CPU manager policy (None, static)
+- `image_gc_high_threshold_percent` (Number) Image GC high threshold percent
+- `image_gc_low_threshold_percent` (Number) Image GC low threshold percent
+- `pod_pids_limit` (Number) Maximum number of PIDs per pod
+- `topology_manager_policy` (String) Topology manager policy
+
 
 
 <a id="nestedatt--capacity_types"></a>
