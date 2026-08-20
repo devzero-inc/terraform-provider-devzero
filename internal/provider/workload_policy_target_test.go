@@ -181,7 +181,8 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 						map[string]attr.Value{
 							"key":      types.StringValue("version"),
 							"operator": types.StringValue("Exists"),
-							"values":   types.ListValueMust(types.StringType, []attr.Value{}),
+							// Exists takes no values; the provider round-trips absent values as null.
+							"values": types.ListNull(types.StringType),
 						},
 					),
 				},
@@ -342,8 +343,7 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 			Flags:   "i",
 		}
 
-		pattern := &RegexPattern{}
-		pattern.fromProto(protoPattern)
+		pattern := regexPatternModelFromProto(protoPattern)
 		if pattern.Pattern.ValueString() != "^prod-" {
 			t.Errorf("Expected pattern '^prod-', got %s", pattern.Pattern.ValueString())
 		}
@@ -362,7 +362,7 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 
 		// Convert from proto
 		selector := &LabelSelector{}
-		selector.fromProto(proto)
+		selector = labelSelectorModelFromProto(proto)
 
 		// Verify that empty collections are converted to null
 		if !selector.MatchLabels.IsNull() {
@@ -422,7 +422,8 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 						map[string]attr.Value{
 							"key":      types.StringValue("version"),
 							"operator": types.StringValue("Exists"),
-							"values":   types.ListValueMust(types.StringType, []attr.Value{}),
+							// Exists takes no values; the provider round-trips absent values as null.
+							"values": types.ListNull(types.StringType),
 						},
 					),
 				},
@@ -438,7 +439,7 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 
 		// Convert back from proto
 		converted := &LabelSelector{}
-		converted.fromProto(proto)
+		converted = labelSelectorModelFromProto(proto)
 
 		// Verify match labels
 		if !original.MatchLabels.Equal(converted.MatchLabels) {

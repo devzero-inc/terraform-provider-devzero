@@ -51,14 +51,16 @@ resource "devzero_workload_rule" "manual" {
   }
 
   hpa_rule = {
-    enabled            = true
-    min_replicas       = 1
-    max_replicas       = 10
-    target_utilization = 0.70
-    primary_metric     = "cpu"
+    enabled      = true
+    min_replicas = 1
+    max_replicas = 10
 
-    # External/Prometheus metric trigger
+    # Metric triggers: built-in CPU/Memory or external (e.g. Prometheus)
     metrics = [
+      {
+        type               = "CPU"
+        target_utilization = "0.70"
+      },
       {
         type           = "prometheus"
         target_value   = "100"
@@ -260,11 +262,8 @@ Optional:
 - `fallback` (Attributes) Replica fallback configuration when metrics are unavailable (see [below for nested schema](#nestedatt--hpa_rule--fallback))
 - `max_replica_change_percent` (Number) Maximum percentage change in replica count per cycle
 - `max_replicas` (Number) Maximum number of replicas
-- `metrics` (Attributes List) Additional metric triggers (e.g. Prometheus). CPU/Memory/Network triggers are auto-generated from primary_metric. (see [below for nested schema](#nestedatt--hpa_rule--metrics))
+- `metrics` (Attributes List) HPA metric triggers (CPU, Memory, Network*, or external such as prometheus/kafka). Replaces the removed target_utilization/primary_metric fields. (see [below for nested schema](#nestedatt--hpa_rule--metrics))
 - `min_replicas` (Number) Minimum number of replicas
-- `primary_metric` (String) Primary metric for HPA. One of: 'cpu', 'memory', 'gpu', 'network_ingress', 'network_egress'
-- `target_memory_utilization` (Number) Target memory utilization ratio (0-1), tuned independently of CPU
-- `target_utilization` (Number) Target CPU utilization ratio (0-1)
 
 <a id="nestedatt--hpa_rule--behavior"></a>
 ### Nested Schema for `hpa_rule.behavior`

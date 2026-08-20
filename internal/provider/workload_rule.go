@@ -616,11 +616,15 @@ func (r *WorkloadRuleResource) Read(ctx context.Context, req resource.ReadReques
 		RuleId: data.Id.ValueString(),
 	}))
 	if err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get workload rule, got error: %s", err))
 		return
 	}
 	if getRuleResp.Msg.Rule == nil {
-		resp.Diagnostics.AddError("Client Error", "Workload rule not found")
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -673,7 +677,7 @@ func (r *WorkloadRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 		TeamId: r.client.TeamId,
 		RuleId: data.Id.ValueString(),
 	}))
-	if err != nil {
+	if err != nil && connect.CodeOf(err) != connect.CodeNotFound {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete workload rule, got error: %s", err))
 		return
 	}
@@ -1087,12 +1091,12 @@ func emergencyResponseFromProto(p *apiv1.EmergencyResponseConfig) *EmergencyResp
 	}
 	return &EmergencyResponseModel{
 		OomEnabled:              types.BoolValue(p.OomEnabled),
-		OomMemoryMultiplier:     types.Float32Value(p.OomMemoryMultiplier),
+		OomMemoryMultiplier:     float32OrNull(p.OomMemoryMultiplier),
 		OomMaxReactions:         types.Int32Value(p.OomMaxReactions),
 		OomCooldownSeconds:      types.Int32Value(p.OomCooldownSeconds),
 		CpuThrottlingEnabled:    types.BoolValue(p.CpuThrottlingEnabled),
-		CpuThrottlingThreshold:  types.Float32Value(p.CpuThrottlingThreshold),
-		CpuThrottlingMultiplier: types.Float32Value(p.CpuThrottlingMultiplier),
+		CpuThrottlingThreshold:  float32OrNull(p.CpuThrottlingThreshold),
+		CpuThrottlingMultiplier: float32OrNull(p.CpuThrottlingMultiplier),
 	}
 }
 
@@ -1250,13 +1254,23 @@ func hpaMetricTriggersFromProto(ps []*apiv1.HPAMetricTrigger) []HPAMetricTrigger
 		if p.Weight != nil {
 			m.Weight = types.StringValue(*p.Weight)
 		}
-		if len(p.Metadata) > 0 {
-			m.Metadata = types.MapValueMust(types.StringType, fromStringMap(p.Metadata))
+		// The backend folds server_address/query into metadata["serverAddress"/"query"]
+		// on write and re-derives the dedicated fields on read. Strip the folded keys
+		// so metadata reflects only what the user configured.
+		metadata := make(map[string]string, len(p.Metadata))
+		for k, v := range p.Metadata {
+			if k == "serverAddress" || k == "query" {
+				continue
+			}
+			metadata[k] = v
 		}
-		if p.ServerAddress != nil {
+		if len(metadata) > 0 {
+			m.Metadata = types.MapValueMust(types.StringType, fromStringMap(metadata))
+		}
+		if p.ServerAddress != nil && *p.ServerAddress != "" {
 			m.ServerAddress = types.StringValue(*p.ServerAddress)
 		}
-		if p.Query != nil {
+		if p.Query != nil && *p.Query != "" {
 			m.Query = types.StringValue(*p.Query)
 		}
 		result = append(result, m)
@@ -1286,8 +1300,8 @@ func hpaFallbackFromProto(p *apiv1.HPAFallback) *HPAFallbackModel {
 	}
 	return &HPAFallbackModel{
 		Replicas:         types.Int32Value(p.Replicas),
-		Behavior:         types.StringValue(p.Behavior),
-		FailureThreshold: types.Int32Value(p.FailureThreshold),
+		Behavior:         stringOrNull(p.Behavior),
+		FailureThreshold: int32OrNull(p.FailureThreshold),
 	}
 }
 
@@ -1334,8 +1348,8 @@ func hpaScalingRulesFromProto(p *apiv1.HPAScalingRules) *HPAScalingRulesModel {
 		return nil
 	}
 	m := &HPAScalingRulesModel{
-		StabilizationWindowSeconds: types.Int32Value(p.StabilizationWindowSeconds),
-		SelectPolicy:               types.StringValue(p.SelectPolicy),
+		StabilizationWindowSeconds: int32OrNull(p.StabilizationWindowSeconds),
+		SelectPolicy:               stringOrNull(p.SelectPolicy),
 	}
 	for _, pol := range p.Policies {
 		if pol == nil {
@@ -1348,4 +1362,28 @@ func hpaScalingRulesFromProto(p *apiv1.HPAScalingRules) *HPAScalingRulesModel {
 		})
 	}
 	return m
+}
+
+// float32OrNull returns null for the proto zero value so omitted optional
+// attributes round-trip as null instead of producing an
+// "inconsistent result after apply" error.
+func float32OrNull(v float32) types.Float32 {
+	if v == 0 {
+		return types.Float32Null()
+	}
+	return types.Float32Value(v)
+}
+
+func int32OrNull(v int32) types.Int32 {
+	if v == 0 {
+		return types.Int32Null()
+	}
+	return types.Int32Value(v)
+}
+
+func stringOrNull(v string) types.String {
+	if v == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(v)
 }

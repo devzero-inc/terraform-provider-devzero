@@ -352,12 +352,16 @@ func (r *WorkloadPolicyTargetResource) Read(ctx context.Context, req resource.Re
 
 	getWorkloadPolicyTargetResp, err := r.client.RecommendationClient.GetWorkloadPolicyTarget(ctx, connect.NewRequest(getWorkloadPolicyTargetReq))
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get cluster, got error: %s", err))
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get workload policy target, got error: %s", err))
 		return
 	}
 
 	if getWorkloadPolicyTargetResp.Msg.Target == nil {
-		resp.Diagnostics.AddError("Client Error", "Workload policy target not found")
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -463,8 +467,8 @@ func (r *WorkloadPolicyTargetResource) Delete(ctx context.Context, req resource.
 	}
 
 	_, err := r.client.RecommendationClient.DeleteWorkloadPolicyTarget(ctx, connect.NewRequest(deleteWorkloadPolicyTargetReq))
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete cluster, got error: %s", err))
+	if err != nil && connect.CodeOf(err) != connect.CodeNotFound {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete workload policy target, got error: %s", err))
 		return
 	}
 }
@@ -636,24 +640,21 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 	m.Description = types.StringValue(target.Description)
 	m.Priority = types.Int32Value(target.Priority)
 	m.Enabled = types.BoolValue(target.Enabled)
-	m.NamespaceSelector.fromProto(target.NamespaceSelector)
-	m.WorkloadSelector.fromProto(target.WorkloadSelector)
+	m.NamespaceSelector = labelSelectorModelFromProto(target.NamespaceSelector)
+	m.WorkloadSelector = labelSelectorModelFromProto(target.WorkloadSelector)
 	m.KindFilter = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilter))
-	m.NamePattern.fromProto(target.NamePattern)
-	m.NamespacePattern.fromProto(target.NamespacePattern)
+	m.NamePattern = regexPatternModelFromProto(target.NamePattern)
+	m.NamespacePattern = regexPatternModelFromProto(target.NamespacePattern)
 	m.WorkloadNames = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNames))
 	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames))
 	m.ClusterIds = types.ListValueMust(types.StringType, fromStringList(target.ClusterIds))
 }
 
-func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
+func labelSelectorModelFromProto(selector *apiv1.LabelSelector) *LabelSelector {
 	if selector == nil {
-		m = nil
-		return
+		return nil
 	}
-	if m == nil {
-		m = &LabelSelector{}
-	}
+	m := &LabelSelector{}
 
 	// Handle match_labels: if empty, set to null instead of empty map
 	if len(selector.MatchLabels) == 0 {
@@ -683,7 +684,10 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 		}
 
 		// Convert values to Terraform list
-		values := types.ListValueMust(types.StringType, fromStringList(expr.Values))
+		values := types.ListNull(types.StringType)
+		if len(expr.Values) > 0 {
+			values = types.ListValueMust(types.StringType, fromStringList(expr.Values))
+		}
 
 		// Build the match expression object
 		matchExpr := types.ObjectValueMust(
@@ -703,16 +707,19 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 	} else {
 		m.MatchExpressions = types.ListValueMust(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()}, matchExpressions)
 	}
+	return m
 }
 
-func (m *RegexPattern) fromProto(pattern *apiv1.RegexPattern) {
+func regexPatternModelFromProto(pattern *apiv1.RegexPattern) *RegexPattern {
 	if pattern == nil {
-		m = nil
-		return
+		return nil
 	}
-	if m == nil {
-		m = &RegexPattern{}
-	}
+	m := &RegexPattern{}
 	m.Pattern = types.StringValue(pattern.Pattern)
-	m.Flags = types.StringValue(pattern.Flags)
+	if pattern.Flags == "" {
+		m.Flags = types.StringNull()
+	} else {
+		m.Flags = types.StringValue(pattern.Flags)
+	}
+	return m
 }

@@ -314,7 +314,7 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 						Computed:    true,
 						Default:     stringdefault.StaticString("cpu"),
 						Validators: []validator.String{
-							stringvalidator.OneOf("cpu", "memory", "gpu", "network"),
+							stringvalidator.OneOf("cpu", "memory", "gpu", "network", "network_ingress", "network_egress"),
 						},
 					},
 					"min_data_points": schema.Int32Attribute{
@@ -347,7 +347,6 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 					),
 				),
 				Validators: []validator.List{
-					listvalidator.SizeAtLeast(1),
 					listvalidator.NoNullValues(),
 					listvalidator.UniqueValues(),
 				},
@@ -449,6 +448,9 @@ func (r *WorkloadPolicyResource) Create(ctx context.Context, req resource.Create
 	}
 
 	policy := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	createWorkloadPolicyReq := &apiv1.CreateWorkloadRecommendationPolicyRequest{
 		TeamId: r.client.TeamId,
@@ -491,12 +493,16 @@ func (r *WorkloadPolicyResource) Read(ctx context.Context, req resource.ReadRequ
 
 	getWorkloadPolicyResp, err := r.client.RecommendationClient.GetWorkloadRecommendationPolicy(ctx, connect.NewRequest(getWorkloadPolicyReq))
 	if err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get workload policy, got error: %s", err))
 		return
 	}
 
 	if getWorkloadPolicyResp.Msg.Policy == nil {
-		resp.Diagnostics.AddError("Client Error", "Workload policy not found")
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -516,9 +522,14 @@ func (r *WorkloadPolicyResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	policy := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	updateWorkloadPolicyReq := &apiv1.UpdateWorkloadRecommendationPolicyRequest{
 		TeamId: r.client.TeamId,
-		Policy: data.toProto(ctx, &resp.Diagnostics, r.client.TeamId),
+		Policy: policy,
 	}
 
 	updateWorkloadPolicyResp, err := r.client.RecommendationClient.UpdateWorkloadRecommendationPolicy(ctx, connect.NewRequest(updateWorkloadPolicyReq))
@@ -554,7 +565,7 @@ func (r *WorkloadPolicyResource) Delete(ctx context.Context, req resource.Delete
 	}
 
 	_, err := r.client.RecommendationClient.DeleteWorkloadRecommendationPolicy(ctx, connect.NewRequest(deleteWorkloadPolicyReq))
-	if err != nil {
+	if err != nil && connect.CodeOf(err) != connect.CodeNotFound {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete workload policy, got error: %s", err))
 		return
 	}
@@ -677,11 +688,11 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 		m.StartupPeriodSeconds = types.Int64Value(*policy.StartupPeriodSeconds)
 	}
 
-	m.CPUVerticalScaling.fromProto(policy.CpuVerticalScaling)
-	m.MemoryVerticalScaling.fromProto(policy.MemoryVerticalScaling)
-	m.GPUVerticalScaling.fromProto(policy.GpuVerticalScaling)
-	m.GPUVRAMVerticalScaling.fromProto(policy.GpuVramVerticalScaling)
-	m.HorizontalScaling.fromProto(policy.HorizontalScaling)
+	m.CPUVerticalScaling = verticalScalingOptionsFromProto(policy.CpuVerticalScaling)
+	m.MemoryVerticalScaling = verticalScalingOptionsFromProto(policy.MemoryVerticalScaling)
+	m.GPUVerticalScaling = verticalScalingOptionsFromProto(policy.GpuVerticalScaling)
+	m.GPUVRAMVerticalScaling = verticalScalingOptionsFromProto(policy.GpuVramVerticalScaling)
+	m.HorizontalScaling = horizontalScalingOptionsFromProto(policy.HorizontalScaling)
 	m.LiveMigrationEnabled = types.BoolValue(policy.LiveMigrationEnabled)
 
 	var schedulerPlugins []attr.Value
@@ -741,14 +752,11 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 	}
 }
 
-func (o *VerticalScalingOptions) fromProto(target *apiv1.VerticalScalingOptimizationTarget) {
+func verticalScalingOptionsFromProto(target *apiv1.VerticalScalingOptimizationTarget) *VerticalScalingOptions {
 	if target == nil {
-		o = nil
-		return
+		return nil
 	}
-	if o == nil {
-		o = &VerticalScalingOptions{}
-	}
+	o := &VerticalScalingOptions{}
 	o.Enabled = types.BoolValue(target.Enabled)
 
 	if target.MinRequest != nil {
@@ -780,6 +788,7 @@ func (o *VerticalScalingOptions) fromProto(target *apiv1.VerticalScalingOptimiza
 	}
 	o.AdjustReqEvenIfNotSet = types.BoolValue(target.AdjustReqEvenIfNotSet)
 	o.LimitsRemovalEnabled = types.BoolValue(target.LimitsRemovalEnabled)
+	return o
 }
 
 func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizationTarget {
@@ -797,14 +806,11 @@ func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizatio
 	}
 }
 
-func (o *HorizontalScalingOptions) fromProto(target *apiv1.HorizontalScalingOptimizationTarget) {
+func horizontalScalingOptionsFromProto(target *apiv1.HorizontalScalingOptimizationTarget) *HorizontalScalingOptions {
 	if target == nil {
-		o = nil
-		return
+		return nil
 	}
-	if o == nil {
-		o = &HorizontalScalingOptions{}
-	}
+	o := &HorizontalScalingOptions{}
 	o.Enabled = types.BoolValue(target.Enabled)
 	if target.MinReplicas != nil {
 		o.MinReplicas = types.Int32Value(*target.MinReplicas)
@@ -815,13 +821,16 @@ func (o *HorizontalScalingOptions) fromProto(target *apiv1.HorizontalScalingOpti
 	if target.TargetUtilization != nil {
 		o.TargetUtilization = types.Float32Value(*target.TargetUtilization)
 	}
-	o.PrimaryMetric = types.StringValue(o.fromHPAMetric(target.GetPrimaryMetric()))
+	if target.PrimaryMetric != nil {
+		o.PrimaryMetric = types.StringValue(o.fromHPAMetric(*target.PrimaryMetric))
+	}
 	if target.MinDataPoints != nil {
 		o.MinDataPoints = types.Int32Value(*target.MinDataPoints)
 	}
 	if target.MaxReplicaChangePercent != nil {
 		o.MaxReplicaChangePercent = types.Float32Value(*target.MaxReplicaChangePercent)
 	}
+	return o
 }
 
 func (o *HorizontalScalingOptions) toHPAMetric() *apiv1.HPAMetricType {

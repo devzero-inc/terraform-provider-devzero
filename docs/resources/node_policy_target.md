@@ -84,7 +84,7 @@ resource "devzero_node_policy_target" "disabled" {
 
 ### Required
 
-- `cluster_ids` (List of String) List of cluster IDs to apply the node policy to. Must reference existing cluster IDs.
+- `cluster_ids` (List of String) Cluster ID to apply the node policy to. The API accepts at most one cluster per target; create one target per cluster.
 - `name` (String) Human-friendly name for the target. Used for display in the DevZero UI.
 - `policy_id` (String) Node policy to attach this target to. Must reference an existing `devzero_node_policy` resource ID.
 

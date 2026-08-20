@@ -906,9 +906,14 @@ func (r *NodePolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// Find the policy with matching ID
+	// Find the policy with matching ID. ListNodePolicies also returns read-only
+	// virtual policies mirrored from non-dakr Karpenter resources (source ==
+	// "cluster"); those are never managed by Terraform, so skip them.
 	var foundPolicy *apiv1.NodePolicy
 	for _, policy := range listNodePoliciesResp.Msg.Policies {
+		if policy.Source != "" && policy.Source != "dakr" {
+			continue
+		}
 		if policy.Id == data.Id.ValueString() {
 			foundPolicy = policy
 			break
@@ -916,7 +921,8 @@ func (r *NodePolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	if foundPolicy == nil {
-		resp.Diagnostics.AddError("Client Error", "Node policy not found")
+		// Deleted out of band — drop it from state so the plan recreates it.
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -972,10 +978,20 @@ func (r *NodePolicyResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	// No-op delete: just remove from state
-	// The API doesn't provide a delete endpoint, so we just remove it from Terraform state
-	// The policy will remain in the backend
-	tflog.Warn(ctx, "Node policy delete is a no-op operation. The policy will remain in the backend.")
+	_, err := r.client.RecommendationClient.DeleteNodePolicy(ctx, connect.NewRequest(&apiv1.DeleteNodePolicyRequest{
+		TeamId:   r.client.TeamId,
+		PolicyId: data.Id.ValueString(),
+	}))
+	if err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			// Already gone — treat delete as successful.
+			return
+		}
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete node policy, got error: %s", err))
+		return
+	}
+
+	tflog.Trace(ctx, "deleted node policy (targets are cascade-deleted server-side)")
 }
 
 func (r *NodePolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -85,10 +87,13 @@ func (r *NodePolicyTargetResource) Schema(ctx context.Context, req resource.Sche
 				Default:             booldefault.StaticBool(true),
 			},
 			"cluster_ids": schema.ListAttribute{
-				Description:         "List of cluster IDs to apply the node policy to",
-				MarkdownDescription: "List of cluster IDs to apply the node policy to. Must reference existing cluster IDs.",
+				Description:         "Cluster ID to apply the node policy to (at most one)",
+				MarkdownDescription: "Cluster ID to apply the node policy to. The API accepts at most one cluster per target; create one target per cluster.",
 				Required:            true,
 				ElementType:         types.StringType,
+				Validators: []validator.List{
+					listvalidator.SizeBetween(1, 1),
+				},
 			},
 		},
 	}
@@ -182,7 +187,8 @@ func (r *NodePolicyTargetResource) Read(ctx context.Context, req resource.ReadRe
 	}
 
 	if foundTarget == nil {
-		resp.Diagnostics.AddError("Client Error", "Node policy target not found")
+		// Deleted out of band — drop it from state so the plan recreates it.
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -237,10 +243,26 @@ func (r *NodePolicyTargetResource) Delete(ctx context.Context, req resource.Dele
 		return
 	}
 
-	// No-op delete: just remove from state
-	// The API doesn't provide a delete endpoint, so we just remove it from Terraform state
-	// The target will remain in the backend
-	tflog.Warn(ctx, "Node policy target delete is a no-op operation. The target will remain in the backend.")
+	// The API has no DeleteNodePolicyTarget RPC. Leaving the target enabled
+	// would keep applying the policy after destroy, so disable it instead.
+	target := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	target.Enabled = false
+
+	_, err := r.client.RecommendationClient.UpdateNodePolicyTarget(ctx, connect.NewRequest(&apiv1.UpdateNodePolicyTargetRequest{
+		Target: target,
+	}))
+	if err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			return
+		}
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to disable node policy target on destroy, got error: %s", err))
+		return
+	}
+
+	tflog.Warn(ctx, "The API has no delete endpoint for node policy targets; the target was disabled and removed from state, but the row remains in the backend.")
 }
 
 func (r *NodePolicyTargetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
