@@ -581,6 +581,94 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 							},
 						},
 					},
+					"capacity_reservation_selector_terms": schema.ListNestedAttribute{
+						Description:         "Capacity reservation selector terms",
+						MarkdownDescription: "Selects EC2 Capacity Reservations that nodes launched by this policy may use. Terms are ORed; criteria within a term are ANDed.",
+						Optional:            true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"id": schema.StringAttribute{
+									Description: "Capacity reservation ID",
+									Optional:    true,
+								},
+								"owner_id": schema.StringAttribute{
+									Description: "AWS account ID that owns the capacity reservation",
+									Optional:    true,
+								},
+								"tags": schema.MapAttribute{
+									Description: "Tags to match on the capacity reservation",
+									Optional:    true,
+									ElementType: types.StringType,
+								},
+							},
+						},
+					},
+					"kubelet": schema.SingleNestedAttribute{
+						Description:         "Kubelet configuration overrides",
+						MarkdownDescription: "Kubelet configuration overrides applied to nodes launched by this policy (maps to the EC2NodeClass `spec.kubelet` block).",
+						Optional:            true,
+						Attributes: map[string]schema.Attribute{
+							"cluster_dns": schema.ListAttribute{
+								Description: "Cluster DNS server IPs",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"max_pods": schema.Int32Attribute{
+								Description: "Maximum number of pods per node",
+								Optional:    true,
+							},
+							"pods_per_core": schema.Int32Attribute{
+								Description: "Maximum pods per CPU core",
+								Optional:    true,
+							},
+							"system_reserved": schema.MapAttribute{
+								Description: "Resources reserved for system daemons (e.g. cpu, memory, ephemeral-storage)",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"kube_reserved": schema.MapAttribute{
+								Description: "Resources reserved for Kubernetes system daemons",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_hard": schema.MapAttribute{
+								Description: "Hard eviction thresholds (e.g. memory.available = 100Mi)",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_soft": schema.MapAttribute{
+								Description: "Soft eviction thresholds",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_soft_grace_period": schema.MapAttribute{
+								Description: "Grace periods for soft eviction thresholds",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_max_pod_grace_period": schema.Int32Attribute{
+								Description: "Maximum pod termination grace period (seconds) used on soft eviction",
+								Optional:    true,
+							},
+							"image_gc_high_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage above which image garbage collection runs",
+								Optional:    true,
+							},
+							"image_gc_low_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage below which image garbage collection stops",
+								Optional:    true,
+							},
+							"cpu_cfs_quota": schema.BoolAttribute{
+								Description: "Enable CPU CFS quota enforcement for containers that specify CPU limits",
+								Optional:    true,
+							},
+						},
+					},
+					"context": schema.StringAttribute{
+						Description:         "EC2 Fleet context (reserved for AWS use)",
+						MarkdownDescription: "Context passed through to EC2 Fleet launches (`spec.context` on the EC2NodeClass). Reserved for use by AWS.",
+						Optional:            true,
+					},
 				},
 			},
 			// Azure provider configuration
@@ -615,6 +703,56 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 					"max_pods": schema.Int32Attribute{
 						Description: "Maximum number of pods per node",
 						Optional:    true,
+					},
+					"kubelet": schema.SingleNestedAttribute{
+						Description:         "Kubelet configuration overrides",
+						MarkdownDescription: "Kubelet configuration overrides applied to nodes launched by this policy (maps to the AKSNodeClass `spec.kubelet` block).",
+						Optional:            true,
+						Attributes: map[string]schema.Attribute{
+							"cpu_manager_policy": schema.StringAttribute{
+								Description:         "CPU manager policy (none, static)",
+								MarkdownDescription: "CPU manager policy. Valid values: `none`, `static`.",
+								Optional:            true,
+							},
+							"cpu_cfs_quota": schema.BoolAttribute{
+								Description: "Enable CPU CFS quota enforcement for containers that specify CPU limits",
+								Optional:    true,
+							},
+							"cpu_cfs_quota_period": schema.StringAttribute{
+								Description: "CPU CFS quota period (e.g. 100ms)",
+								Optional:    true,
+							},
+							"image_gc_high_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage above which image garbage collection runs",
+								Optional:    true,
+							},
+							"image_gc_low_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage below which image garbage collection stops",
+								Optional:    true,
+							},
+							"topology_manager_policy": schema.StringAttribute{
+								Description:         "Topology manager policy (none, best-effort, restricted, single-numa-node)",
+								MarkdownDescription: "Topology manager policy. Valid values: `none`, `best-effort`, `restricted`, `single-numa-node`.",
+								Optional:            true,
+							},
+							"allowed_unsafe_sysctls": schema.ListAttribute{
+								Description: "Unsafe sysctls or sysctl patterns allowed on the node",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"container_log_max_size": schema.StringAttribute{
+								Description: "Maximum size of a container log file before rotation (e.g. 50Mi)",
+								Optional:    true,
+							},
+							"container_log_max_files": schema.Int32Attribute{
+								Description: "Maximum number of container log files retained per container",
+								Optional:    true,
+							},
+							"pod_pids_limit": schema.Int64Attribute{
+								Description: "Maximum number of PIDs per pod",
+								Optional:    true,
+							},
+						},
 					},
 				},
 			},

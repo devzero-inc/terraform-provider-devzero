@@ -358,9 +358,12 @@ Optional:
 - `ami_selector_terms` (Attributes List) AMI selector terms (see [below for nested schema](#nestedatt--aws--ami_selector_terms))
 - `associate_public_ip_address` (Boolean) Associate public IP address with instances
 - `block_device_mappings` (Attributes List) Block device mappings (see [below for nested schema](#nestedatt--aws--block_device_mappings))
+- `capacity_reservation_selector_terms` (Attributes List) Selects EC2 Capacity Reservations that nodes launched by this policy may use. Terms are ORed; criteria within a term are ANDed. (see [below for nested schema](#nestedatt--aws--capacity_reservation_selector_terms))
+- `context` (String) Context passed through to EC2 Fleet launches (`spec.context` on the EC2NodeClass). Reserved for use by AWS.
 - `detailed_monitoring` (Boolean) Enable detailed CloudWatch monitoring
 - `instance_profile` (String) IAM instance profile
 - `instance_store_policy` (String) Policy for instance store volumes. Valid value: `RAID0`.
+- `kubelet` (Attributes) Kubelet configuration overrides applied to nodes launched by this policy (maps to the EC2NodeClass `spec.kubelet` block). (see [below for nested schema](#nestedatt--aws--kubelet))
 - `metadata_options` (Attributes) Configuration for EC2 instance metadata service. Defaults provide secure IMDS v2 configuration. (see [below for nested schema](#nestedatt--aws--metadata_options))
 - `role` (String) IAM role name
 - `security_group_selector_terms` (Attributes List) Security group selector terms (see [below for nested schema](#nestedatt--aws--security_group_selector_terms))
@@ -404,6 +407,35 @@ Optional:
 
 
 
+<a id="nestedatt--aws--capacity_reservation_selector_terms"></a>
+### Nested Schema for `aws.capacity_reservation_selector_terms`
+
+Optional:
+
+- `id` (String) Capacity reservation ID
+- `owner_id` (String) AWS account ID that owns the capacity reservation
+- `tags` (Map of String) Tags to match on the capacity reservation
+
+
+<a id="nestedatt--aws--kubelet"></a>
+### Nested Schema for `aws.kubelet`
+
+Optional:
+
+- `cluster_dns` (List of String) Cluster DNS server IPs
+- `cpu_cfs_quota` (Boolean) Enable CPU CFS quota enforcement for containers that specify CPU limits
+- `eviction_hard` (Map of String) Hard eviction thresholds (e.g. memory.available = 100Mi)
+- `eviction_max_pod_grace_period` (Number) Maximum pod termination grace period (seconds) used on soft eviction
+- `eviction_soft` (Map of String) Soft eviction thresholds
+- `eviction_soft_grace_period` (Map of String) Grace periods for soft eviction thresholds
+- `image_gc_high_threshold_percent` (Number) Disk usage percentage above which image garbage collection runs
+- `image_gc_low_threshold_percent` (Number) Disk usage percentage below which image garbage collection stops
+- `kube_reserved` (Map of String) Resources reserved for Kubernetes system daemons
+- `max_pods` (Number) Maximum number of pods per node
+- `pods_per_core` (Number) Maximum pods per CPU core
+- `system_reserved` (Map of String) Resources reserved for system daemons (e.g. cpu, memory, ephemeral-storage)
+
+
 <a id="nestedatt--aws--metadata_options"></a>
 ### Nested Schema for `aws.metadata_options`
 
@@ -442,10 +474,28 @@ Optional:
 
 - `fips_mode` (String) FIPS 140-2 mode. Valid values: `FIPS`, `Disabled`.
 - `image_family` (String) Azure image family. Valid values: `Ubuntu`, `Ubuntu2204`, `Ubuntu2404`, `AzureLinux`.
+- `kubelet` (Attributes) Kubelet configuration overrides applied to nodes launched by this policy (maps to the AKSNodeClass `spec.kubelet` block). (see [below for nested schema](#nestedatt--azure--kubelet))
 - `max_pods` (Number) Maximum number of pods per node
 - `os_disk_size_gb` (Number) OS disk size in GB
 - `tags` (Map of String) Azure tags to apply to resources
 - `vnet_subnet_id` (String) VNet subnet ID
+
+<a id="nestedatt--azure--kubelet"></a>
+### Nested Schema for `azure.kubelet`
+
+Optional:
+
+- `allowed_unsafe_sysctls` (List of String) Unsafe sysctls or sysctl patterns allowed on the node
+- `container_log_max_files` (Number) Maximum number of container log files retained per container
+- `container_log_max_size` (String) Maximum size of a container log file before rotation (e.g. 50Mi)
+- `cpu_cfs_quota` (Boolean) Enable CPU CFS quota enforcement for containers that specify CPU limits
+- `cpu_cfs_quota_period` (String) CPU CFS quota period (e.g. 100ms)
+- `cpu_manager_policy` (String) CPU manager policy. Valid values: `none`, `static`.
+- `image_gc_high_threshold_percent` (Number) Disk usage percentage above which image garbage collection runs
+- `image_gc_low_threshold_percent` (Number) Disk usage percentage below which image garbage collection stops
+- `pod_pids_limit` (Number) Maximum number of PIDs per pod
+- `topology_manager_policy` (String) Topology manager policy. Valid values: `none`, `best-effort`, `restricted`, `single-numa-node`.
+
 
 
 <a id="nestedatt--capacity_types"></a>
