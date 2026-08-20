@@ -74,9 +74,6 @@ type HPARuleConfigModel struct {
 	Enabled                  types.Bool              `tfsdk:"enabled"`
 	MinReplicas              types.Int32             `tfsdk:"min_replicas"`
 	MaxReplicas              types.Int32             `tfsdk:"max_replicas"`
-	TargetUtilization        types.Float32           `tfsdk:"target_utilization"`
-	TargetMemoryUtilization  types.Float32           `tfsdk:"target_memory_utilization"`
-	PrimaryMetric            types.String            `tfsdk:"primary_metric"`
 	MaxReplicaChangePercent  types.Float32           `tfsdk:"max_replica_change_percent"`
 	ScaleDownCooldownSeconds types.Int32             `tfsdk:"scale_down_cooldown_seconds"`
 	Metrics                  []HPAMetricTriggerModel `tfsdk:"metrics"`
@@ -344,21 +341,6 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Description: "Maximum number of replicas",
 						Optional:    true,
 					},
-					"target_utilization": schema.Float32Attribute{
-						Description: "Target CPU utilization ratio (0-1)",
-						Optional:    true,
-					},
-					"target_memory_utilization": schema.Float32Attribute{
-						Description: "Target memory utilization ratio (0-1), tuned independently of CPU",
-						Optional:    true,
-					},
-					"primary_metric": schema.StringAttribute{
-						Description: "Primary metric for HPA. One of: 'cpu', 'memory', 'gpu', 'network_ingress', 'network_egress'",
-						Optional:    true,
-						Validators: []validator.String{
-							stringvalidator.OneOf("cpu", "memory", "gpu", "network_ingress", "network_egress"),
-						},
-					},
 					"max_replica_change_percent": schema.Float32Attribute{
 						Description: "Maximum percentage change in replica count per cycle",
 						Optional:    true,
@@ -372,7 +354,7 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Optional:    true,
 					},
 					"metrics": schema.ListNestedAttribute{
-						Description: "Additional metric triggers (e.g. Prometheus). CPU/Memory/Network triggers are auto-generated from primary_metric.",
+						Description: "HPA metric triggers (CPU, Memory, Network*, or external such as prometheus/kafka). Replaces the removed target_utilization/primary_metric fields.",
 						Optional:    true,
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
@@ -513,7 +495,7 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Validators: []validator.List{
 					listvalidator.NoNullValues(),
 					listvalidator.UniqueValues(),
-					listvalidator.ValueStringsAre(stringvalidator.OneOf("pod_creation", "pod_update")),
+					listvalidator.ValueStringsAre(stringvalidator.OneOf("pod_creation", "pod_update", "pod_evict")),
 				},
 			},
 			"scheduler_plugins": schema.ListAttribute{
@@ -744,6 +726,8 @@ func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Dia
 			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_CREATION, nil
 		case "pod_update":
 			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE, nil
+		case "pod_evict":
+			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_EVICT, nil
 		default:
 			return apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_UNSPECIFIED, fmt.Errorf("invalid detection trigger: %s", value)
 		}
@@ -892,6 +876,8 @@ func (m *WorkloadRuleResourceModel) fromProto(r *apiv1.WorkloadRule) {
 			detectionTriggers = append(detectionTriggers, types.StringValue("pod_creation"))
 		case apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE:
 			detectionTriggers = append(detectionTriggers, types.StringValue("pod_update"))
+		case apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_EVICT:
+			detectionTriggers = append(detectionTriggers, types.StringValue("pod_evict"))
 		}
 	}
 	m.DetectionTriggers = types.ListValueMust(types.StringType, detectionTriggers)
@@ -1004,17 +990,6 @@ func (m *HPARuleConfigModel) toProto() *apiv1.HPARuleConfig {
 		v := m.MaxReplicas.ValueInt32()
 		p.MaxReplicas = &v
 	}
-	if !m.TargetUtilization.IsNull() && !m.TargetUtilization.IsUnknown() {
-		v := m.TargetUtilization.ValueFloat32()
-		p.TargetUtilization = &v
-	}
-	if !m.TargetMemoryUtilization.IsNull() && !m.TargetMemoryUtilization.IsUnknown() {
-		v := m.TargetMemoryUtilization.ValueFloat32()
-		p.TargetMemoryUtilization = &v
-	}
-	if !m.PrimaryMetric.IsNull() && !m.PrimaryMetric.IsUnknown() {
-		p.PrimaryMetric = wrHPAMetricToProto(m.PrimaryMetric.ValueString())
-	}
 	if !m.MaxReplicaChangePercent.IsNull() && !m.MaxReplicaChangePercent.IsUnknown() {
 		v := m.MaxReplicaChangePercent.ValueFloat32()
 		p.MaxReplicaChangePercent = &v
@@ -1047,9 +1022,6 @@ func hpaRuleConfigFromProto(p *apiv1.HPARuleConfig) *HPARuleConfigModel {
 		Enabled:                  types.BoolValue(p.Enabled),
 		MinReplicas:              types.Int32Null(),
 		MaxReplicas:              types.Int32Null(),
-		TargetUtilization:        types.Float32Null(),
-		TargetMemoryUtilization:  types.Float32Null(),
-		PrimaryMetric:            types.StringNull(),
 		MaxReplicaChangePercent:  types.Float32Null(),
 		ScaleDownCooldownSeconds: types.Int32Null(),
 		CompositeFormula:         types.StringNull(),
@@ -1059,15 +1031,6 @@ func hpaRuleConfigFromProto(p *apiv1.HPARuleConfig) *HPARuleConfigModel {
 	}
 	if p.MaxReplicas != nil {
 		m.MaxReplicas = types.Int32Value(*p.MaxReplicas)
-	}
-	if p.TargetUtilization != nil {
-		m.TargetUtilization = types.Float32Value(*p.TargetUtilization)
-	}
-	if p.TargetMemoryUtilization != nil {
-		m.TargetMemoryUtilization = types.Float32Value(*p.TargetMemoryUtilization)
-	}
-	if p.PrimaryMetric != nil {
-		m.PrimaryMetric = types.StringValue(wrHPAMetricFromProto(*p.PrimaryMetric))
 	}
 	if p.MaxReplicaChangePercent != nil {
 		m.MaxReplicaChangePercent = types.Float32Value(*p.MaxReplicaChangePercent)
@@ -1088,42 +1051,6 @@ func hpaRuleConfigFromProto(p *apiv1.HPARuleConfig) *HPARuleConfigModel {
 		m.Fallback = hpaFallbackFromProto(p.Fallback)
 	}
 	return m
-}
-
-func wrHPAMetricToProto(metric string) *apiv1.HPAMetricType {
-	var m apiv1.HPAMetricType
-	switch metric {
-	case "cpu":
-		m = apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU
-	case "memory":
-		m = apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY
-	case "gpu":
-		m = apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU
-	case "network_ingress":
-		m = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS
-	case "network_egress":
-		m = apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_EGRESS
-	default:
-		return nil
-	}
-	return &m
-}
-
-func wrHPAMetricFromProto(metric apiv1.HPAMetricType) string {
-	switch metric {
-	case apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU:
-		return "cpu"
-	case apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY:
-		return "memory"
-	case apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU:
-		return "gpu"
-	case apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS:
-		return "network_ingress"
-	case apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_EGRESS:
-		return "network_egress"
-	default:
-		return ""
-	}
 }
 
 // ---------- EmergencyResponse ----------

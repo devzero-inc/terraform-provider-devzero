@@ -36,14 +36,16 @@ resource "devzero_workload_rule" "manual" {
   }
 
   hpa_rule = {
-    enabled            = true
-    min_replicas       = 1
-    max_replicas       = 10
-    target_utilization = 0.70
-    primary_metric     = "cpu"
+    enabled      = true
+    min_replicas = 1
+    max_replicas = 10
 
-    # External/Prometheus metric trigger
+    # Metric triggers: built-in CPU/Memory or external (e.g. Prometheus)
     metrics = [
+      {
+        type               = "CPU"
+        target_utilization = "0.70"
+      },
       {
         type           = "prometheus"
         target_value   = "100"

@@ -125,6 +125,8 @@ message GetNetworkDependenciesRequest {
   google.protobuf.Timestamp end_time = 3;
   repeated string src_namespaces = 4;   // Filter by source namespaces (optional)
   repeated string src_node_groups = 5;  // Filter by source node groups (optional)
+  int32 limit = 6;   // Max edges to return, ordered by rank_by (optional; 0/unset means no limit — all matching edges are returned)
+  string rank_by = 7;  // Ordering dimension: "traffic" (default) or "cost" (optional; unset/unrecognized falls back to "traffic")
 }
 
 // A workload node in the dependency graph

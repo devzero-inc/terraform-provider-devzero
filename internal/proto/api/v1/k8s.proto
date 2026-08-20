@@ -68,6 +68,103 @@ message GetWorkloadsRequest {
   repeated string node_group_names = 25 [deprecated = true]; // Prefer filters.status instead
 
   optional WorkloadFilters filters = 31; // Optional advanced filters; when set, overrides show_deleted behavior via filters.status
+
+  // The two flags below independently control which half of
+  // WorkloadItem.optimization_status gets computed. Split because a team on
+  // MPA_V2 with is_enabled=false is permanently locked into exactly one
+  // system (is_active=true -> v2-only, is_active=false -> legacy-only) and
+  // the unused system should never be queried; only when is_enabled=true
+  // (team is in a self-service/transition state) does the caller request
+  // both. Adds batched lookups — leave both false unless the caller renders
+  // optimization status.
+  bool include_legacy_optimization_status = 32;
+  bool include_v2_optimization_status = 33;
+}
+
+// ListWorkloadsPaginatedRequest fetches a single keyset-paginated page of
+// top-level workloads for a cluster+timerange. Additive alternative to
+// GetWorkloads for large clusters; existing GetWorkloads callers are unaffected.
+message ListWorkloadsPaginatedRequest {
+  string team_id = 1; // Unique identifier for the team.
+  string cluster_id = 2; // Unique identifier for the cluster.
+  optional google.protobuf.Timestamp start_time = 3;
+  optional google.protobuf.Timestamp end_time = 4;
+  optional WorkloadFilters filters = 5; // Optional advanced filters (same message GetWorkloads uses).
+  bool include_legacy_optimization_status = 6;
+  bool include_v2_optimization_status = 7;
+  int32 page_size = 8; // Max items per page; server clamps to a sane range.
+  string page_token = 9; // Opaque cursor from a prior response; empty = first page.
+  string sort_order = 10; // "asc" | "desc" (default "desc": highest sort_field value first).
+  string sort_field = 11; // "cost" | "cpu" | "memory" | "gpu" (default "cost"). Selects which metric orders the page.
+}
+
+// GetWorkloadsSummaryRequest computes cluster-wide aggregate breakdowns (summary
+// cards, top-N lists, treemaps) over the FULL filtered workload set in a single
+// pass. Companion to ListWorkloadsPaginated: this pays the full-scan cost once
+// per page load, while ListWorkloadsPaginated serves the cheap table body per
+// scroll.
+message GetWorkloadsSummaryRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  optional google.protobuf.Timestamp start_time = 3;
+  optional google.protobuf.Timestamp end_time = 4;
+  optional WorkloadFilters filters = 5; // Same WorkloadFilters message as ListWorkloadsPaginatedRequest.
+}
+
+// WorkloadMetricEntry is a single workload's contribution to one metric. value
+// is whatever the enclosing breakdown is sorted by; requested/limit/usage carry
+// the full picture so the frontend can render tooltips and compute utilization
+// without a second round-trip. For the cost breakdown, requested is the
+// requested cost, usage is the usage cost, and limit is 0 (no limit-cost
+// concept).
+message WorkloadMetricEntry {
+  string uid = 1;
+  string name = 2;
+  string kind = 3;
+  string namespace = 4;
+  double value = 5; // The metric this breakdown is sorted by (usage for cpu/mem/gpu, requested cost for cost, overprovisioned amount for optimization_potential).
+  double requested = 6; // Cluster-wide requested amount for this workload (millicores / bytes / gpu-count / requested cost).
+  double limit = 7; // Configured limit for this workload (0 for the cost breakdown).
+  double usage = 8; // Observed usage for this workload (millicores / bytes / gpu-count / usage cost).
+  bool is_deleted = 9; // Whether this workload is soft-deleted. The frontend needs this to open the workload drawer correctly when a caller clicks a treemap/top-N node built from this entry, the same way it already does for table rows sourced from WorkloadItem.deleted_at.
+}
+
+// WorkloadMetricBreakdown is a top-N + "other" rollup of one metric across all
+// top-level workloads matching the filters.
+message WorkloadMetricBreakdown {
+  repeated WorkloadMetricEntry top_entries = 1; // Top N by this metric, descending.
+  double other_value = 2; // Sum of value across everything NOT in top_entries.
+  int32 other_count = 3; // How many workloads are folded into other_value.
+  double total = 4; // Sum of value across ALL workloads (top_entries + other).
+  double requested_total = 5; // Sum of requested across ALL workloads; pair with total (usage) for request-utilization %.
+  int32 positive_count = 6; // How many workloads (top_entries + other, combined) have value > 0 for this metric. Use this, not top_entries+other_count, as the denominator for "N% of workloads account for ~80%" style displays — other_count includes workloads with zero value for this metric (e.g. a workload with no CPU usage still gets folded into "other"), which understates the percentage.
+  int32 top80_count = 7; // How many workloads, ranked by this metric descending, are needed to reach ~80% of total. Computed server-side over the FULL dataset, not just top_entries (which is capped at 50) — use this instead of walking top_entries client-side, which silently caps at 50 and under-reports on flatter distributions where more than 50 workloads are needed to reach 80%.
+}
+
+// GetWorkloadsSummaryResponse carries one usage/cost breakdown per metric plus
+// the total matching top-level workload count. The optimization_potential_*
+// breakdowns re-rank the same workloads by the overprovisioned amount
+// (requested - usage) for that metric, feeding each treemap's "show
+// optimization potential" toggle without an approximation.
+message GetWorkloadsSummaryResponse {
+  WorkloadMetricBreakdown cost = 1;
+  WorkloadMetricBreakdown cpu_usage = 2;
+  WorkloadMetricBreakdown memory_usage = 3;
+  WorkloadMetricBreakdown gpu_usage = 4;
+  int32 total_workload_count = 5; // Total top-level workloads matching filters.
+  WorkloadMetricBreakdown optimization_potential_cost = 6; // Ranked by overprovisioned cost (requested cost - usage cost), descending.
+  WorkloadMetricBreakdown optimization_potential_cpu = 7; // Ranked by overprovisioned cpu (cpu request - cpu usage, millicores), descending.
+  WorkloadMetricBreakdown optimization_potential_memory = 8; // Ranked by overprovisioned memory (memory request - memory usage, bytes), descending.
+  WorkloadMetricBreakdown optimization_potential_gpu = 9; // Ranked by overprovisioned gpu (gpu request - gpu usage, gpu-count), descending.
+}
+
+// ListWorkloadsPaginatedResponse is one page of workloads plus the cursor for
+// the next page and the total matching count (before pagination).
+message ListWorkloadsPaginatedResponse {
+  repeated WorkloadItem workload_items = 1; // This page's workloads.
+  string next_page_token = 2; // Opaque cursor for the next page; empty = no more data.
+  int64 total_count = 3; // Total workloads matching the filters, before pagination.
+  int32 page_size = 4; // Effective page size applied after clamping; reflects the requested/clamped size, not len(workload_items).
 }
 
 // GetResourcesRequest is uset to fetch resources from db.
@@ -76,8 +173,10 @@ message GetResourcesRequest {
   optional string cluster_id = 2; // Unique identifier for the cluster.
   K8sObjectKind kind = 3; // Type of object to get.
   optional string search = 4; // Search term to filter resources by name
-  
+
   Pagination pagination = 11; // Pagination parameters
+
+  repeated ResourceFieldFilter filters = 12; // Optional field-level filters; multiple filters AND together
 }
 
 // GetPodsRequest is used to fetch Pod resources from db.
@@ -180,6 +279,18 @@ message UpdateClusterResponse {
 message GetResourcesResponse {
   repeated WorkloadItem workload_items = 1; // Return list of resources requested
   Pagination pagination = 2; // Pagination information
+}
+
+// GetResourceFilterOptionsRequest asks for the distinct filterable field values for a resource kind.
+message GetResourceFilterOptionsRequest {
+  string team_id = 1;
+  optional string cluster_id = 2;
+  K8sObjectKind kind = 3;
+}
+
+// GetResourceFilterOptionsResponse returns the available filter options per field.
+message GetResourceFilterOptionsResponse {
+  repeated ResourceFilterFieldOptions options = 1;
 }
 
 // CreateClusterRequest is used to create a new cluster.
@@ -380,6 +491,90 @@ message GetLatestContainerRequestLimitsRequest {
 // GetLatestContainerRequestLimitsResponse returns per-container request/limit values.
 message GetLatestContainerRequestLimitsResponse {
   repeated ContainerRequestLimits containers = 1;
+}
+
+// GetNodeGPUMigInstancesRequest requests the most recent MIG-instance telemetry for a node.
+message GetNodeGPUMigInstancesRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  optional string node_id = 3; // Unique identifier for the node.
+  optional string node_uid = 4; // alternatively -> Unique identifier for the node.
+}
+
+// GetNodeGPUMigInstancesResponse returns the node's most recent MIG-instance telemetry.
+message GetNodeGPUMigInstancesResponse {
+  repeated GPUMigInstance instances = 1;
+  optional google.protobuf.Timestamp collected_at = 2;
+}
+
+// GetNodeGPUMigInstanceTimeseriesRequest requests per-MIG-instance
+// utilization as a time series for a node over a time range.
+message GetNodeGPUMigInstanceTimeseriesRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  optional string node_id = 3;
+  optional string node_uid = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+}
+
+// GPUMigInstanceDataPoint is one timestamped sample of a single MIG
+// instance's utilization.
+message GPUMigInstanceDataPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double tensor_active = 2;
+  double dram_active = 3;
+  double graphics_engine_active = 4;
+  double framebuffer_used = 5;
+  double framebuffer_total = 6;
+}
+
+// GPUMigInstanceTimeseries is one MIG instance's identity plus its
+// utilization samples over the requested time range.
+message GPUMigInstanceTimeseries {
+  string mig_instance_id = 1;
+  string mig_profile = 2;
+  string device_uuid = 3;
+  string model_name = 4;
+  repeated GPUMigInstanceDataPoint points = 5;
+}
+
+// GetNodeGPUMigInstanceTimeseriesResponse returns one series per MIG
+// instance present on the node during the requested range.
+message GetNodeGPUMigInstanceTimeseriesResponse {
+  repeated GPUMigInstanceTimeseries instances = 1;
+}
+
+// GetContainerIndividualGPUMetricsRequest requests the most recent per-GPU breakdown per container.
+message GetContainerIndividualGPUMetricsRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+  string uid = 3;
+}
+
+// GetContainerIndividualGPUMetricsResponse returns per-container per-GPU breakdowns.
+message GetContainerIndividualGPUMetricsResponse {
+  repeated ContainerIndividualGPUMetrics containers = 1;
+}
+
+// LanguageVersions holds every distinct version detected for one language
+// across a cluster's workloads.
+message LanguageVersions {
+  string language = 1;
+  repeated string versions = 2;
+}
+
+// GetWorkloadLanguagesRequest requests the distinct languages/versions
+// detected across a cluster's workloads (used to populate filter dropdowns).
+message GetWorkloadLanguagesRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+}
+
+// GetWorkloadLanguagesResponse returns every distinct language and its
+// detected versions for the requested cluster.
+message GetWorkloadLanguagesResponse {
+  repeated LanguageVersions languages = 1;
 }
 
 // Request to get forecasted workloads
@@ -596,6 +791,10 @@ message GetLatestOperatorVersionResponse {
 
   OperatorInfo trezr_info = 41;
   OperatorInfo trezr_helm_info = 42;
+
+  // checkpoint-restore-operator helm chart (snapshot policies). Placeholder
+  // version until the DevZero-authored chart is published.
+  OperatorInfo snapshot_helm_info = 51;
 }
 
 message GalaxyGetWorkloadPerspectiveRequest {
@@ -1038,6 +1237,15 @@ service K8SService {
   // GetWorkloads retrieves all workloads for a specific cluster.
   rpc GetWorkloads(GetWorkloadsRequest) returns (GetWorkloadsResponse);
 
+  // ListWorkloadsPaginated retrieves a single keyset-paginated page of top-level
+  // workloads for a cluster. Additive alternative to GetWorkloads for large clusters.
+  rpc ListWorkloadsPaginated(ListWorkloadsPaginatedRequest) returns (ListWorkloadsPaginatedResponse);
+
+  // GetWorkloadsSummary computes cluster-wide aggregate breakdowns (cost/cpu/
+  // memory/gpu top-N + other) over the full filtered workload set in one pass.
+  // Companion to ListWorkloadsPaginated for summary cards, top-N lists, treemaps.
+  rpc GetWorkloadsSummary(GetWorkloadsSummaryRequest) returns (GetWorkloadsSummaryResponse);
+
   // GetWorkload retrieves detailed information for a specific workload.
   rpc GetWorkload(GetWorkloadRequest) returns (GetWorkloadResponse);
 
@@ -1053,6 +1261,22 @@ service K8SService {
   // GetLatestContainerRequestLimits retrieves the most recent request/limit values per container for a workload.
   rpc GetLatestContainerRequestLimits(GetLatestContainerRequestLimitsRequest) returns (GetLatestContainerRequestLimitsResponse);
 
+  // GetNodeGPUMigInstances retrieves the most recent MIG-instance telemetry for a node.
+  // Returns an empty instances list for nodes with no MIG-partitioned GPUs.
+  rpc GetNodeGPUMigInstances(GetNodeGPUMigInstancesRequest) returns (GetNodeGPUMigInstancesResponse);
+
+  // GetNodeGPUMigInstanceTimeseries retrieves per-MIG-instance utilization as
+  // a time series for a node over a time range. Returns an empty instances
+  // list for nodes with no MIG-partitioned GPUs.
+  rpc GetNodeGPUMigInstanceTimeseries(GetNodeGPUMigInstanceTimeseriesRequest) returns (GetNodeGPUMigInstanceTimeseriesResponse);
+
+  // GetContainerIndividualGPUMetrics retrieves the most recent per-GPU breakdown for every
+  // container in a workload that has GPU data.
+  rpc GetContainerIndividualGPUMetrics(GetContainerIndividualGPUMetricsRequest) returns (GetContainerIndividualGPUMetricsResponse);
+
+  // GetWorkloadLanguages retrieves the distinct detected languages/versions across a cluster's workloads.
+  rpc GetWorkloadLanguages(GetWorkloadLanguagesRequest) returns (GetWorkloadLanguagesResponse);
+
   // GetForecastWorkloads retrieves all workloads for a specific cluster.
   rpc GetForecastWorkloads(GetForecastWorkloadsRequest) returns (GetForecastWorkloadsResponse) {
     option deprecated = true;
@@ -1066,6 +1290,9 @@ service K8SService {
 
   // GetResources retrivers specific resource and their details from db, simulating informer.
   rpc GetResources(GetResourcesRequest) returns (GetResourcesResponse);
+
+  // GetResourceFilterOptions returns the distinct filterable field values for a resource kind.
+  rpc GetResourceFilterOptions(GetResourceFilterOptionsRequest) returns (GetResourceFilterOptionsResponse);
 
   // GetPods retrieves Pod resources and their details from db.
   rpc GetPods(GetPodsRequest) returns (GetPodsResponse);
@@ -1108,6 +1335,32 @@ service K8SService {
 
   // ListTags lists all tags for a team.
   rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+
+  // GetMigPartedConfig retrieves the NVIDIA mig-parted ConfigMap collected
+  // from a cluster: the declared MIG partitioning profiles. Per-node applied
+  // state rides NodeDetails (mig_config_desired/mig_config_state).
+  rpc GetMigPartedConfig(GetMigPartedConfigRequest) returns (GetMigPartedConfigResponse);
+}
+
+message GetMigPartedConfigRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+}
+
+message GetMigPartedConfigResponse {
+  // Whether a mig-parted ConfigMap has been collected for this cluster.
+  bool found = 1;
+  string name = 2;
+  string namespace = 3;
+  // Config schema version (e.g. v1).
+  string version = 4;
+  // Parsed profile map from config.yaml as JSON:
+  // {profile-name: [{devices, mig-enabled, mig-devices}, ...]}.
+  string mig_configs_json = 5;
+  // Original config.yaml text; authoritative when parse_error is set.
+  string raw = 6;
+  string parse_error = 7;
+  google.protobuf.Timestamp last_seen = 8;
 }
 
 // ClusterMutationService manages mutating cluster resources.

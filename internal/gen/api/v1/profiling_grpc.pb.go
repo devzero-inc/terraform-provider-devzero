@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ProfilingService_GetWorkloadProfiles_FullMethodName = "/api.v1.ProfilingService/GetWorkloadProfiles"
+	ProfilingService_GetWorkloadProfiles_FullMethodName            = "/api.v1.ProfilingService/GetWorkloadProfiles"
+	ProfilingService_GetWorkloadProfileAvailability_FullMethodName = "/api.v1.ProfilingService/GetWorkloadProfileAvailability"
 )
 
 // ProfilingServiceClient is the client API for ProfilingService service.
@@ -27,6 +28,11 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ProfilingServiceClient interface {
 	GetWorkloadProfiles(ctx context.Context, in *GetWorkloadProfilesRequest, opts ...grpc.CallOption) (*GetWorkloadProfilesResponse, error)
+	// GetWorkloadProfileAvailability is a lightweight check the frontend uses to
+	// decide whether the 1D/7D DB-snapshot tabs should be enabled (and default
+	// to) versus falling back to a live compute. It never reads snapshot payloads
+	// — only per-window row counts and the most recent computed_at.
+	GetWorkloadProfileAvailability(ctx context.Context, in *GetWorkloadProfileAvailabilityRequest, opts ...grpc.CallOption) (*GetWorkloadProfileAvailabilityResponse, error)
 }
 
 type profilingServiceClient struct {
@@ -46,11 +52,25 @@ func (c *profilingServiceClient) GetWorkloadProfiles(ctx context.Context, in *Ge
 	return out, nil
 }
 
+func (c *profilingServiceClient) GetWorkloadProfileAvailability(ctx context.Context, in *GetWorkloadProfileAvailabilityRequest, opts ...grpc.CallOption) (*GetWorkloadProfileAvailabilityResponse, error) {
+	out := new(GetWorkloadProfileAvailabilityResponse)
+	err := c.cc.Invoke(ctx, ProfilingService_GetWorkloadProfileAvailability_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProfilingServiceServer is the server API for ProfilingService service.
 // All implementations must embed UnimplementedProfilingServiceServer
 // for forward compatibility
 type ProfilingServiceServer interface {
 	GetWorkloadProfiles(context.Context, *GetWorkloadProfilesRequest) (*GetWorkloadProfilesResponse, error)
+	// GetWorkloadProfileAvailability is a lightweight check the frontend uses to
+	// decide whether the 1D/7D DB-snapshot tabs should be enabled (and default
+	// to) versus falling back to a live compute. It never reads snapshot payloads
+	// — only per-window row counts and the most recent computed_at.
+	GetWorkloadProfileAvailability(context.Context, *GetWorkloadProfileAvailabilityRequest) (*GetWorkloadProfileAvailabilityResponse, error)
 	mustEmbedUnimplementedProfilingServiceServer()
 }
 
@@ -60,6 +80,9 @@ type UnimplementedProfilingServiceServer struct {
 
 func (UnimplementedProfilingServiceServer) GetWorkloadProfiles(context.Context, *GetWorkloadProfilesRequest) (*GetWorkloadProfilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetWorkloadProfiles not implemented")
+}
+func (UnimplementedProfilingServiceServer) GetWorkloadProfileAvailability(context.Context, *GetWorkloadProfileAvailabilityRequest) (*GetWorkloadProfileAvailabilityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWorkloadProfileAvailability not implemented")
 }
 func (UnimplementedProfilingServiceServer) mustEmbedUnimplementedProfilingServiceServer() {}
 
@@ -92,6 +115,24 @@ func _ProfilingService_GetWorkloadProfiles_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProfilingService_GetWorkloadProfileAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWorkloadProfileAvailabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfilingServiceServer).GetWorkloadProfileAvailability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProfilingService_GetWorkloadProfileAvailability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfilingServiceServer).GetWorkloadProfileAvailability(ctx, req.(*GetWorkloadProfileAvailabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProfilingService_ServiceDesc is the grpc.ServiceDesc for ProfilingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -102,6 +143,10 @@ var ProfilingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetWorkloadProfiles",
 			Handler:    _ProfilingService_GetWorkloadProfiles_Handler,
+		},
+		{
+			MethodName: "GetWorkloadProfileAvailability",
+			Handler:    _ProfilingService_GetWorkloadProfileAvailability_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

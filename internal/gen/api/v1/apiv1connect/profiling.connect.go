@@ -36,11 +36,19 @@ const (
 	// ProfilingServiceGetWorkloadProfilesProcedure is the fully-qualified name of the
 	// ProfilingService's GetWorkloadProfiles RPC.
 	ProfilingServiceGetWorkloadProfilesProcedure = "/api.v1.ProfilingService/GetWorkloadProfiles"
+	// ProfilingServiceGetWorkloadProfileAvailabilityProcedure is the fully-qualified name of the
+	// ProfilingService's GetWorkloadProfileAvailability RPC.
+	ProfilingServiceGetWorkloadProfileAvailabilityProcedure = "/api.v1.ProfilingService/GetWorkloadProfileAvailability"
 )
 
 // ProfilingServiceClient is a client for the api.v1.ProfilingService service.
 type ProfilingServiceClient interface {
 	GetWorkloadProfiles(context.Context, *connect.Request[v1.GetWorkloadProfilesRequest]) (*connect.Response[v1.GetWorkloadProfilesResponse], error)
+	// GetWorkloadProfileAvailability is a lightweight check the frontend uses to
+	// decide whether the 1D/7D DB-snapshot tabs should be enabled (and default
+	// to) versus falling back to a live compute. It never reads snapshot payloads
+	// — only per-window row counts and the most recent computed_at.
+	GetWorkloadProfileAvailability(context.Context, *connect.Request[v1.GetWorkloadProfileAvailabilityRequest]) (*connect.Response[v1.GetWorkloadProfileAvailabilityResponse], error)
 }
 
 // NewProfilingServiceClient constructs a client for the api.v1.ProfilingService service. By
@@ -58,12 +66,18 @@ func NewProfilingServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			baseURL+ProfilingServiceGetWorkloadProfilesProcedure,
 			opts...,
 		),
+		getWorkloadProfileAvailability: connect.NewClient[v1.GetWorkloadProfileAvailabilityRequest, v1.GetWorkloadProfileAvailabilityResponse](
+			httpClient,
+			baseURL+ProfilingServiceGetWorkloadProfileAvailabilityProcedure,
+			opts...,
+		),
 	}
 }
 
 // profilingServiceClient implements ProfilingServiceClient.
 type profilingServiceClient struct {
-	getWorkloadProfiles *connect.Client[v1.GetWorkloadProfilesRequest, v1.GetWorkloadProfilesResponse]
+	getWorkloadProfiles            *connect.Client[v1.GetWorkloadProfilesRequest, v1.GetWorkloadProfilesResponse]
+	getWorkloadProfileAvailability *connect.Client[v1.GetWorkloadProfileAvailabilityRequest, v1.GetWorkloadProfileAvailabilityResponse]
 }
 
 // GetWorkloadProfiles calls api.v1.ProfilingService.GetWorkloadProfiles.
@@ -71,9 +85,19 @@ func (c *profilingServiceClient) GetWorkloadProfiles(ctx context.Context, req *c
 	return c.getWorkloadProfiles.CallUnary(ctx, req)
 }
 
+// GetWorkloadProfileAvailability calls api.v1.ProfilingService.GetWorkloadProfileAvailability.
+func (c *profilingServiceClient) GetWorkloadProfileAvailability(ctx context.Context, req *connect.Request[v1.GetWorkloadProfileAvailabilityRequest]) (*connect.Response[v1.GetWorkloadProfileAvailabilityResponse], error) {
+	return c.getWorkloadProfileAvailability.CallUnary(ctx, req)
+}
+
 // ProfilingServiceHandler is an implementation of the api.v1.ProfilingService service.
 type ProfilingServiceHandler interface {
 	GetWorkloadProfiles(context.Context, *connect.Request[v1.GetWorkloadProfilesRequest]) (*connect.Response[v1.GetWorkloadProfilesResponse], error)
+	// GetWorkloadProfileAvailability is a lightweight check the frontend uses to
+	// decide whether the 1D/7D DB-snapshot tabs should be enabled (and default
+	// to) versus falling back to a live compute. It never reads snapshot payloads
+	// — only per-window row counts and the most recent computed_at.
+	GetWorkloadProfileAvailability(context.Context, *connect.Request[v1.GetWorkloadProfileAvailabilityRequest]) (*connect.Response[v1.GetWorkloadProfileAvailabilityResponse], error)
 }
 
 // NewProfilingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -87,10 +111,17 @@ func NewProfilingServiceHandler(svc ProfilingServiceHandler, opts ...connect.Han
 		svc.GetWorkloadProfiles,
 		opts...,
 	)
+	profilingServiceGetWorkloadProfileAvailabilityHandler := connect.NewUnaryHandler(
+		ProfilingServiceGetWorkloadProfileAvailabilityProcedure,
+		svc.GetWorkloadProfileAvailability,
+		opts...,
+	)
 	return "/api.v1.ProfilingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ProfilingServiceGetWorkloadProfilesProcedure:
 			profilingServiceGetWorkloadProfilesHandler.ServeHTTP(w, r)
+		case ProfilingServiceGetWorkloadProfileAvailabilityProcedure:
+			profilingServiceGetWorkloadProfileAvailabilityHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -102,4 +133,8 @@ type UnimplementedProfilingServiceHandler struct{}
 
 func (UnimplementedProfilingServiceHandler) GetWorkloadProfiles(context.Context, *connect.Request[v1.GetWorkloadProfilesRequest]) (*connect.Response[v1.GetWorkloadProfilesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.ProfilingService.GetWorkloadProfiles is not implemented"))
+}
+
+func (UnimplementedProfilingServiceHandler) GetWorkloadProfileAvailability(context.Context, *connect.Request[v1.GetWorkloadProfileAvailabilityRequest]) (*connect.Response[v1.GetWorkloadProfileAvailabilityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("api.v1.ProfilingService.GetWorkloadProfileAvailability is not implemented"))
 }

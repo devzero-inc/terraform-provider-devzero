@@ -50,6 +50,14 @@ enum K8sObjectKind {
     K8S_OBJECT_KIND_CNPG_CLUSTER = 35;
     K8S_OBJECT_KIND_SPARK_APPLICATION = 36;
     K8S_OBJECT_KIND_SCHEDULED_SPARK_APPLICATION = 37;
+    // Kyverno Policy and ClusterPolicy (kyverno.io/v1); one kind for both scopes.
+    K8S_OBJECT_KIND_KYVERNO_POLICY = 38;
+    // Kyverno PolicyReport and ClusterPolicyReport (wgpolicyk8s.io/v1alpha2).
+    K8S_OBJECT_KIND_KYVERNO_POLICY_REPORT = 39;
+    // Gatekeeper ConstraintTemplate (templates.gatekeeper.sh/v1).
+    K8S_OBJECT_KIND_GATEKEEPER_CONSTRAINT_TEMPLATE = 40;
+    // Gatekeeper constraint instances (constraints.gatekeeper.sh, dynamic kinds).
+    K8S_OBJECT_KIND_GATEKEEPER_CONSTRAINT = 41;
 }
 
 // Represents a single audit log entry
@@ -142,6 +150,7 @@ message CostInfo {
   google.type.Money money_cpu_cost_for_time_period = 110;
   google.type.Money money_memory_cost_for_time_period = 111;
   google.type.Money money_total_cost_for_time_period = 112;
+  google.type.Money money_network_cost_for_time_period = 122;
 
   google.type.Money money_optimized_cpu_cost_for_time_period = 113;
   google.type.Money money_optimized_memory_cost_for_time_period = 114;
@@ -221,6 +230,40 @@ message ResourceMetrics {
 
   // Pod count
   int32 pod_count = 111; // Number of distinct pods observed in this time bucket.
+
+  // JVM heap metrics (0 for non-Java containers)
+  int64 jvm_heap_used_bytes = 121;
+  int64 jvm_heap_max_bytes = 122;
+
+  // Memory RSS (Resident Set Size) in bytes from kubelet stats/summary (0 for non-RSS-reporting nodes)
+  int64 container_memory_rss_bytes = 123;
+
+  // Memory breakdown components (bytes). Relationship:
+  //   usage_bytes   = anonymous + file cache + swap cache + kernel   (container_memory_usage_bytes / memory.current)
+  //   working_set   = usage_bytes - inactive_file                    (what the kubelet/OOM-killer acts on; stored as container_memory_usage)
+  //   cache         = active_file + inactive_file  (file-backed, reclaimable)
+  //   inactive_cache = max(0, usage_bytes - working_set)   (reclaimable file cache)
+  //   active_cache   = max(0, cache - inactive_cache)      (recently-used file cache)
+  //   swap          = swapped-out (non-resident) pages; tracked separately, NOT part of usage/working_set
+  int64 container_memory_cache_bytes = 124;
+  int64 container_memory_swap_bytes = 125;
+  int64 container_memory_active_cache_bytes = 126;
+  int64 container_memory_inactive_cache_bytes = 127;
+
+  // Runtime-aware cgroup signals (Plane 0, ADR-0037). Read directly from
+  // /sys/fs/cgroup by zxporter-nodemon (v2 primary). All are cumulative kernel
+  // counters; consumers derive windowed rates as last-first.
+  //   cfs_*                 CPU CFS throttling (cpu.stat): real throttle, not a usage/limit ratio
+  //   memory_events_max     memory.events:max — allocations pinned against memory.max, the
+  //                         Guaranteed-memory ceiling counter that fires before/without an OOM kill
+  //   *_pressure_*_usec     PSI stall time (cpu.pressure/memory.pressure "total="), microseconds
+  int64 container_cfs_periods = 128;
+  int64 container_cfs_throttled_periods = 129;
+  int64 container_cfs_throttled_usec = 130;
+  int64 container_memory_events_max = 131;
+  int64 container_cpu_pressure_some_usec = 132;
+  int64 container_memory_pressure_some_usec = 133;
+  int64 container_memory_pressure_full_usec = 134;
 }
 
 // MetricPercentiles contains percentile statistics for a single metric.
@@ -288,6 +331,90 @@ message ContainerRequestLimits {
   double current_memory_request = 3;
   double current_cpu_limit = 4;
   double current_memory_limit = 5;
+
+  // JVM metadata (empty/zero for non-Java containers).
+  // Populated from k8s_containers table when JVM is detected via hsperfdata.
+  string jvm_java_version = 10;
+  string jvm_java_command = 11;
+
+  // Parsed JVM flags (typed fields instead of raw JSON for type-safe frontend access).
+  int64 jvm_xmx_bytes = 13;              // -Xmx max heap size in bytes
+  int64 jvm_xms_bytes = 14;              // -Xms initial heap size in bytes
+  double jvm_max_ram_percentage = 15;     // -XX:MaxRAMPercentage
+  optional bool jvm_use_container_support = 16; // -XX:+/-UseContainerSupport
+
+  // Source the -Xmx flag was extracted from: "cmdline", "JAVA_TOOL_OPTIONS",
+  // "JDK_JAVA_OPTIONS", or "JAVA_OPTS". Empty when -Xmx is unset. Matters
+  // because the `java` launcher ignores JAVA_OPTS — an -Xmx set there is
+  // inert and the JVM falls back to ergonomic (container-limit) heap sizing.
+  string jvm_xmx_source = 17;
+
+  // Generic runtime detections (Node.js, .NET, Go, Rust, GraalVM native-image,
+  // Python, Ruby, Deno, Bun) from zxporter-nodemon: existence + best-effort
+  // version per runtime. Empty for containers with no detected runtime. JVM
+  // stays on the dedicated fields above (richer hsperfdata payload).
+  repeated RuntimeProcess runtime_processes = 18;
+}
+
+// GPUMigInstance captures per-instance identity and profiling metrics for a
+// single MIG partition. GPU utilization/SM fields are intentionally absent —
+// DCGM never populates them on MIG rows.
+message GPUMigInstance {
+  string device_uuid = 1;
+  string device_id = 2;
+  string mig_profile = 3;
+  string mig_instance_id = 4;
+  string model_name = 5;
+
+  double tensor_active = 6;
+  double dram_active = 7;
+  double graphics_engine_active = 8;
+  double framebuffer_used = 9;
+  double framebuffer_total = 10;
+}
+
+// IndividualGPUMetric captures point-in-time metrics for a single GPU used
+// by a container.
+message IndividualGPUMetric {
+  string uuid = 1;
+  string model_name = 2;
+  string device_index = 3;
+  string mig_profile = 4;
+  string mig_instance_id = 5;
+
+  double utilization = 6;
+  double memory_used = 7;
+  double memory_free = 8;
+  double total_memory = 9;
+  double memory_utilization_percentage = 10;
+  double power_usage = 11;
+  double temperature = 12;
+  double sm_clock = 13;
+  double mem_clock = 14;
+}
+
+// ContainerIndividualGPUMetrics is the most recent per-GPU breakdown for a
+// single container.
+message ContainerIndividualGPUMetrics {
+  string container_name = 1;
+  repeated IndividualGPUMetric instances = 2;
+  optional google.protobuf.Timestamp collected_at = 3;
+}
+
+// RuntimeProcess is one detected language runtime in a container.
+message RuntimeProcess {
+  // Runtime name: "nodejs" | "dotnet" | "go" | "rust" |
+  // "graalvm-native-image" | "python" | "ruby" | "deno" | "bun".
+  string runtime = 1;
+  // Best-effort version; may be empty (stripped/custom binaries) — the
+  // detection itself is still meaningful.
+  string version = 2;
+  // How the version was resolved: "env" | "maps" | "buildinfo" | "elf-comment"
+  // | "binary-scan" | "exe-path" | "comm".
+  string version_source = 3;
+  // Raw process cmdline (useful for future flag heuristics, e.g.
+  // --max-old-space-size).
+  string raw_cmdline = 4;
 }
 
 // ForecastResourceMetrics encapsulates Forecasted CPU and memory capacity, usage, and utilization for nodes and containers.
@@ -346,6 +473,27 @@ message ResourceSummary {
 }
 
 // WorkloadItem represents a Kubernetes resource and its hierarchical children.
+// LegacyPolicyRef identifies a legacy WorkloadPolicy whose target matches a workload.
+message LegacyPolicyRef {
+  string policy_id = 1;
+  string policy_name = 2;
+}
+
+// OptimizationStatus reports whether a workload is optimized under either the
+// legacy (WorkloadPolicy/WorkloadPolicyTarget) or MPA v2 (WorkloadRule) system.
+// Only populated on WorkloadItem when at least one of
+// GetWorkloadsRequest.include_legacy_optimization_status or
+// GetWorkloadsRequest.include_v2_optimization_status is true.
+message OptimizationStatus {
+  bool is_optimized = 1; // is_optimized_legacy || is_optimized_v2
+  bool is_optimized_legacy = 2;
+  bool is_optimized_v2 = 3;
+  repeated LegacyPolicyRef legacy_policies = 4; // legacy policies whose targets match this workload
+  string workload_rule_id = 5; // v2: empty if no active WorkloadRule
+  string workload_rule_policy_name = 6; // v2: display name of the policy behind the active rule, empty if unresolved
+  bool disabled = 7; // v2: whether the active WorkloadRule (workload_rule_id) is currently disabled. Always false when workload_rule_id is empty.
+}
+
 message WorkloadItem {
   string kind = 1; // Kind of the resource (e.g., Pod, Container, Deployment).
   string name = 2; // Name of the resource.
@@ -377,6 +525,8 @@ message WorkloadItem {
 
   string root_owner_kind = 91; // Kind of the root owning resource, if any.
   string root_owner_uid = 92; // UID of the root owning resource, if any.
+
+  optional OptimizationStatus optimization_status = 93; // Populated only when GetWorkloadsRequest.include_legacy_optimization_status and/or GetWorkloadsRequest.include_v2_optimization_status is true
 }
 
 // ContainerRuntimeInfo containes information about container runtime info
@@ -534,13 +684,34 @@ message SavingsTimeSeries {
   double total_cpu_cost_waste = 4;
 }
 
-// Kubernetes-compatible Label Selector Types
-
-// LabelSelectorOperator is the set of operators that can be used in a selector requirement.
+// LabelSelectorOperator is the set of operators that can be used in a selector
+// requirement.
+//
+// The message shape mirrors Kubernetes metav1.LabelSelector, and matching
+// follows Kubernetes for the IN and NOT_IN operators. In particular, a
+// workload whose labels lack the key still matches NOT_IN, because a missing
+// key is not in the set. This agrees with Kubernetes: in
+// k8s.io/apimachinery/pkg/labels, Requirement.Matches returns true for NotIn
+// when the key is absent, so it is not a divergence.
+//
+// Two DevZero-specific caveats apply (PC-1452):
+//
+// First, the department and workload filter paths implement only IN and
+// NOT_IN. EXISTS, DOES_NOT_EXIST, GT, and LT are part of this proto for shape
+// compatibility but are not honored by those SQL filters.
+//
+// Second, a workload whose entire labels or annotations column is SQL NULL
+// (an unset column, distinct from an empty map) is EXCLUDED from a NOT_IN
+// match by the department query, which ANDs a column IS NOT NULL guard ahead
+// of the selector condition (dakr/repositories/departments.go). This is a
+// genuine divergence from Kubernetes, which matches a label-less object
+// against NotIn. It is also inconsistent with the workload-metrics filter
+// path, which matches a NULL column against NOT_IN
+// (dakr/repositories/workload_metrics_filters.go).
 enum LabelSelectorOperator {
     LABEL_SELECTOR_OPERATOR_UNSPECIFIED = 0;
     LABEL_SELECTOR_OPERATOR_IN = 1;             // In
-    LABEL_SELECTOR_OPERATOR_NOT_IN = 2;         // NotIn  
+    LABEL_SELECTOR_OPERATOR_NOT_IN = 2;         // NotIn (missing key matches; see caveats above and PC-1452)
     LABEL_SELECTOR_OPERATOR_EXISTS = 3;         // Exists
     LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST = 4; // DoesNotExist
     LABEL_SELECTOR_OPERATOR_GT = 5; // GreaterThan
@@ -553,7 +724,9 @@ message LabelSelectorRequirement {
     // key is the label key that the selector applies to.
     string key = 1;
     // operator represents a key's relationship to a set of values.
-    // Valid operators are In, NotIn, Exists and DoesNotExist.
+    // Valid operators are In, NotIn, Exists and DoesNotExist, but the DevZero
+    // department and workload filter paths honor only In and NotIn (see the
+    // LabelSelectorOperator caveats above, PC-1452).
     LabelSelectorOperator operator = 2;
     // values is an array of string values. If the operator is In or NotIn,
     // the values array must be non-empty. If the operator is Exists or DoesNotExist,
@@ -647,6 +820,14 @@ message ResourceDetails {
     SparkApplicationDetails spark_application_details = 242;
     // ScheduledSparkApplication-specific fields
     ScheduledSparkApplicationDetails scheduled_spark_application_details = 243;
+    // KyvernoPolicy-specific fields
+    KyvernoPolicyDetails kyverno_policy_details = 244;
+    // KyvernoPolicyReport-specific fields
+    KyvernoPolicyReportDetails kyverno_policy_report_details = 245;
+    // GatekeeperConstraintTemplate-specific fields
+    GatekeeperConstraintTemplateDetails gatekeeper_constraint_template_details = 246;
+    // GatekeeperConstraint-specific fields
+    GatekeeperConstraintDetails gatekeeper_constraint_details = 247;
   }
   
   // Common fields that can be flattened at this level for easier access
@@ -1118,6 +1299,12 @@ message NodeDetails {
   map<string, string> capacity = 4;             // Resource capacity (cpu, memory, etc.)
   map<string, string> allocatable = 5;          // Allocatable resources
   repeated NodeImage images = 6;                // Container images on the node
+  // Desired MIG partitioning profile from the nvidia.com/mig.config node
+  // label; empty on nodes without MIG management.
+  string mig_config_desired = 7;
+  // Applied MIG state from the nvidia.com/mig.config.state node label
+  // (e.g. success, pending, failed); empty on nodes without MIG management.
+  string mig_config_state = 8;
 }
 
 // NodeTaint represents a node taint that affects pod scheduling
@@ -1523,6 +1710,20 @@ enum WorkloadStatusFilter {
   WORKLOAD_STATUS_FILTER_BOTH = 3;     // Both active and deleted workloads
 }
 
+// ResourceFieldFilter filters resources on a single field; values are OR'd together.
+message ResourceFieldFilter {
+  string field = 1;            // e.g. "type", "class", "kind", "namespace"
+  repeated string values = 2;  // OR'd together
+}
+
+// ResourceFilterFieldOptions describes the distinct values available for a filterable field.
+message ResourceFilterFieldOptions {
+  string field = 1;
+  string label = 2;
+  repeated string values = 3;
+  bool truncated = 4;  // true when the value list was capped and is incomplete
+}
+
 // WorkloadFilters provides optional filters for narrowing the GetWorkloads request.
 // All fields are optional. When multiple fields are provided, they are ANDed together.
 message WorkloadFilters {
@@ -1534,7 +1735,18 @@ message WorkloadFilters {
   optional LabelSelector annotation_selector = 15;  // Target workloads by annotations
   repeated string workload_names = 16;              // Target specific workload kinds
 
+  // Match workloads with at least one container detected as one of these
+  // languages (e.g. "python", "go", "java"). ANY container matching is
+  // sufficient — containers do not all need to match.
+  repeated string language_filter = 17;
+  // Exact detected version strings (e.g. "3.11.4"). Only meaningful when
+  // language_filter is also set; ignored otherwise.
+  repeated string language_version_filter = 18;
+
   repeated string node_group_names = 21;            // target workloads running on specific nodes
+
+  repeated string namespace_names = 22;             // Target workloads in any of these namespaces by exact name (OR'd together; ANDed with other filter fields; no-op when empty)
+  optional RegexPattern namespace_pattern = 23;     // Target namespaces by name pattern
 
   // Lifecycle status filter (overrides legacy show_deleted when set)
   WorkloadStatusFilter status = 30; // ACTIVE, DELETED, or BOTH
@@ -1678,6 +1890,146 @@ message ScheduledSparkApplicationDetails {
   SparkApplicationDetails template_details = 14;  // Details from the SparkApplication template
 }
 
+// KyvernoPolicyDetails contains detailed Kyverno Policy/ClusterPolicy information for drill-down
+message KyvernoPolicyDetails {
+  string kind = 1;                            // Policy (namespaced) or ClusterPolicy
+  bool background = 2;                        // Whether background scanning is enabled
+  string validation_failure_action = 3;       // Audit or Enforce (rule-level failureAction wins on kyverno 1.13+)
+  int32 rule_count = 4;                       // Number of rules in the policy
+  repeated string rule_names = 5;             // Rule names
+  string spec_json = 6;                       // Full policy spec as JSON for raw inspection
+}
+
+// PolicyReportResult is one per-resource result inside a Kyverno policy report
+message PolicyReportResult {
+  string policy = 1;                          // Policy name
+  string rule = 2;                            // Rule name
+  string result = 3;                          // pass, fail, warn, error, skip
+  string severity = 4;                        // critical, high, medium, low, info
+  string message = 5;                         // Human readable message
+  string resource_kind = 6;                   // Kind of the evaluated resource
+  string resource_namespace = 7;              // Namespace of the evaluated resource
+  string resource_name = 8;                   // Name of the evaluated resource
+}
+
+// KyvernoPolicyReportDetails contains detailed policy report information for drill-down.
+// The results list is capped at collection time (50); the counts always cover the full report.
+message KyvernoPolicyReportDetails {
+  string kind = 1;                            // PolicyReport (namespaced) or ClusterPolicyReport
+  string scope_kind = 2;                      // Kind of the resource the report applies to
+  string scope_name = 3;                      // Name of the resource the report applies to
+  string scope_namespace = 4;                 // Namespace of the resource the report applies to
+  int32 pass = 5;                             // Passing result count
+  int32 fail = 6;                             // Failing result count
+  int32 warn = 7;                             // Warning result count
+  int32 error = 8;                            // Error result count
+  int32 skip = 9;                             // Skipped result count
+  repeated PolicyReportResult results = 10;   // Capped per-resource results
+  int32 total_results = 11;                   // Full result count before capping
+}
+
+// GatekeeperConstraintTemplateDetails contains detailed ConstraintTemplate information for drill-down
+message GatekeeperConstraintTemplateDetails {
+  string crd_kind = 1;                        // Constraint kind this template generates (e.g. K8sRequiredLabels)
+  repeated string targets = 2;                // Enforcement targets (e.g. admission.k8s.gatekeeper.sh)
+  bool created = 3;                           // Whether the constraint CRD has been created
+  string spec_json = 4;                       // Full template spec as JSON for raw inspection
+}
+
+// ConstraintViolation is one audit violation on a Gatekeeper constraint status
+message ConstraintViolation {
+  string resource_kind = 1;                   // Kind of the violating resource
+  string resource_namespace = 2;              // Namespace of the violating resource
+  string resource_name = 3;                   // Name of the violating resource
+  string message = 4;                         // Violation message
+  string enforcement_action = 5;              // Action recorded on the violation
+}
+
+// GatekeeperConstraintDetails contains detailed constraint information for drill-down.
+// The violations list is capped by gatekeeper (default 20); total_violations covers the full audit.
+message GatekeeperConstraintDetails {
+  string kind = 1;                            // Template-generated constraint kind
+  string enforcement_action = 2;              // deny, warn, or dryrun
+  string match_json = 3;                      // Match criteria as JSON
+  string parameters_json = 4;                 // Constraint parameters as JSON
+  int64 total_violations = 5;                 // Full audit violation count
+  google.protobuf.Timestamp audit_timestamp = 6; // When gatekeeper last audited
+  repeated ConstraintViolation violations = 7;   // Capped audit violations
+}
+
+// DisruptionBlockReason is the structured classification of a consolidation / scale-down
+// block: why the autoscaler could not remove a node.
+//
+// Assigned by zxporter at ingest time, because only the collector has the inputs the
+// answer needs — the blocked pods' annotations, live PodDisruptionBudget status, the
+// NodeClaim's terminationGracePeriod deadline, and (on Cluster Autoscaler) the
+// `cluster-autoscaler-status` ConfigMap. dakr has none of those at read time, and the
+// event's own message is unversioned free text that has changed shape across releases.
+//
+// ONE ENUM FOR BOTH AUTOSCALERS. Karpenter's `DisruptionBlocked` events and Cluster
+// Autoscaler's synthesized `ScaleDownBlocked` observations share these buckets: two mean
+// the same thing under either autoscaler, the rest are specific to one. Which autoscaler
+// produced a row is answered by its `reporting_controller`, not by a second enum — that is
+// what lets one report cover a Karpenter cluster, a CAS cluster, and a cluster running
+// both mid-migration.
+//
+// The value names map 1:1 to models.DisruptionBlockReason and to the
+// k8s_events.disruption_block_reason ClickHouse column's string values. That column is
+// LowCardinality(String), not Enum8, so appending a value here costs no migration.
+enum DisruptionBlockReason {
+  // Not a disruption-block event, or an event ingested before classification existed.
+  // Deliberately distinct from OTHER: this means "never classified", where OTHER means
+  // "classified, and matched no known pattern".
+  DISRUPTION_BLOCK_REASON_UNSPECIFIED = 0;
+  // A PodDisruptionBudget selecting a pod on the node currently allows no disruptions.
+  // blocking_pdb_name carries which one. Both autoscalers (on Cluster Autoscaler this is
+  // the BlockedByPod unremovable reason with a NotEnoughPdb blocking pod).
+  DISRUPTION_BLOCK_REASON_PDB_VIOLATION = 1;
+  // A pod on the node, or the node itself, is annotated un-evictable. Both autoscalers:
+  // `karpenter.sh/do-not-disrupt: "true"` on a pod (Karpenter),
+  // `cluster-autoscaler.kubernetes.io/safe-to-evict: "false"` on a pod, or
+  // `cluster-autoscaler.kubernetes.io/scale-down-disabled: "true"` on a node (CAS).
+  DISRUPTION_BLOCK_REASON_DO_NOT_DISRUPT_ANNOTATION = 2;
+  // The NodeClaim's terminationGracePeriod deadline has already elapsed, so Karpenter
+  // will force-terminate past both PDBs and do-not-disrupt. Karpenter-only: Cluster
+  // Autoscaler has no equivalent override.
+  DISRUPTION_BLOCK_REASON_FORCE_DISRUPTED = 3;
+  // Classified, but the block matched none of the above — e.g. a node-level block
+  // (uninitialized, already deleting, missing its NodePool label), or any Cluster
+  // Autoscaler unremovable reason without its own bucket (NodeGroupMinSizeReached,
+  // NotUnderutilized, CurrentlyBeingDeleted, ...). The verbatim `message` is the only
+  // remaining detail, which is why it is never dropped. This is the REQUIRED fallback:
+  // dakr rejects an event carrying a value outside this enum.
+  DISRUPTION_BLOCK_REASON_OTHER = 4;
+  // Cluster Autoscaler considers the node underutilized but has not yet seen it stay that
+  // way for --scale-down-unneeded-time. A waiting state rather than a misconfiguration,
+  // and the most common thing a healthy CAS cluster reports — hence its own bucket rather
+  // than OTHER. Cluster-Autoscaler-only.
+  DISRUPTION_BLOCK_REASON_NOT_UNNEEDED_LONG_ENOUGH = 5;
+  // Cluster Autoscaler's scheduling simulation found nowhere to move the node's pods to,
+  // so the node cannot be drained. Actionable, unlike NOT_UNNEEDED_LONG_ENOUGH.
+  // Cluster-Autoscaler-only.
+  DISRUPTION_BLOCK_REASON_NO_PLACE_TO_MOVE_PODS = 6;
+  // The scheduler has provisionally assigned a pending pod to this node
+  // (pod.Status.NominatedNodeName). The autoscaler will not disrupt a node it is about to
+  // hand a pod, since that would just make the pod re-pend immediately — a self-resolving,
+  // expected-waiting state, not a misconfiguration. related_pod_name carries the pod.
+  // Derived structurally, not from the event message — reachable via the Karpenter path
+  // today.
+  DISRUPTION_BLOCK_REASON_POD_NOMINATED = 7;
+  // Karpenter's own `disruption.budgets` allowance for the NodePool is currently spent, so
+  // it throttled itself. Operationally the opposite of every other value here: a config
+  // choice the cluster's owner made, not an obstruction to go find, which is why it is not
+  // folded into OTHER. Reported against the NodePool rather than a node, so it counts as a
+  // blocking event and never as a blocked node. Karpenter-only.
+  DISRUPTION_BLOCK_REASON_DISRUPTION_BUDGET = 8;
+  // Karpenter's scheduling simulation found nowhere for the node's pods to go, so draining
+  // it would leave them pending. Same situation as NO_PLACE_TO_MOVE_PODS, which is spelled
+  // to match Cluster Autoscaler's own unremovable reason verbatim and is therefore kept
+  // CAS-only; the per-pod sub-reason stays readable in the verbatim `message`.
+  DISRUPTION_BLOCK_REASON_PODS_WOULD_NOT_SCHEDULE = 9;
+}
+
 message Event {
   string id = 1;
   string kind = 2;
@@ -1704,6 +2056,13 @@ message Event {
   map<string, string> labels = 24;
   string involved_object_uid = 25;
 
+  // Set only on Karpenter `DisruptionBlocked` events; UNSPECIFIED on every other event.
+  DisruptionBlockReason disruption_block_reason = 26;
+  // The PodDisruptionBudget that blocked eviction, as "namespace/name". Set only
+  // alongside DISRUPTION_BLOCK_REASON_PDB_VIOLATION; absent — not empty-string —
+  // otherwise, since "no PDB was involved" is not the same as "a PDB with no name".
+  optional string blocking_pdb_name = 27;
+
   google.protobuf.Timestamp created_at = 41;
   google.protobuf.Timestamp updated_at = 42;
   google.protobuf.Timestamp last_seen = 43;
@@ -1711,6 +2070,11 @@ message Event {
   string updated_at_age = 45;
   string last_seen_age = 46;
   google.protobuf.Timestamp deleted_at = 47;
+
+  // The pod behind a DISRUPTION_BLOCK_REASON_DO_NOT_DISRUPT_ANNOTATION or
+  // DISRUPTION_BLOCK_REASON_POD_NOMINATED classification, as "namespace/name". Same
+  // absent-means-not-applicable contract as blocking_pdb_name.
+  optional string related_pod_name = 48;
 }
 
 message EventDatapointInfo {

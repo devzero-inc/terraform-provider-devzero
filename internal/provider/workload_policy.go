@@ -249,7 +249,7 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 					listvalidator.SizeAtLeast(1),
 					listvalidator.NoNullValues(),
 					listvalidator.UniqueValues(),
-					listvalidator.ValueStringsAre(stringvalidator.OneOf("pod_creation", "pod_update")),
+					listvalidator.ValueStringsAre(stringvalidator.OneOf("pod_creation", "pod_update", "pod_evict")),
 				},
 			},
 			"loopback_period_seconds": schema.Int32Attribute{
