@@ -859,7 +859,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-123")
+		req := m.toProto(ctx, &diags, "team-123", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -935,7 +935,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			Containers:                nil,
 		}
 
-		req := m.toProto(ctx, &diags, "team-456")
+		req := m.toProto(ctx, &diags, "team-456", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1341,7 +1341,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-123")
+		req := m.toProto(ctx, &diags, "team-123", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1435,7 +1435,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-1")
+		req := m.toProto(ctx, &diags, "team-1", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1465,7 +1465,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-1")
+		req := m.toProto(ctx, &diags, "team-1", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}

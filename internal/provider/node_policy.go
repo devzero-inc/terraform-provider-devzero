@@ -66,7 +66,8 @@ type NodePolicyResourceModel struct {
 	CapacityTypeTip        types.String      `tfsdk:"capacity_type_tip"`
 	OperatingSystemsTip    types.String      `tfsdk:"operating_systems_tip"`
 	Labels                 types.Map         `tfsdk:"labels"`
-	Taints                 types.List        `tfsdk:"taints"` // List of Taint objects
+	Taints                 types.List        `tfsdk:"taints"`         // List of Taint objects
+	StartupTaints          types.List        `tfsdk:"startup_taints"` // List of Taint objects
 	Disruption             *DisruptionPolicy `tfsdk:"disruption"`
 	Limits                 *ResourceLimits   `tfsdk:"limits"`
 	TaintsTip              types.String      `tfsdk:"taints_tip"`
@@ -77,6 +78,9 @@ type NodePolicyResourceModel struct {
 	NodeClassName          types.String      `tfsdk:"node_class_name"`
 	Aws                    *AWSNodeClass     `tfsdk:"aws"`
 	Azure                  *AzureNodeClass   `tfsdk:"azure"`
+	ZonalShift             *ZonalShiftConfig `tfsdk:"zonal_shift"`
+	InstanceLocalNvme      *LabelSelector    `tfsdk:"instance_local_nvme"`
+	CloudProviderId        types.Int64       `tfsdk:"cloud_provider_id"`
 	Raw                    types.List        `tfsdk:"raw"` // List of RawKarpenterSpec objects
 }
 
@@ -85,6 +89,13 @@ type Taint struct {
 	Key    types.String `tfsdk:"key"`
 	Value  types.String `tfsdk:"value"`
 	Effect types.String `tfsdk:"effect"`
+}
+
+// ZonalShiftConfig configures behavior during an AWS ARC zonal shift (AWS only).
+type ZonalShiftConfig struct {
+	RespectZonalShift  types.Bool `tfsdk:"respect_zonal_shift"`
+	EvictImpactedNodes types.Bool `tfsdk:"evict_impacted_nodes"`
+	AllowZoneFallback  types.Bool `tfsdk:"allow_zone_fallback"`
 }
 
 // DisruptionPolicy defines node disruption policy.
@@ -178,6 +189,7 @@ type AzureNodeClass struct {
 	Tags         types.Map                  `tfsdk:"tags"`
 	Kubelet      *AzureKubeletConfiguration `tfsdk:"kubelet"`
 	MaxPods      types.Int32                `tfsdk:"max_pods"`
+	ImageVersion types.String               `tfsdk:"image_version"`
 }
 
 // RawKarpenterSpec defines raw Karpenter YAML specs.
@@ -275,6 +287,59 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						},
 					},
 				},
+			},
+			"startup_taints": schema.ListNestedAttribute{
+				Description:         "Taints applied to nodes only during startup",
+				MarkdownDescription: "List of Kubernetes taints applied to nodes only while they start up (Karpenter `startupTaints`). Removed once the node is ready.",
+				Optional:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Description: "Taint key",
+							Required:    true,
+						},
+						"value": schema.StringAttribute{
+							Description: "Taint value",
+							Required:    true,
+						},
+						"effect": schema.StringAttribute{
+							Description:         "Taint effect (NoSchedule, PreferNoSchedule, NoExecute)",
+							MarkdownDescription: "Taint effect. Valid values: `NoSchedule`, `PreferNoSchedule`, `NoExecute`.",
+							Required:            true,
+						},
+					},
+				},
+			},
+			"zonal_shift": schema.SingleNestedAttribute{
+				Description:         "AWS ARC zonal shift behavior (AWS only)",
+				MarkdownDescription: "Behavior during an AWS ARC zonal shift. AWS only — silently ignored for other clouds.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"respect_zonal_shift": schema.BoolAttribute{
+						Description: "Master opt-in. When false the other fields are ignored",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"evict_impacted_nodes": schema.BoolAttribute{
+						Description: "Also terminate existing nodes in the impacted zone (respects PDBs)",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"allow_zone_fallback": schema.BoolAttribute{
+						Description: "Expand a single-zone policy to other zones when its zone is impacted",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+				},
+			},
+			"instance_local_nvme": labelSelectorAttribute("Ephemeral NVMe storage per node in GiB (AWS only; karpenter.k8s.aws/instance-local-nvme)"),
+			"cloud_provider_id": schema.Int64Attribute{
+				Description:         "Cloud provider ID this policy is intended for (informational)",
+				MarkdownDescription: "Cloud provider ID this policy is intended for: `1` = AWS, `2` = Azure, `3` = GCP, `4` = OCI. Informational/UI filter — compilation always uses the target cluster's provider.",
+				Optional:            true,
 			},
 			"disruption": schema.SingleNestedAttribute{
 				Description:         "Node disruption policy configuration",
@@ -703,6 +768,11 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 					"max_pods": schema.Int32Attribute{
 						Description: "Maximum number of pods per node",
 						Optional:    true,
+					},
+					"image_version": schema.StringAttribute{
+						Description:         "Pinned node image version",
+						MarkdownDescription: "Pinned node image version. Requires the DevZero node operator >= 1.8.4.",
+						Optional:            true,
 					},
 					"kubelet": schema.SingleNestedAttribute{
 						Description:         "Kubelet configuration overrides",
@@ -1170,6 +1240,44 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 		policy.Taints = taints
 	}
 
+	// Startup taints
+	if !m.StartupTaints.IsNull() && !m.StartupTaints.IsUnknown() {
+		startupTaints, err := getElementList(ctx, m.StartupTaints.Elements(), func(ctx context.Context, value Taint) (*apiv1.Taint, error) {
+			return &apiv1.Taint{
+				Key:    value.Key.ValueString(),
+				Value:  value.Value.ValueString(),
+				Effect: value.Effect.ValueString(),
+			}, nil
+		})
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert startup taints: %s", err))
+			return nil
+		}
+		policy.StartupTaints = startupTaints
+	}
+
+	// Zonal shift (AWS only)
+	if m.ZonalShift != nil {
+		policy.ZonalShift = &apiv1.ZonalShiftConfig{
+			RespectZonalShift:  m.ZonalShift.RespectZonalShift.ValueBool(),
+			EvictImpactedNodes: m.ZonalShift.EvictImpactedNodes.ValueBool(),
+			AllowZoneFallback:  m.ZonalShift.AllowZoneFallback.ValueBool(),
+		}
+	}
+
+	// Instance local NVMe selector (AWS only)
+	if m.InstanceLocalNvme != nil {
+		selector, err := m.InstanceLocalNvme.toProto(ctx)
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert instance local NVMe selector: %s", err))
+			return nil
+		}
+		policy.InstanceLocalNvme = selector
+	}
+
+	// Cloud provider id (informational)
+	policy.CloudProviderId = m.CloudProviderId.ValueInt64Pointer()
+
 	// Disruption policy
 	if m.Disruption != nil {
 		policy.Disruption = m.Disruption.toProto(ctx, diags)
@@ -1346,6 +1454,63 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	}
 
 	// Tooltip fields for node config
+	// Startup taints
+	if len(policy.StartupTaints) > 0 {
+		startupTaints := make([]attr.Value, 0, len(policy.StartupTaints))
+		for _, taint := range policy.StartupTaints {
+			startupTaints = append(startupTaints, types.ObjectValueMust(
+				map[string]attr.Type{
+					"key":    types.StringType,
+					"value":  types.StringType,
+					"effect": types.StringType,
+				},
+				map[string]attr.Value{
+					"key":    types.StringValue(taint.Key),
+					"value":  types.StringValue(taint.Value),
+					"effect": types.StringValue(taint.Effect),
+				},
+			))
+		}
+		m.StartupTaints = types.ListValueMust(
+			types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"key":    types.StringType,
+					"value":  types.StringType,
+					"effect": types.StringType,
+				},
+			},
+			startupTaints,
+		)
+	} else {
+		m.StartupTaints = types.ListNull(types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"key":    types.StringType,
+				"value":  types.StringType,
+				"effect": types.StringType,
+			},
+		})
+	}
+
+	// Zonal shift
+	if policy.ZonalShift != nil {
+		m.ZonalShift = &ZonalShiftConfig{
+			RespectZonalShift:  types.BoolValue(policy.ZonalShift.RespectZonalShift),
+			EvictImpactedNodes: types.BoolValue(policy.ZonalShift.EvictImpactedNodes),
+			AllowZoneFallback:  types.BoolValue(policy.ZonalShift.AllowZoneFallback),
+		}
+	} else {
+		m.ZonalShift = nil
+	}
+
+	// Instance local NVMe selector
+	if policy.InstanceLocalNvme != nil {
+		m.InstanceLocalNvme = labelSelectorFromProto(policy.InstanceLocalNvme)
+	} else {
+		m.InstanceLocalNvme = nil
+	}
+
+	m.CloudProviderId = types.Int64PointerValue(policy.CloudProviderId)
+
 	m.TaintsTip = stringPointerValue(policy.TaintsTip)
 	m.DisruptionsTip = stringPointerValue(policy.DisruptionsTip)
 	m.LimitsTip = stringPointerValue(policy.LimitsTip)
@@ -2355,6 +2520,11 @@ func (azure *AzureNodeClass) toProto(ctx context.Context, diags *diag.Diagnostic
 		spec.MaxPods = &val
 	}
 
+	if !azure.ImageVersion.IsNull() {
+		val := azure.ImageVersion.ValueString()
+		spec.ImageVersion = &val
+	}
+
 	if azure.Kubelet != nil {
 		k := &apiv1.AzureKubeletConfiguration{}
 		if !azure.Kubelet.CpuManagerPolicy.IsNull() {
@@ -2470,6 +2640,8 @@ func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {
 	} else {
 		azure.MaxPods = types.Int32Null()
 	}
+
+	azure.ImageVersion = stringPointerValue(spec.ImageVersion)
 
 	if spec.Kubelet != nil {
 		k := &AzureKubeletConfiguration{}

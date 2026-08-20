@@ -139,10 +139,12 @@ resource "devzero_workload_rule" "per_container" {
 - `cron_schedule` (String) Cron expression for scheduled application (5-field UTC)
 - `defragmentation_schedule` (String) Cron expression for node defragmentation
 - `detection_triggers` (List of String) Events that trigger a recommendation. Valid values: 'pod_creation', 'pod_update'
+- `disabled` (Boolean) Whether the rule is disabled. A disabled rule exists but is not evaluated. Changing this after creation uses the ToggleWorkloadRuleDisabled API (the upsert API rejects `disabled` on update).
 - `emergency_response` (Attributes) Emergency response configuration for OOM and CPU throttle events (see [below for nested schema](#nestedatt--emergency_response))
 - `gpu_rule` (Attributes) GPU vertical scaling rule configuration (see [below for nested schema](#nestedatt--gpu_rule))
 - `hpa_rule` (Attributes) Horizontal (replica) scaling rule configuration (see [below for nested schema](#nestedatt--hpa_rule))
 - `live_migration_enabled` (Boolean) Allow live pod migration when applying recommendations
+- `lookback_period_seconds` (Number) Per-rule override of the metrics lookback window in seconds. Unset inherits the team default (7 days). Minimum 3600 (1h), maximum 2592000 (30d); higher tiers may be capped server-side.
 - `memory_rule` (Attributes) Memory vertical scaling rule configuration (see [below for nested schema](#nestedatt--memory_rule))
 - `scheduler_plugins` (List of String) Kubernetes scheduler plugins to activate
 - `use_in_place_vertical_scaling` (Boolean) Use in-place pod vertical scaling instead of pod restarts
@@ -171,10 +173,12 @@ Optional:
 
 - `enabled` (Boolean) Enable this resource axis rule
 - `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limit_use_rss` (Boolean) Memory only: derive the limit from an RSS-based recommendation
 - `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
 - `limits_removal_enabled` (Boolean) Actively remove limits from workloads
 - `max_request` (Number) Maximum resource request
 - `min_request` (Number) Minimum resource request
+- `request_use_rss` (Boolean) Memory only: size the request from RSS instead of working set
 - `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 
@@ -185,10 +189,12 @@ Optional:
 
 - `enabled` (Boolean) Enable this resource axis rule
 - `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limit_use_rss` (Boolean) Memory only: derive the limit from an RSS-based recommendation
 - `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
 - `limits_removal_enabled` (Boolean) Actively remove limits from workloads
 - `max_request` (Number) Maximum resource request
 - `min_request` (Number) Minimum resource request
+- `request_use_rss` (Boolean) Memory only: size the request from RSS instead of working set
 - `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 
@@ -199,10 +205,12 @@ Optional:
 
 - `enabled` (Boolean) Enable this resource axis rule
 - `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limit_use_rss` (Boolean) Memory only: derive the limit from an RSS-based recommendation
 - `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
 - `limits_removal_enabled` (Boolean) Actively remove limits from workloads
 - `max_request` (Number) Maximum resource request
 - `min_request` (Number) Minimum resource request
+- `request_use_rss` (Boolean) Memory only: size the request from RSS instead of working set
 - `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 
@@ -212,14 +220,22 @@ Optional:
 
 Optional:
 
+- `ceiling_percent` (Number) Ceiling for the request as a percent of initial_request (1-1000)
 - `enabled` (Boolean) Enable this resource axis rule
+- `floor_percent` (Number) Floor for the request as a percent of initial_request (1-100)
+- `initial_limit` (Number) Baseline limit the limit floor/ceiling percents are computed against
+- `initial_request` (Number) Baseline request the floor/ceiling percents are computed against
+- `limit_ceiling_percent` (Number) Ceiling for the limit as a percent of initial_limit (1-1000)
+- `limit_floor_percent` (Number) Floor for the limit as a percent of initial_limit (1-100)
 - `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limit_use_rss` (Boolean) Memory only: derive the limit from an RSS-based recommendation
 - `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
 - `limits_removal_enabled` (Boolean) Actively remove limits from workloads
 - `max_request` (Number) Maximum resource request (millicores for CPU, bytes for memory/GPU)
 - `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle
 - `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle
 - `min_request` (Number) Minimum resource request (millicores for CPU, bytes for memory/GPU)
+- `request_use_rss` (Boolean) Memory only: size the request from RSS instead of working set
 - `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 
@@ -240,14 +256,22 @@ Optional:
 
 Optional:
 
+- `ceiling_percent` (Number) Ceiling for the request as a percent of initial_request (1-1000)
 - `enabled` (Boolean) Enable this resource axis rule
+- `floor_percent` (Number) Floor for the request as a percent of initial_request (1-100)
+- `initial_limit` (Number) Baseline limit the limit floor/ceiling percents are computed against
+- `initial_request` (Number) Baseline request the floor/ceiling percents are computed against
+- `limit_ceiling_percent` (Number) Ceiling for the limit as a percent of initial_limit (1-1000)
+- `limit_floor_percent` (Number) Floor for the limit as a percent of initial_limit (1-100)
 - `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limit_use_rss` (Boolean) Memory only: derive the limit from an RSS-based recommendation
 - `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
 - `limits_removal_enabled` (Boolean) Actively remove limits from workloads
 - `max_request` (Number) Maximum resource request (millicores for CPU, bytes for memory/GPU)
 - `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle
 - `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle
 - `min_request` (Number) Minimum resource request (millicores for CPU, bytes for memory/GPU)
+- `request_use_rss` (Boolean) Memory only: size the request from RSS instead of working set
 - `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)
 
 
@@ -336,6 +360,7 @@ Required:
 
 Optional:
 
+- `connector_id` (String) HPA connector ID to source this metric's connection settings from
 - `metadata` (Map of String) Free-form key-value metadata for external scalers (e.g. serverAddress, query for Prometheus).
 - `query` (String) PromQL query string. Packed into metadata by the service layer.
 - `server_address` (String) Prometheus server URL. Packed into metadata by the service layer.
@@ -350,12 +375,20 @@ Optional:
 
 Optional:
 
+- `ceiling_percent` (Number) Ceiling for the request as a percent of initial_request (1-1000)
 - `enabled` (Boolean) Enable this resource axis rule
+- `floor_percent` (Number) Floor for the request as a percent of initial_request (1-100)
+- `initial_limit` (Number) Baseline limit the limit floor/ceiling percents are computed against
+- `initial_request` (Number) Baseline request the floor/ceiling percents are computed against
+- `limit_ceiling_percent` (Number) Ceiling for the limit as a percent of initial_limit (1-1000)
+- `limit_floor_percent` (Number) Floor for the limit as a percent of initial_limit (1-100)
 - `limit_multiplier` (Number) Multiplier applied to the request to derive the resource limit
+- `limit_use_rss` (Boolean) Memory only: derive the limit from an RSS-based recommendation
 - `limits_adjustment_enabled` (Boolean) Whether to also adjust resource limits alongside requests
 - `limits_removal_enabled` (Boolean) Actively remove limits from workloads
 - `max_request` (Number) Maximum resource request (millicores for CPU, bytes for memory/GPU)
 - `max_scale_down_percent` (Number) Maximum percentage decrease allowed in a single cycle
 - `max_scale_up_percent` (Number) Maximum percentage increase allowed in a single cycle
 - `min_request` (Number) Minimum resource request (millicores for CPU, bytes for memory/GPU)
+- `request_use_rss` (Boolean) Memory only: size the request from RSS instead of working set
 - `target_percentile` (Number) Percentile of usage data used as the recommendation target (0-1)

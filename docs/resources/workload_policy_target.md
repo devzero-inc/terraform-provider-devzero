@@ -76,20 +76,42 @@ resource "devzero_workload_policy_target" "full" {
 
 ### Optional
 
+- `annotation_selector` (Attributes) Select workloads by annotations. Uses the same semantics as label selectors, evaluated against workload annotations. (see [below for nested schema](#nestedatt--annotation_selector))
 - `description` (String) Free-form description of the target to help others understand its purpose.
 - `enabled` (Boolean) Enable or disable this target. When disabled, the associated policy will not apply to the selected workloads.
 - `kind_filter` (List of String) Restrict matching to specific Kubernetes kinds. Allowed values: `Pod`, `Job`, `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`, `CronJob`, `ReplicationController`, `Rollout`.
+- `kind_filter_not_in` (List of String) Kubernetes kinds to exclude from matching. Same allowed values as `kind_filter`.
 - `name_pattern` (Attributes) Regex to match workload names. Useful to target rollouts or name conventions (e.g., `^api-.*`). (see [below for nested schema](#nestedatt--name_pattern))
 - `namespace_pattern` (Attributes) Regex to match namespace names. Useful when namespaces follow a naming convention (e.g., `^prod-`). (see [below for nested schema](#nestedatt--namespace_pattern))
 - `namespace_selector` (Attributes) Select namespaces by labels. Uses the same semantics as Kubernetes label selectors. (see [below for nested schema](#nestedatt--namespace_selector))
-- `node_group_names` (List of String) Restrict matching to specific node groups by name
+- `node_group_names` (List of String, Deprecated) Restrict matching to specific node groups by name. Deprecated upstream — unused by any active target and removed from the UI.
 - `priority` (Number) Evaluation priority among multiple targets. Higher values take precedence when multiple targets overlap.
 - `workload_names` (List of String) Explicit list of workload names to include
+- `workload_names_not_in` (List of String) Explicit list of workload names to exclude from matching.
 - `workload_selector` (Attributes) Select workloads by labels. Applies to Kubernetes objects like Deployments, StatefulSets, DaemonSets, etc. (see [below for nested schema](#nestedatt--workload_selector))
 
 ### Read-Only
 
 - `id` (String) Unique identifier of the workload policy target. Managed by the provider.
+
+<a id="nestedatt--annotation_selector"></a>
+### Nested Schema for `annotation_selector`
+
+Optional:
+
+- `match_expressions` (Attributes List) Advanced label selector requirements. Each expression supports operators `In`, `NotIn`, `Exists`, `DoesNotExist`. Use `values` only with `In`/`NotIn`. (see [below for nested schema](#nestedatt--annotation_selector--match_expressions))
+- `match_labels` (Map of String) Exact label key/value pairs that the target must match. Keys and values must be strings. Example: `{ "app": "api", "env": "prod" }`.
+
+<a id="nestedatt--annotation_selector--match_expressions"></a>
+### Nested Schema for `annotation_selector.match_expressions`
+
+Optional:
+
+- `key` (String) Label key to evaluate. Example: `app` or `kubernetes.io/name`.
+- `operator` (String) Label selection operator. One of `In`, `NotIn`, `Exists`, `DoesNotExist`.
+- `values` (List of String) Values to compare against the key. Required with `In`/`NotIn`; must be omitted with `Exists`/`DoesNotExist`.
+
+
 
 <a id="nestedatt--name_pattern"></a>
 ### Nested Schema for `name_pattern`

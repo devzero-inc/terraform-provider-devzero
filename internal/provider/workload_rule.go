@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -56,6 +58,8 @@ type WorkloadRuleResourceModel struct {
 	LiveMigrationEnabled      types.Bool               `tfsdk:"live_migration_enabled"`
 	UseInPlaceVerticalScaling types.Bool               `tfsdk:"use_in_place_vertical_scaling"`
 	Containers                []ContainerRuleModel     `tfsdk:"containers"`
+	Disabled                  types.Bool               `tfsdk:"disabled"`
+	LookbackPeriodSeconds     types.Int32              `tfsdk:"lookback_period_seconds"`
 }
 
 type ResourceRuleConfigModel struct {
@@ -68,6 +72,14 @@ type ResourceRuleConfigModel struct {
 	MaxScaleUpPercent       types.Float32 `tfsdk:"max_scale_up_percent"`
 	MaxScaleDownPercent     types.Float32 `tfsdk:"max_scale_down_percent"`
 	LimitsRemovalEnabled    types.Bool    `tfsdk:"limits_removal_enabled"`
+	InitialRequest          types.Int64   `tfsdk:"initial_request"`
+	FloorPercent            types.Int64   `tfsdk:"floor_percent"`
+	CeilingPercent          types.Int64   `tfsdk:"ceiling_percent"`
+	InitialLimit            types.Int64   `tfsdk:"initial_limit"`
+	LimitFloorPercent       types.Int64   `tfsdk:"limit_floor_percent"`
+	LimitCeilingPercent     types.Int64   `tfsdk:"limit_ceiling_percent"`
+	RequestUseRss           types.Bool    `tfsdk:"request_use_rss"`
+	LimitUseRss             types.Bool    `tfsdk:"limit_use_rss"`
 }
 
 type HPARuleConfigModel struct {
@@ -90,6 +102,7 @@ type HPAMetricTriggerModel struct {
 	Metadata          types.Map    `tfsdk:"metadata"`
 	ServerAddress     types.String `tfsdk:"server_address"`
 	Query             types.String `tfsdk:"query"`
+	ConnectorId       types.String `tfsdk:"connector_id"`
 }
 
 type HPAFallbackModel struct {
@@ -140,6 +153,8 @@ type ContainerResourceConfigModel struct {
 	LimitsAdjustmentEnabled types.Bool    `tfsdk:"limits_adjustment_enabled"`
 	TargetPercentile        types.Float32 `tfsdk:"target_percentile"`
 	LimitsRemovalEnabled    types.Bool    `tfsdk:"limits_removal_enabled"`
+	RequestUseRss           types.Bool    `tfsdk:"request_use_rss"`
+	LimitUseRss             types.Bool    `tfsdk:"limit_use_rss"`
 }
 
 func hpaScalingRulesAttributes() map[string]schema.Attribute {
@@ -230,6 +245,42 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
+			"initial_request": schema.Int64Attribute{
+				Description: "Baseline request the floor/ceiling percents are computed against",
+				Optional:    true,
+			},
+			"floor_percent": schema.Int64Attribute{
+				Description: "Floor for the request as a percent of initial_request (1-100)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 100)},
+			},
+			"ceiling_percent": schema.Int64Attribute{
+				Description: "Ceiling for the request as a percent of initial_request (1-1000)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 1000)},
+			},
+			"initial_limit": schema.Int64Attribute{
+				Description: "Baseline limit the limit floor/ceiling percents are computed against",
+				Optional:    true,
+			},
+			"limit_floor_percent": schema.Int64Attribute{
+				Description: "Floor for the limit as a percent of initial_limit (1-100)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 100)},
+			},
+			"limit_ceiling_percent": schema.Int64Attribute{
+				Description: "Ceiling for the limit as a percent of initial_limit (1-1000)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 1000)},
+			},
+			"request_use_rss": schema.BoolAttribute{
+				Description: "Memory only: size the request from RSS instead of working set",
+				Optional:    true,
+			},
+			"limit_use_rss": schema.BoolAttribute{
+				Description: "Memory only: derive the limit from an RSS-based recommendation",
+				Optional:    true,
+			},
 		}
 	}
 
@@ -268,6 +319,14 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
+			},
+			"request_use_rss": schema.BoolAttribute{
+				Description: "Memory only: size the request from RSS instead of working set",
+				Optional:    true,
+			},
+			"limit_use_rss": schema.BoolAttribute{
+				Description: "Memory only: derive the limit from an RSS-based recommendation",
+				Optional:    true,
 			},
 		}
 	}
@@ -385,6 +444,10 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 								},
 								"query": schema.StringAttribute{
 									Description: "PromQL query string. Packed into metadata by the service layer.",
+									Optional:    true,
+								},
+								"connector_id": schema.StringAttribute{
+									Description: "HPA connector ID to source this metric's connection settings from",
 									Optional:    true,
 								},
 							},
@@ -523,6 +586,19 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
+			"disabled": schema.BoolAttribute{
+				Description:         "Create the rule in a disabled state",
+				MarkdownDescription: "Whether the rule is disabled. A disabled rule exists but is not evaluated. Changing this after creation uses the ToggleWorkloadRuleDisabled API (the upsert API rejects `disabled` on update).",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+			"lookback_period_seconds": schema.Int32Attribute{
+				Description:         "Per-rule override of the metrics lookback window (seconds)",
+				MarkdownDescription: "Per-rule override of the metrics lookback window in seconds. Unset inherits the team default (7 days). Minimum 3600 (1h), maximum 2592000 (30d); higher tiers may be capped server-side.",
+				Optional:            true,
+				Validators:          []validator.Int32{int32validator.Between(3600, 2592000)},
+			},
 			"containers": schema.ListNestedAttribute{
 				Description: "Per-container resource rule configurations. When empty, workload-level rules apply to all containers.",
 				Optional:    true,
@@ -579,7 +655,7 @@ func (r *WorkloadRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	upsertReq := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId)
+	upsertReq := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId, true)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -643,7 +719,13 @@ func (r *WorkloadRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	upsertReq := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId)
+	var state WorkloadRuleResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	upsertReq := data.toProto(ctx, &resp.Diagnostics, r.client.TeamId, false)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -656,6 +738,24 @@ func (r *WorkloadRuleResource) Update(ctx context.Context, req resource.UpdateRe
 	if upsertResp.Msg.Rule == nil {
 		resp.Diagnostics.AddError("Client Error", "Workload rule not updated")
 		return
+	}
+
+	// disabled cannot be sent through the upsert on update; use the toggle RPC.
+	if !data.Disabled.IsNull() && !data.Disabled.IsUnknown() && data.Disabled.ValueBool() != state.Disabled.ValueBool() {
+		toggleResp, err := r.client.RecommendationClient.ToggleWorkloadRuleDisabled(ctx, connect.NewRequest(&apiv1.ToggleWorkloadRuleDisabledRequest{
+			TeamId:   r.client.TeamId,
+			RuleId:   upsertResp.Msg.Rule.RuleId,
+			Disabled: data.Disabled.ValueBool(),
+		}))
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to toggle workload rule disabled state, got error: %s", err))
+			return
+		}
+		if toggleResp.Msg.Rule != nil {
+			upsertResp.Msg.Rule.Disabled = toggleResp.Msg.Rule.Disabled
+		} else {
+			upsertResp.Msg.Rule.Disabled = data.Disabled.ValueBool()
+		}
 	}
 
 	plan := data
@@ -689,7 +789,10 @@ func (r *WorkloadRuleResource) ImportState(ctx context.Context, req resource.Imp
 
 // ---------- toProto / fromProto ----------
 
-func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Diagnostics, teamId string) *apiv1.UpsertManualWorkloadRuleRequest {
+// toProto builds the upsert request. includeDisabled must be true only on
+// Create: the server rejects fields.disabled when updating an existing rule
+// (ToggleWorkloadRuleDisabled is the update path, handled in Update).
+func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Diagnostics, teamId string, includeDisabled bool) *apiv1.UpsertManualWorkloadRuleRequest {
 	source := apiv1.WorkloadRuleSource_WORKLOAD_RULE_SOURCE_TERRAFORM_MANUAL
 	if m.AutoGenerate.ValueBool() {
 		source = apiv1.WorkloadRuleSource_WORKLOAD_RULE_SOURCE_TERRAFORM_AUTO
@@ -777,6 +880,14 @@ func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Dia
 		v := m.DefragmentationSchedule.ValueString()
 		fields.DefragmentationSchedule = &v
 	}
+	if !m.LookbackPeriodSeconds.IsNull() && !m.LookbackPeriodSeconds.IsUnknown() {
+		v := m.LookbackPeriodSeconds.ValueInt32()
+		fields.LookbackPeriodSeconds = &v
+	}
+	if includeDisabled && !m.Disabled.IsNull() && !m.Disabled.IsUnknown() {
+		v := m.Disabled.ValueBool()
+		fields.Disabled = &v
+	}
 
 	req.Fields = fields
 	return req
@@ -837,6 +948,9 @@ func (m *WorkloadRuleResourceModel) fromProto(r *apiv1.WorkloadRule) {
 	default:
 		m.AutoGenerate = types.BoolValue(false)
 	}
+
+	m.Disabled = types.BoolValue(r.Disabled)
+	m.LookbackPeriodSeconds = types.Int32PointerValue(r.LookbackPeriodSeconds)
 
 	m.CpuRule = resourceRuleConfigFromProto(r.CpuRule)
 	m.MemoryRule = resourceRuleConfigFromProto(r.MemoryRule)
@@ -938,6 +1052,14 @@ func (m *ResourceRuleConfigModel) toProto() *apiv1.ResourceRuleConfig {
 		v := m.MaxScaleDownPercent.ValueFloat32()
 		p.MaxScaleDownPercent = &v
 	}
+	p.InitialRequest = m.InitialRequest.ValueInt64Pointer()
+	p.FloorPercent = m.FloorPercent.ValueInt64Pointer()
+	p.CeilingPercent = m.CeilingPercent.ValueInt64Pointer()
+	p.InitialLimit = m.InitialLimit.ValueInt64Pointer()
+	p.LimitFloorPercent = m.LimitFloorPercent.ValueInt64Pointer()
+	p.LimitCeilingPercent = m.LimitCeilingPercent.ValueInt64Pointer()
+	p.RequestUseRss = m.RequestUseRss.ValueBoolPointer()
+	p.LimitUseRss = m.LimitUseRss.ValueBoolPointer()
 	return p
 }
 
@@ -955,6 +1077,14 @@ func resourceRuleConfigFromProto(p *apiv1.ResourceRuleConfig) *ResourceRuleConfi
 		TargetPercentile:        types.Float32Null(),
 		MaxScaleUpPercent:       types.Float32Null(),
 		MaxScaleDownPercent:     types.Float32Null(),
+		InitialRequest:          types.Int64PointerValue(p.InitialRequest),
+		FloorPercent:            types.Int64PointerValue(p.FloorPercent),
+		CeilingPercent:          types.Int64PointerValue(p.CeilingPercent),
+		InitialLimit:            types.Int64PointerValue(p.InitialLimit),
+		LimitFloorPercent:       types.Int64PointerValue(p.LimitFloorPercent),
+		LimitCeilingPercent:     types.Int64PointerValue(p.LimitCeilingPercent),
+		RequestUseRss:           types.BoolPointerValue(p.RequestUseRss),
+		LimitUseRss:             types.BoolPointerValue(p.LimitUseRss),
 	}
 	if p.MinRequest != nil {
 		m.MinRequest = types.Int64Value(*p.MinRequest)
@@ -1159,6 +1289,8 @@ func (m *ContainerResourceConfigModel) toProto() *apiv1.ContainerResourceConfig 
 		v := m.TargetPercentile.ValueFloat32()
 		p.TargetPercentile = &v
 	}
+	p.RequestUseRss = m.RequestUseRss.ValueBoolPointer()
+	p.LimitUseRss = m.LimitUseRss.ValueBoolPointer()
 	return p
 }
 
@@ -1174,6 +1306,8 @@ func containerResourceConfigFromProto(p *apiv1.ContainerResourceConfig) *Contain
 		MaxRequest:              types.Int64Null(),
 		LimitMultiplier:         types.Float32Null(),
 		TargetPercentile:        types.Float32Null(),
+		RequestUseRss:           types.BoolPointerValue(p.RequestUseRss),
+		LimitUseRss:             types.BoolPointerValue(p.LimitUseRss),
 	}
 	if p.MinRequest != nil {
 		m.MinRequest = types.Int64Value(*p.MinRequest)
@@ -1225,6 +1359,10 @@ func hpaMetricTriggersToProto(ms []HPAMetricTriggerModel) []*apiv1.HPAMetricTrig
 			v := m.Query.ValueString()
 			t.Query = &v
 		}
+		if !m.ConnectorId.IsNull() && !m.ConnectorId.IsUnknown() {
+			v := m.ConnectorId.ValueString()
+			t.ConnectorId = &v
+		}
 		result[i] = t
 	}
 	return result
@@ -1244,6 +1382,7 @@ func hpaMetricTriggersFromProto(ps []*apiv1.HPAMetricTrigger) []HPAMetricTrigger
 			Metadata:          types.MapNull(types.StringType),
 			ServerAddress:     types.StringNull(),
 			Query:             types.StringNull(),
+			ConnectorId:       types.StringNull(),
 		}
 		if p.TargetUtilization != nil {
 			m.TargetUtilization = types.StringValue(*p.TargetUtilization)
@@ -1272,6 +1411,9 @@ func hpaMetricTriggersFromProto(ps []*apiv1.HPAMetricTrigger) []HPAMetricTrigger
 		}
 		if p.Query != nil && *p.Query != "" {
 			m.Query = types.StringValue(*p.Query)
+		}
+		if p.ConnectorId != nil && *p.ConnectorId != "" {
+			m.ConnectorId = types.StringValue(*p.ConnectorId)
 		}
 		result = append(result, m)
 	}

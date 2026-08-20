@@ -71,24 +71,44 @@ resource "devzero_workload_policy" "cost_saving" {
 ### Optional
 
 - `action_triggers` (List of String) Action triggers for when to apply the workload policy. Only one of `on_schedule` or `on_detection` is allowed.The `on_schedule` trigger is used to apply the workload policy on a schedule configured with the `cron_schedule` attribute.The `on_detection` trigger is used to apply the workload policy when a detection trigger event occurs, configured with the `detection_triggers` attribute.
+- `allow_in_place_memory_limit_decrease` (Boolean) Allow in-place memory limit decreases. Only honored when `enable_in_place_vertical_scaling` is true — the server silently forces this to false otherwise, so the provider rejects that combination at plan time. Default: false.
 - `cooldown_minutes` (Number) Minutes to wait between applying recommendations
+- `cpu_ceiling_percent` (Number) Ceiling for CPU requests as a percent of the initial request (1-1000)
+- `cpu_floor_percent` (Number) Floor for CPU requests as a percent of the initial request (1-100)
+- `cpu_limit_ceiling_percent` (Number) Ceiling for CPU limits as a percent of the initial limit (1-1000)
+- `cpu_limit_floor_percent` (Number) Floor for CPU limits as a percent of the initial limit (1-100)
 - `cpu_vertical_scaling` (Attributes) CPU vertical scaling options (see [below for nested schema](#nestedatt--cpu_vertical_scaling))
 - `cron_schedule` (String) Cron expression for scheduled application. Uses standard 5-field cron format in the cluster timezone.
 - `defragmentation_schedule` (String) Cron expression for background defragmentation that can move workloads to reduce fragmentation.
 - `description` (String) Free-form description of the policy to help others understand its intent and scope.
 - `detection_triggers` (List of String) Detection triggers for when to apply the workload policy. Valid values: `pod_creation`, `pod_update`, `pod_evict`.The `pod_creation` trigger is used to apply the workload policy when a pod is created.The `pod_update` trigger is used to apply the workload policy when a pod is updated.The `pod_evict` trigger is used to apply the workload policy when a pod is evicted.
 - `drift_delta_percent` (Number) Percentage drift from baseline that triggers VPA refresh
+- `enable_in_place_vertical_scaling` (Boolean) When true, vertical recommendations are applied in place (without recreating pods) where the cluster supports it. Default: false.
 - `enable_pmax_protection` (Boolean) When true, the recommender raises requests to cover observed peak usage when the peak-to-recommendation ratio exceeds `pmax_ratio_threshold`. Default: false.
 - `gpu_vertical_scaling` (Attributes) GPU vertical scaling options (see [below for nested schema](#nestedatt--gpu_vertical_scaling))
 - `gpu_vram_vertical_scaling` (Attributes) GPU VRAM vertical scaling options (see [below for nested schema](#nestedatt--gpu_vram_vertical_scaling))
 - `horizontal_scaling` (Attributes) Horizontal scaling options (see [below for nested schema](#nestedatt--horizontal_scaling))
 - `hysteresis_vs_target` (Number) Hysteresis threshold vs target for HPA coordination
+- `jvm_cpu_startup_floor_millicores` (Number) CPU floor during JVM startup, in millicores. Unset inherits the system default (75m); explicit `0` disables the floor.
+- `jvm_heap_headroom_multiplier` (Number) Headroom multiplier applied to the JVM heap recommendation
+- `jvm_heap_optimization_enabled` (Boolean) Enable JVM heap sizing recommendations
+- `jvm_heap_target_percentile` (Number) Target percentile for JVM heap sizing (0.0-1.0)
+- `jvm_max_heap_bytes` (Number) Upper bound for the JVM heap recommendation in bytes
+- `jvm_min_heap_bytes` (Number) Lower bound for the JVM heap recommendation in bytes
+- `jvm_non_heap_overhead_bytes` (Number) Fixed non-heap overhead in bytes
+- `jvm_non_heap_overhead_percent` (Number) Non-heap overhead as a fraction of heap
+- `jvm_prefer_container_support` (Boolean) Prefer container-aware JVM flags (UseContainerSupport) over explicit -Xmx
 - `live_migration_enabled` (Boolean) Allow live migration when applying recommendations
 - `loopback_period_seconds` (Number) Loopback period seconds of the workload policy. The loopback period is the period of time to look back for resource usage data.
+- `memory_ceiling_percent` (Number) Ceiling for memory requests as a percent of the initial request (1-1000)
+- `memory_floor_percent` (Number) Floor for memory requests as a percent of the initial request (1-100)
+- `memory_limit_ceiling_percent` (Number) Ceiling for memory limits as a percent of the initial limit (1-1000)
+- `memory_limit_floor_percent` (Number) Floor for memory limits as a percent of the initial limit (1-100)
 - `memory_vertical_scaling` (Attributes) Memory vertical scaling options (see [below for nested schema](#nestedatt--memory_vertical_scaling))
 - `min_change_percent` (Number) Global minimum change threshold for applying recommendations
 - `min_data_points` (Number) Global minimum data points required for recommendations
 - `min_vpa_window_data_points` (Number) Minimum data points in VPA analysis window
+- `pdb_enabled` (Boolean) Respect PodDisruptionBudgets when applying recommendations
 - `pmax_ratio_threshold` (Number) Peak-to-recommendation ratio above which pmax protection activates. Example: 3.0 — triggers when peak is 3× the recommendation. Default: 3.0.
 - `scheduler_plugins` (List of String) Kubernetes scheduler plugins to activate
 - `stability_cv_max` (Number) Maximum coefficient of variation to consider stable
@@ -106,6 +126,7 @@ Optional:
 - `adjust_req_even_if_not_set` (Boolean) When true, the recommender will suggest resource requests even if the workload currently has none set. Default: false.
 - `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
 - `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limit_use_rss` (Boolean) Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.
 - `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
 - `limits_removal_enabled` (Boolean) When true, the recommender will remove resource limits from workloads (CPU axis only — memory limits removal is not supported). Default: false.
 - `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
@@ -114,6 +135,7 @@ Optional:
 - `min_data_points` (Number) Minimum data points required for VPA decisions
 - `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
 - `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `request_use_rss` (Boolean) Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.
 - `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 
@@ -125,6 +147,7 @@ Optional:
 - `adjust_req_even_if_not_set` (Boolean) When true, the recommender will suggest resource requests even if the workload currently has none set. Default: false.
 - `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
 - `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limit_use_rss` (Boolean) Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.
 - `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
 - `limits_removal_enabled` (Boolean) When true, the recommender will remove resource limits from workloads (CPU axis only — memory limits removal is not supported). Default: false.
 - `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
@@ -133,6 +156,7 @@ Optional:
 - `min_data_points` (Number) Minimum data points required for VPA decisions
 - `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
 - `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `request_use_rss` (Boolean) Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.
 - `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 
@@ -144,6 +168,7 @@ Optional:
 - `adjust_req_even_if_not_set` (Boolean) When true, the recommender will suggest resource requests even if the workload currently has none set. Default: false.
 - `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
 - `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limit_use_rss` (Boolean) Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.
 - `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
 - `limits_removal_enabled` (Boolean) When true, the recommender will remove resource limits from workloads (CPU axis only — memory limits removal is not supported). Default: false.
 - `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
@@ -152,6 +177,7 @@ Optional:
 - `min_data_points` (Number) Minimum data points required for VPA decisions
 - `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
 - `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `request_use_rss` (Boolean) Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.
 - `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 
@@ -160,12 +186,16 @@ Optional:
 
 Optional:
 
+- `composite_formula` (String) Composite formula for multi-metric HPA scaling. Variables: `cpu`, `memory`, `networkingress`, `networkegress` (each the metric's current/target ratio). Example: `cpu * 0.6 + memory * 0.4`.
 - `enabled` (Boolean) Enable or disable horizontal scaling
 - `max_replica_change_percent` (Number) Maximum percent replica change in one step
 - `max_replicas` (Number) Upper bound on replicas
 - `min_data_points` (Number) Minimum data points required for HPA decisions
 - `min_replicas` (Number) Lower bound on replicas
+- `network_target_throughput_bytes_per_sec` (Number) Target network throughput per replica in bytes/sec. `0` (or unset) auto-detects from P95 + 15% headroom based on the selected metric direction.
 - `primary_metric` (String) Primary metric to use for HPA decisions
+- `scale_down_cooldown_seconds` (Number) Scale-down cooldown in seconds. Overrides the default Kubernetes stabilization window (300s).
+- `target_memory_utilization` (Number) Target memory utilization for HPA scaling (0.0-1.0). Defaults to 0.80 server-side when unset.
 - `target_utilization` (Number) Target utilization for primary metric (0.0-1.0)
 
 
@@ -177,6 +207,7 @@ Optional:
 - `adjust_req_even_if_not_set` (Boolean) When true, the recommender will suggest resource requests even if the workload currently has none set. Default: false.
 - `enabled` (Boolean) Enable or disable vertical scaling for this resource. When disabled, vertical recommendations will not be applied.
 - `limit_multiplier` (Number) How much higher limits should be vs requests (e.g., 2.0 = 2x the request).
+- `limit_use_rss` (Boolean) Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.
 - `limits_adjustment_enabled` (Boolean) Allow recommender to adjust container limits as well as requests. When disabled, only requests are modified.
 - `limits_removal_enabled` (Boolean) When true, the recommender will remove resource limits from workloads (CPU axis only — memory limits removal is not supported). Default: false.
 - `max_request` (Number) Upper bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
@@ -185,6 +216,7 @@ Optional:
 - `min_data_points` (Number) Minimum data points required for VPA decisions
 - `min_request` (Number) Lower bound for container resource requests (e.g., CPU millicores or memory bytes) considered by the recommender.
 - `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
+- `request_use_rss` (Boolean) Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.
 - `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
 
 ## Import

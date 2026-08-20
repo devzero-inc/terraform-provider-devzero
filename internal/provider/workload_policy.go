@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -67,6 +68,29 @@ type WorkloadPolicyResourceModel struct {
 	CooldownMinutes         types.Int32               `tfsdk:"cooldown_minutes"`
 	EnablePmaxProtection    types.Bool                `tfsdk:"enable_pmax_protection"`
 	PmaxRatioThreshold      types.Float32             `tfsdk:"pmax_ratio_threshold"`
+
+	EnableInPlaceVerticalScaling    types.Bool `tfsdk:"enable_in_place_vertical_scaling"`
+	AllowInPlaceMemoryLimitDecrease types.Bool `tfsdk:"allow_in_place_memory_limit_decrease"`
+	PdbEnabled                      types.Bool `tfsdk:"pdb_enabled"`
+
+	CpuFloorPercent           types.Int64 `tfsdk:"cpu_floor_percent"`
+	CpuCeilingPercent         types.Int64 `tfsdk:"cpu_ceiling_percent"`
+	MemoryFloorPercent        types.Int64 `tfsdk:"memory_floor_percent"`
+	MemoryCeilingPercent      types.Int64 `tfsdk:"memory_ceiling_percent"`
+	CpuLimitFloorPercent      types.Int64 `tfsdk:"cpu_limit_floor_percent"`
+	CpuLimitCeilingPercent    types.Int64 `tfsdk:"cpu_limit_ceiling_percent"`
+	MemoryLimitFloorPercent   types.Int64 `tfsdk:"memory_limit_floor_percent"`
+	MemoryLimitCeilingPercent types.Int64 `tfsdk:"memory_limit_ceiling_percent"`
+
+	JvmHeapOptimizationEnabled   types.Bool    `tfsdk:"jvm_heap_optimization_enabled"`
+	JvmHeapTargetPercentile      types.Float32 `tfsdk:"jvm_heap_target_percentile"`
+	JvmHeapHeadroomMultiplier    types.Float32 `tfsdk:"jvm_heap_headroom_multiplier"`
+	JvmNonHeapOverheadPercent    types.Float32 `tfsdk:"jvm_non_heap_overhead_percent"`
+	JvmNonHeapOverheadBytes      types.Int64   `tfsdk:"jvm_non_heap_overhead_bytes"`
+	JvmMinHeapBytes              types.Int64   `tfsdk:"jvm_min_heap_bytes"`
+	JvmMaxHeapBytes              types.Int64   `tfsdk:"jvm_max_heap_bytes"`
+	JvmPreferContainerSupport    types.Bool    `tfsdk:"jvm_prefer_container_support"`
+	JvmCpuStartupFloorMillicores types.Int64   `tfsdk:"jvm_cpu_startup_floor_millicores"`
 }
 
 type VerticalScalingOptions struct {
@@ -82,6 +106,8 @@ type VerticalScalingOptions struct {
 	MinDataPoints           types.Int32   `tfsdk:"min_data_points"`
 	AdjustReqEvenIfNotSet   types.Bool    `tfsdk:"adjust_req_even_if_not_set"`
 	LimitsRemovalEnabled    types.Bool    `tfsdk:"limits_removal_enabled"`
+	RequestUseRss           types.Bool    `tfsdk:"request_use_rss"`
+	LimitUseRss             types.Bool    `tfsdk:"limit_use_rss"`
 }
 
 type HorizontalScalingOptions struct {
@@ -92,6 +118,11 @@ type HorizontalScalingOptions struct {
 	PrimaryMetric           types.String  `tfsdk:"primary_metric"`
 	MinDataPoints           types.Int32   `tfsdk:"min_data_points"`
 	MaxReplicaChangePercent types.Float32 `tfsdk:"max_replica_change_percent"`
+
+	NetworkTargetThroughputBytesPerSec types.Int64   `tfsdk:"network_target_throughput_bytes_per_sec"`
+	TargetMemoryUtilization            types.Float32 `tfsdk:"target_memory_utilization"`
+	CompositeFormula                   types.String  `tfsdk:"composite_formula"`
+	ScaleDownCooldownSeconds           types.Int32   `tfsdk:"scale_down_cooldown_seconds"`
 }
 
 func (r *WorkloadPolicyResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -173,6 +204,16 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+			},
+			"request_use_rss": schema.BoolAttribute{
+				Description:         "Memory only: size the request from RSS instead of working set",
+				MarkdownDescription: "Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.",
+				Optional:            true,
+			},
+			"limit_use_rss": schema.BoolAttribute{
+				Description:         "Memory only: derive the limit from an RSS-based recommendation",
+				MarkdownDescription: "Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.",
+				Optional:            true,
 			},
 		}
 	}
@@ -327,6 +368,26 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 						Description: "Maximum percent replica change in one step",
 						Optional:    true,
 					},
+					"network_target_throughput_bytes_per_sec": schema.Int64Attribute{
+						Description:         "Target network throughput per replica in bytes/sec",
+						MarkdownDescription: "Target network throughput per replica in bytes/sec. `0` (or unset) auto-detects from P95 + 15% headroom based on the selected metric direction.",
+						Optional:            true,
+					},
+					"target_memory_utilization": schema.Float32Attribute{
+						Description:         "Target memory utilization for HPA scaling (0.0-1.0)",
+						MarkdownDescription: "Target memory utilization for HPA scaling (0.0-1.0). Defaults to 0.80 server-side when unset.",
+						Optional:            true,
+					},
+					"composite_formula": schema.StringAttribute{
+						Description:         "Composite formula for multi-metric HPA scaling",
+						MarkdownDescription: "Composite formula for multi-metric HPA scaling. Variables: `cpu`, `memory`, `networkingress`, `networkegress` (each the metric's current/target ratio). Example: `cpu * 0.6 + memory * 0.4`.",
+						Optional:            true,
+					},
+					"scale_down_cooldown_seconds": schema.Int32Attribute{
+						Description:         "Scale-down cooldown in seconds",
+						MarkdownDescription: "Scale-down cooldown in seconds. Overrides the default Kubernetes stabilization window (300s).",
+						Optional:            true,
+					},
 				},
 			},
 			"live_migration_enabled": schema.BoolAttribute{
@@ -413,6 +474,108 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Optional:            true,
 				Computed:            true,
 				Default:             float32default.StaticFloat32(3.0),
+			},
+			"enable_in_place_vertical_scaling": schema.BoolAttribute{
+				Description:         "Apply vertical recommendations in place (no pod restart) where possible",
+				MarkdownDescription: "When true, vertical recommendations are applied in place (without recreating pods) where the cluster supports it. Default: false.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+			"allow_in_place_memory_limit_decrease": schema.BoolAttribute{
+				Description:         "Allow in-place memory limit decreases (requires enable_in_place_vertical_scaling)",
+				MarkdownDescription: "Allow in-place memory limit decreases. Only honored when `enable_in_place_vertical_scaling` is true — the server silently forces this to false otherwise, so the provider rejects that combination at plan time. Default: false.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
+			"pdb_enabled": schema.BoolAttribute{
+				Description: "Respect PodDisruptionBudgets when applying recommendations",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
+			"cpu_floor_percent": schema.Int64Attribute{
+				Description: "Floor for CPU requests as a percent of the initial request (1-100)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 100)},
+			},
+			"cpu_ceiling_percent": schema.Int64Attribute{
+				Description: "Ceiling for CPU requests as a percent of the initial request (1-1000)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 1000)},
+			},
+			"memory_floor_percent": schema.Int64Attribute{
+				Description: "Floor for memory requests as a percent of the initial request (1-100)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 100)},
+			},
+			"memory_ceiling_percent": schema.Int64Attribute{
+				Description: "Ceiling for memory requests as a percent of the initial request (1-1000)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 1000)},
+			},
+			"cpu_limit_floor_percent": schema.Int64Attribute{
+				Description: "Floor for CPU limits as a percent of the initial limit (1-100)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 100)},
+			},
+			"cpu_limit_ceiling_percent": schema.Int64Attribute{
+				Description: "Ceiling for CPU limits as a percent of the initial limit (1-1000)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 1000)},
+			},
+			"memory_limit_floor_percent": schema.Int64Attribute{
+				Description: "Floor for memory limits as a percent of the initial limit (1-100)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 100)},
+			},
+			"memory_limit_ceiling_percent": schema.Int64Attribute{
+				Description: "Ceiling for memory limits as a percent of the initial limit (1-1000)",
+				Optional:    true,
+				Validators:  []validator.Int64{int64validator.Between(1, 1000)},
+			},
+			"jvm_heap_optimization_enabled": schema.BoolAttribute{
+				Description: "Enable JVM heap sizing recommendations",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
+			"jvm_heap_target_percentile": schema.Float32Attribute{
+				Description: "Target percentile for JVM heap sizing (0.0-1.0)",
+				Optional:    true,
+			},
+			"jvm_heap_headroom_multiplier": schema.Float32Attribute{
+				Description: "Headroom multiplier applied to the JVM heap recommendation",
+				Optional:    true,
+			},
+			"jvm_non_heap_overhead_percent": schema.Float32Attribute{
+				Description: "Non-heap overhead as a fraction of heap",
+				Optional:    true,
+			},
+			"jvm_non_heap_overhead_bytes": schema.Int64Attribute{
+				Description: "Fixed non-heap overhead in bytes",
+				Optional:    true,
+			},
+			"jvm_min_heap_bytes": schema.Int64Attribute{
+				Description: "Lower bound for the JVM heap recommendation in bytes",
+				Optional:    true,
+			},
+			"jvm_max_heap_bytes": schema.Int64Attribute{
+				Description: "Upper bound for the JVM heap recommendation in bytes",
+				Optional:    true,
+			},
+			"jvm_prefer_container_support": schema.BoolAttribute{
+				Description: "Prefer container-aware JVM flags (UseContainerSupport) over explicit -Xmx",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
+			"jvm_cpu_startup_floor_millicores": schema.Int64Attribute{
+				Description:         "CPU floor during JVM startup, in millicores",
+				MarkdownDescription: "CPU floor during JVM startup, in millicores. Unset inherits the system default (75m); explicit `0` disables the floor.",
+				Optional:            true,
+				Validators:          []validator.Int64{int64validator.AtLeast(0)},
 			},
 		},
 	}
@@ -614,6 +777,14 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		return nil
 	}
 
+	if m.AllowInPlaceMemoryLimitDecrease.ValueBool() && !m.EnableInPlaceVerticalScaling.ValueBool() {
+		diags.AddError(
+			"Invalid Configuration",
+			"allow_in_place_memory_limit_decrease requires enable_in_place_vertical_scaling = true (the server silently forces it to false otherwise).",
+		)
+		return nil
+	}
+
 	return &apiv1.WorkloadRecommendationPolicy{
 		PolicyId:                m.Id.ValueString(),
 		TeamId:                  teamId,
@@ -641,6 +812,29 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		CooldownMinutes:         m.CooldownMinutes.ValueInt32Pointer(),
 		EnablePmaxProtection:    m.EnablePmaxProtection.ValueBool(),
 		PmaxRatioThreshold:      m.PmaxRatioThreshold.ValueFloat32Pointer(),
+
+		EnableInPlaceVerticalScaling:    m.EnableInPlaceVerticalScaling.ValueBool(),
+		AllowInPlaceMemoryLimitDecrease: m.AllowInPlaceMemoryLimitDecrease.ValueBool(),
+		PdbEnabled:                      m.PdbEnabled.ValueBool(),
+
+		CpuFloorPercent:           m.CpuFloorPercent.ValueInt64Pointer(),
+		CpuCeilingPercent:         m.CpuCeilingPercent.ValueInt64Pointer(),
+		MemoryFloorPercent:        m.MemoryFloorPercent.ValueInt64Pointer(),
+		MemoryCeilingPercent:      m.MemoryCeilingPercent.ValueInt64Pointer(),
+		CpuLimitFloorPercent:      m.CpuLimitFloorPercent.ValueInt64Pointer(),
+		CpuLimitCeilingPercent:    m.CpuLimitCeilingPercent.ValueInt64Pointer(),
+		MemoryLimitFloorPercent:   m.MemoryLimitFloorPercent.ValueInt64Pointer(),
+		MemoryLimitCeilingPercent: m.MemoryLimitCeilingPercent.ValueInt64Pointer(),
+
+		JvmHeapOptimizationEnabled:   m.JvmHeapOptimizationEnabled.ValueBool(),
+		JvmHeapTargetPercentile:      m.JvmHeapTargetPercentile.ValueFloat32Pointer(),
+		JvmHeapHeadroomMultiplier:    m.JvmHeapHeadroomMultiplier.ValueFloat32Pointer(),
+		JvmNonHeapOverheadPercent:    m.JvmNonHeapOverheadPercent.ValueFloat32Pointer(),
+		JvmNonHeapOverheadBytes:      m.JvmNonHeapOverheadBytes.ValueInt64Pointer(),
+		JvmMinHeapBytes:              m.JvmMinHeapBytes.ValueInt64Pointer(),
+		JvmMaxHeapBytes:              m.JvmMaxHeapBytes.ValueInt64Pointer(),
+		JvmPreferContainerSupport:    m.JvmPreferContainerSupport.ValueBool(),
+		JvmCpuStartupFloorMillicores: m.JvmCpuStartupFloorMillicores.ValueInt64Pointer(),
 	}
 }
 
@@ -730,6 +924,29 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	if policy.PmaxRatioThreshold != nil {
 		m.PmaxRatioThreshold = types.Float32Value(*policy.PmaxRatioThreshold)
 	}
+
+	m.EnableInPlaceVerticalScaling = types.BoolValue(policy.EnableInPlaceVerticalScaling)
+	m.AllowInPlaceMemoryLimitDecrease = types.BoolValue(policy.AllowInPlaceMemoryLimitDecrease)
+	m.PdbEnabled = types.BoolValue(policy.PdbEnabled)
+
+	m.CpuFloorPercent = types.Int64PointerValue(policy.CpuFloorPercent)
+	m.CpuCeilingPercent = types.Int64PointerValue(policy.CpuCeilingPercent)
+	m.MemoryFloorPercent = types.Int64PointerValue(policy.MemoryFloorPercent)
+	m.MemoryCeilingPercent = types.Int64PointerValue(policy.MemoryCeilingPercent)
+	m.CpuLimitFloorPercent = types.Int64PointerValue(policy.CpuLimitFloorPercent)
+	m.CpuLimitCeilingPercent = types.Int64PointerValue(policy.CpuLimitCeilingPercent)
+	m.MemoryLimitFloorPercent = types.Int64PointerValue(policy.MemoryLimitFloorPercent)
+	m.MemoryLimitCeilingPercent = types.Int64PointerValue(policy.MemoryLimitCeilingPercent)
+
+	m.JvmHeapOptimizationEnabled = types.BoolValue(policy.JvmHeapOptimizationEnabled)
+	m.JvmHeapTargetPercentile = types.Float32PointerValue(policy.JvmHeapTargetPercentile)
+	m.JvmHeapHeadroomMultiplier = types.Float32PointerValue(policy.JvmHeapHeadroomMultiplier)
+	m.JvmNonHeapOverheadPercent = types.Float32PointerValue(policy.JvmNonHeapOverheadPercent)
+	m.JvmNonHeapOverheadBytes = types.Int64PointerValue(policy.JvmNonHeapOverheadBytes)
+	m.JvmMinHeapBytes = types.Int64PointerValue(policy.JvmMinHeapBytes)
+	m.JvmMaxHeapBytes = types.Int64PointerValue(policy.JvmMaxHeapBytes)
+	m.JvmPreferContainerSupport = types.BoolValue(policy.JvmPreferContainerSupport)
+	m.JvmCpuStartupFloorMillicores = types.Int64PointerValue(policy.JvmCpuStartupFloorMillicores)
 }
 
 func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTarget {
@@ -749,6 +966,8 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 		MinDataPoints:           o.MinDataPoints.ValueInt32Pointer(),
 		AdjustReqEvenIfNotSet:   o.AdjustReqEvenIfNotSet.ValueBool(),
 		LimitsRemovalEnabled:    o.LimitsRemovalEnabled.ValueBool(),
+		RequestUseRss:           o.RequestUseRss.ValueBoolPointer(),
+		LimitUseRss:             o.LimitUseRss.ValueBoolPointer(),
 	}
 }
 
@@ -788,6 +1007,8 @@ func verticalScalingOptionsFromProto(target *apiv1.VerticalScalingOptimizationTa
 	}
 	o.AdjustReqEvenIfNotSet = types.BoolValue(target.AdjustReqEvenIfNotSet)
 	o.LimitsRemovalEnabled = types.BoolValue(target.LimitsRemovalEnabled)
+	o.RequestUseRss = types.BoolPointerValue(target.RequestUseRss)
+	o.LimitUseRss = types.BoolPointerValue(target.LimitUseRss)
 	return o
 }
 
@@ -803,6 +1024,11 @@ func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizatio
 		PrimaryMetric:           o.toHPAMetric(),
 		MinDataPoints:           o.MinDataPoints.ValueInt32Pointer(),
 		MaxReplicaChangePercent: o.MaxReplicaChangePercent.ValueFloat32Pointer(),
+
+		NetworkTargetThroughputBytesPerSec: o.NetworkTargetThroughputBytesPerSec.ValueInt64Pointer(),
+		TargetMemoryUtilization:            o.TargetMemoryUtilization.ValueFloat32Pointer(),
+		CompositeFormula:                   o.CompositeFormula.ValueStringPointer(),
+		ScaleDownCooldownSeconds:           o.ScaleDownCooldownSeconds.ValueInt32Pointer(),
 	}
 }
 
@@ -830,6 +1056,10 @@ func horizontalScalingOptionsFromProto(target *apiv1.HorizontalScalingOptimizati
 	if target.MaxReplicaChangePercent != nil {
 		o.MaxReplicaChangePercent = types.Float32Value(*target.MaxReplicaChangePercent)
 	}
+	o.NetworkTargetThroughputBytesPerSec = types.Int64PointerValue(target.NetworkTargetThroughputBytesPerSec)
+	o.TargetMemoryUtilization = types.Float32PointerValue(target.TargetMemoryUtilization)
+	o.CompositeFormula = types.StringPointerValue(target.CompositeFormula)
+	o.ScaleDownCooldownSeconds = types.Int32PointerValue(target.ScaleDownCooldownSeconds)
 	return o
 }
 

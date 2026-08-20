@@ -292,6 +292,7 @@ resource "devzero_node_policy" "azure_example" {
 - `azure` (Attributes) Azure-specific configuration for nodes provisioned with this policy. (see [below for nested schema](#nestedatt--azure))
 - `capacity_type_tip` (String) Tooltip for capacity types
 - `capacity_types` (Attributes) Capacity types selector (e.g., spot, on-demand, reserved) (see [below for nested schema](#nestedatt--capacity_types))
+- `cloud_provider_id` (Number) Cloud provider ID this policy is intended for: `1` = AWS, `2` = Azure, `3` = GCP, `4` = OCI. Informational/UI filter — compilation always uses the target cluster's provider.
 - `description` (String) Free-form description of the policy to help others understand its intent and scope.
 - `disruption` (Attributes) Configuration for node disruption policies including consolidation and expiration settings. (see [below for nested schema](#nestedatt--disruption))
 - `disruptions_tip` (String) Tooltip for disruptions
@@ -305,6 +306,7 @@ resource "devzero_node_policy" "azure_example" {
 - `instance_generations_tip` (String) Tooltip for instance generations
 - `instance_hypervisors` (Attributes) Instance hypervisors selector (see [below for nested schema](#nestedatt--instance_hypervisors))
 - `instance_hypervisors_tip` (String) Tooltip for instance hypervisors
+- `instance_local_nvme` (Attributes) Ephemeral NVMe storage per node in GiB (AWS only; karpenter.k8s.aws/instance-local-nvme) (see [below for nested schema](#nestedatt--instance_local_nvme))
 - `instance_sizes` (Attributes) Instance sizes selector (e.g., Standard_D4s for Azure, large for AWS) (see [below for nested schema](#nestedatt--instance_sizes))
 - `instance_sizes_tip` (String) Tooltip for instance sizes
 - `instance_types` (Attributes) Instance types selector — explicit full type names (e.g., m5.xlarge for AWS, Standard_D4s_v2 for Azure) (see [below for nested schema](#nestedatt--instance_types))
@@ -317,9 +319,11 @@ resource "devzero_node_policy" "azure_example" {
 - `operating_systems` (Attributes) Operating systems selector (e.g., linux, windows) (see [below for nested schema](#nestedatt--operating_systems))
 - `operating_systems_tip` (String) Tooltip for operating systems
 - `raw` (Attributes List) Raw Karpenter NodePool and NodeClass YAML specifications for advanced use cases. (see [below for nested schema](#nestedatt--raw))
+- `startup_taints` (Attributes List) List of Kubernetes taints applied to nodes only while they start up (Karpenter `startupTaints`). Removed once the node is ready. (see [below for nested schema](#nestedatt--startup_taints))
 - `taints` (Attributes List) List of Kubernetes taints to apply to nodes provisioned with this policy. (see [below for nested schema](#nestedatt--taints))
 - `taints_tip` (String) Tooltip for taints
 - `weight` (Number) Priority weight for this node policy. Higher weights are preferred when multiple policies match. Default: 10 (medium priority).
+- `zonal_shift` (Attributes) Behavior during an AWS ARC zonal shift. AWS only — silently ignored for other clouds. (see [below for nested schema](#nestedatt--zonal_shift))
 - `zones` (Attributes) Availability zones selector (see [below for nested schema](#nestedatt--zones))
 - `zones_tip` (String) Tooltip for zones
 
@@ -474,6 +478,7 @@ Optional:
 
 - `fips_mode` (String) FIPS 140-2 mode. Valid values: `FIPS`, `Disabled`.
 - `image_family` (String) Azure image family. Valid values: `Ubuntu`, `Ubuntu2204`, `Ubuntu2404`, `AzureLinux`.
+- `image_version` (String) Pinned node image version. Requires the DevZero node operator >= 1.8.4.
 - `kubelet` (Attributes) Kubelet configuration overrides applied to nodes launched by this policy (maps to the AKSNodeClass `spec.kubelet` block). (see [below for nested schema](#nestedatt--azure--kubelet))
 - `max_pods` (Number) Maximum number of pods per node
 - `os_disk_size_gb` (Number) OS disk size in GB
@@ -654,6 +659,28 @@ Optional:
 
 
 
+<a id="nestedatt--instance_local_nvme"></a>
+### Nested Schema for `instance_local_nvme`
+
+Optional:
+
+- `match_expressions` (Attributes List) List of label selector requirements (see [below for nested schema](#nestedatt--instance_local_nvme--match_expressions))
+- `match_labels` (Map of String) Map of label key-value pairs to match
+
+<a id="nestedatt--instance_local_nvme--match_expressions"></a>
+### Nested Schema for `instance_local_nvme.match_expressions`
+
+Required:
+
+- `key` (String) Label key
+- `operator` (String) Operator for matching. Valid values: `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, `Lt`. `Gt`/`Lt` apply to numeric selectors such as `instance_generations` and `instance_cpus`.
+
+Optional:
+
+- `values` (List of String) List of values for In/NotIn operators
+
+
+
 <a id="nestedatt--instance_sizes"></a>
 ### Nested Schema for `instance_sizes`
 
@@ -738,6 +765,16 @@ Optional:
 - `nodepool_yaml` (String) Raw NodePool YAML
 
 
+<a id="nestedatt--startup_taints"></a>
+### Nested Schema for `startup_taints`
+
+Required:
+
+- `effect` (String) Taint effect. Valid values: `NoSchedule`, `PreferNoSchedule`, `NoExecute`.
+- `key` (String) Taint key
+- `value` (String) Taint value
+
+
 <a id="nestedatt--taints"></a>
 ### Nested Schema for `taints`
 
@@ -746,6 +783,16 @@ Required:
 - `effect` (String) Taint effect. Valid values: `NoSchedule`, `PreferNoSchedule`, `NoExecute`.
 - `key` (String) Taint key
 - `value` (String) Taint value
+
+
+<a id="nestedatt--zonal_shift"></a>
+### Nested Schema for `zonal_shift`
+
+Optional:
+
+- `allow_zone_fallback` (Boolean) Expand a single-zone policy to other zones when its zone is impacted
+- `evict_impacted_nodes` (Boolean) Also terminate existing nodes in the impacted zone (respects PDBs)
+- `respect_zonal_shift` (Boolean) Master opt-in. When false the other fields are ignored
 
 
 <a id="nestedatt--zones"></a>

@@ -40,20 +40,23 @@ type WorkloadPolicyTargetResource struct {
 
 // ExampleResourceModel describes the resource data model.
 type WorkloadPolicyTargetResourceModel struct {
-	Id                types.String   `tfsdk:"id"`
-	PolicyId          types.String   `tfsdk:"policy_id"`
-	Name              types.String   `tfsdk:"name"`
-	Description       types.String   `tfsdk:"description"`
-	Priority          types.Int32    `tfsdk:"priority"`
-	Enabled           types.Bool     `tfsdk:"enabled"`
-	NamespaceSelector *LabelSelector `tfsdk:"namespace_selector"`
-	WorkloadSelector  *LabelSelector `tfsdk:"workload_selector"`
-	KindFilter        types.List     `tfsdk:"kind_filter"`
-	NamePattern       *RegexPattern  `tfsdk:"name_pattern"`
-	NamespacePattern  *RegexPattern  `tfsdk:"namespace_pattern"`
-	WorkloadNames     types.List     `tfsdk:"workload_names"`
-	NodeGroupNames    types.List     `tfsdk:"node_group_names"`
-	ClusterIds        types.List     `tfsdk:"cluster_ids"`
+	Id                 types.String   `tfsdk:"id"`
+	PolicyId           types.String   `tfsdk:"policy_id"`
+	Name               types.String   `tfsdk:"name"`
+	Description        types.String   `tfsdk:"description"`
+	Priority           types.Int32    `tfsdk:"priority"`
+	Enabled            types.Bool     `tfsdk:"enabled"`
+	NamespaceSelector  *LabelSelector `tfsdk:"namespace_selector"`
+	WorkloadSelector   *LabelSelector `tfsdk:"workload_selector"`
+	KindFilter         types.List     `tfsdk:"kind_filter"`
+	NamePattern        *RegexPattern  `tfsdk:"name_pattern"`
+	NamespacePattern   *RegexPattern  `tfsdk:"namespace_pattern"`
+	WorkloadNames      types.List     `tfsdk:"workload_names"`
+	WorkloadNamesNotIn types.List     `tfsdk:"workload_names_not_in"`
+	KindFilterNotIn    types.List     `tfsdk:"kind_filter_not_in"`
+	AnnotationSelector *LabelSelector `tfsdk:"annotation_selector"`
+	NodeGroupNames     types.List     `tfsdk:"node_group_names"`
+	ClusterIds         types.List     `tfsdk:"cluster_ids"`
 }
 
 type LabelSelector struct {
@@ -216,13 +219,36 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
-			"node_group_names": schema.ListAttribute{
-				Description:         "Restrict matching to specific node groups",
-				MarkdownDescription: "Restrict matching to specific node groups by name",
+			"workload_names_not_in": schema.ListAttribute{
+				Description:         "Explicit list of workload names to exclude",
+				MarkdownDescription: "Explicit list of workload names to exclude from matching.",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+			},
+			"kind_filter_not_in": schema.ListAttribute{
+				Description:         "Kubernetes kinds to exclude from matching",
+				MarkdownDescription: "Kubernetes kinds to exclude from matching. Same allowed values as `kind_filter`.",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+			},
+			"annotation_selector": schema.SingleNestedAttribute{
+				Description:         "Select workloads by annotations",
+				MarkdownDescription: "Select workloads by annotations. Uses the same semantics as label selectors, evaluated against workload annotations.",
+				Optional:            true,
+				Attributes:          labelSelectorAttributes,
+			},
+			"node_group_names": schema.ListAttribute{
+				Description:         "Restrict matching to specific node groups (deprecated upstream)",
+				MarkdownDescription: "Restrict matching to specific node groups by name. Deprecated upstream — unused by any active target and removed from the UI.",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				DeprecationMessage:  "node_group_names is deprecated by the DevZero API and no longer evaluated.",
 			},
 			"cluster_ids": schema.ListAttribute{
 				Description:         "Clusters where this target should apply",
@@ -298,21 +324,42 @@ func (r *WorkloadPolicyTargetResource) Create(ctx context.Context, req resource.
 		return
 	}
 
+	workloadNamesNotIn, err := getStringList(ctx, data.WorkloadNamesNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in) to Terraform value, got error: %s", err))
+		return
+	}
+
+	kindFiltersNotIn, err := getKindFilters(ctx, data.KindFilterNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in) to Terraform value, got error: %s", err))
+		return
+	}
+
+	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector to Terraform value, got error: %s", err))
+		return
+	}
+
 	createWorkloadPolicyTargetReq := &apiv1.CreateWorkloadPolicyTargetRequest{
-		TeamId:            r.client.TeamId,
-		PolicyId:          data.PolicyId.ValueString(),
-		Name:              data.Name.ValueString(),
-		Description:       data.Description.ValueString(),
-		Priority:          data.Priority.ValueInt32(),
-		Enabled:           data.Enabled.ValueBool(),
-		NamespaceSelector: namespaceSelector,
-		WorkloadSelector:  workloadSelector,
-		KindFilter:        kindFilters,
-		NamePattern:       data.NamePattern.toProto(),
-		NamespacePattern:  data.NamespacePattern.toProto(),
-		WorkloadNames:     workloadNames,
-		NodeGroupNames:    nodeGroupNames,
-		ClusterIds:        clusterIds,
+		TeamId:             r.client.TeamId,
+		PolicyId:           data.PolicyId.ValueString(),
+		Name:               data.Name.ValueString(),
+		Description:        data.Description.ValueString(),
+		Priority:           data.Priority.ValueInt32(),
+		Enabled:            data.Enabled.ValueBool(),
+		NamespaceSelector:  namespaceSelector,
+		WorkloadSelector:   workloadSelector,
+		KindFilter:         kindFilters,
+		NamePattern:        data.NamePattern.toProto(),
+		NamespacePattern:   data.NamespacePattern.toProto(),
+		WorkloadNames:      workloadNames,
+		WorkloadNamesNotIn: workloadNamesNotIn,
+		KindFilterNotIn:    kindFiltersNotIn,
+		AnnotationSelector: annotationSelector,
+		NodeGroupNames:     nodeGroupNames,
+		ClusterIds:         clusterIds,
 	}
 
 	createWorkloadPolicyTargetResp, err := r.client.RecommendationClient.CreateWorkloadPolicyTarget(ctx, connect.NewRequest(createWorkloadPolicyTargetReq))
@@ -416,22 +463,43 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		return
 	}
 
+	workloadNamesNotIn, err := getStringList(ctx, data.WorkloadNamesNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in) to Terraform value, got error: %s", err))
+		return
+	}
+
+	kindFiltersNotIn, err := getKindFilters(ctx, data.KindFilterNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in) to Terraform value, got error: %s", err))
+		return
+	}
+
+	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector to Terraform value, got error: %s", err))
+		return
+	}
+
 	updateWorkloadPolicyTargetReq := &apiv1.UpdateWorkloadPolicyTargetRequest{
-		TeamId:            r.client.TeamId,
-		TargetId:          data.Id.ValueString(),
-		PolicyId:          data.PolicyId.ValueStringPointer(),
-		Name:              data.Name.ValueString(),
-		Description:       data.Description.ValueString(),
-		Priority:          data.Priority.ValueInt32(),
-		Enabled:           data.Enabled.ValueBool(),
-		NamespaceSelector: namespaceSelector,
-		WorkloadSelector:  workloadSelector,
-		KindFilter:        kindFilters,
-		NamePattern:       data.NamePattern.toProto(),
-		NamespacePattern:  data.NamespacePattern.toProto(),
-		WorkloadNames:     workloadNames,
-		NodeGroupNames:    nodeGroupNames,
-		ClusterIds:        clusterIds,
+		TeamId:             r.client.TeamId,
+		TargetId:           data.Id.ValueString(),
+		PolicyId:           data.PolicyId.ValueStringPointer(),
+		Name:               data.Name.ValueString(),
+		Description:        data.Description.ValueString(),
+		Priority:           data.Priority.ValueInt32(),
+		Enabled:            data.Enabled.ValueBool(),
+		NamespaceSelector:  namespaceSelector,
+		WorkloadSelector:   workloadSelector,
+		KindFilter:         kindFilters,
+		NamePattern:        data.NamePattern.toProto(),
+		NamespacePattern:   data.NamespacePattern.toProto(),
+		WorkloadNames:      workloadNames,
+		WorkloadNamesNotIn: workloadNamesNotIn,
+		KindFilterNotIn:    kindFiltersNotIn,
+		AnnotationSelector: annotationSelector,
+		NodeGroupNames:     nodeGroupNames,
+		ClusterIds:         clusterIds,
 	}
 
 	updateWorkloadPolicyTargetResp, err := r.client.RecommendationClient.UpdateWorkloadPolicyTarget(ctx, connect.NewRequest(updateWorkloadPolicyTargetReq))
@@ -646,6 +714,9 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 	m.NamePattern = regexPatternModelFromProto(target.NamePattern)
 	m.NamespacePattern = regexPatternModelFromProto(target.NamespacePattern)
 	m.WorkloadNames = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNames))
+	m.WorkloadNamesNotIn = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNamesNotIn))
+	m.KindFilterNotIn = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilterNotIn))
+	m.AnnotationSelector = labelSelectorModelFromProto(target.AnnotationSelector)
 	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames))
 	m.ClusterIds = types.ListValueMust(types.StringType, fromStringList(target.ClusterIds))
 }
