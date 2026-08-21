@@ -1339,6 +1339,30 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 }
 
 // fromProto converts protobuf message to Terraform model.
+// taintAttrTypes is the Terraform object shape shared by taints and startup_taints.
+var taintAttrTypes = map[string]attr.Type{
+	"key":    types.StringType,
+	"value":  types.StringType,
+	"effect": types.StringType,
+}
+
+// taintListFromProto converts API taints into the Terraform list value, or a
+// typed null when the list is empty.
+func taintListFromProto(taints []*apiv1.Taint) types.List {
+	if len(taints) == 0 {
+		return types.ListNull(types.ObjectType{AttrTypes: taintAttrTypes})
+	}
+	values := make([]attr.Value, 0, len(taints))
+	for _, taint := range taints {
+		values = append(values, types.ObjectValueMust(taintAttrTypes, map[string]attr.Value{
+			"key":    types.StringValue(taint.Key),
+			"value":  types.StringValue(taint.Value),
+			"effect": types.StringValue(taint.Effect),
+		}))
+	}
+	return types.ListValueMust(types.ObjectType{AttrTypes: taintAttrTypes}, values)
+}
+
 func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	m.Id = types.StringValue(policy.Id)
 	m.Name = types.StringValue(policy.Name)
@@ -1404,41 +1428,7 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	}
 
 	// Taints
-	if len(policy.Taints) > 0 {
-		taints := make([]attr.Value, 0, len(policy.Taints))
-		for _, taint := range policy.Taints {
-			taints = append(taints, types.ObjectValueMust(
-				map[string]attr.Type{
-					"key":    types.StringType,
-					"value":  types.StringType,
-					"effect": types.StringType,
-				},
-				map[string]attr.Value{
-					"key":    types.StringValue(taint.Key),
-					"value":  types.StringValue(taint.Value),
-					"effect": types.StringValue(taint.Effect),
-				},
-			))
-		}
-		m.Taints = types.ListValueMust(
-			types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"key":    types.StringType,
-					"value":  types.StringType,
-					"effect": types.StringType,
-				},
-			},
-			taints,
-		)
-	} else {
-		m.Taints = types.ListNull(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"key":    types.StringType,
-				"value":  types.StringType,
-				"effect": types.StringType,
-			},
-		})
-	}
+	m.Taints = taintListFromProto(policy.Taints)
 
 	// Disruption policy
 	if policy.Disruption != nil {
@@ -1455,41 +1445,7 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 
 	// Tooltip fields for node config
 	// Startup taints
-	if len(policy.StartupTaints) > 0 {
-		startupTaints := make([]attr.Value, 0, len(policy.StartupTaints))
-		for _, taint := range policy.StartupTaints {
-			startupTaints = append(startupTaints, types.ObjectValueMust(
-				map[string]attr.Type{
-					"key":    types.StringType,
-					"value":  types.StringType,
-					"effect": types.StringType,
-				},
-				map[string]attr.Value{
-					"key":    types.StringValue(taint.Key),
-					"value":  types.StringValue(taint.Value),
-					"effect": types.StringValue(taint.Effect),
-				},
-			))
-		}
-		m.StartupTaints = types.ListValueMust(
-			types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"key":    types.StringType,
-					"value":  types.StringType,
-					"effect": types.StringType,
-				},
-			},
-			startupTaints,
-		)
-	} else {
-		m.StartupTaints = types.ListNull(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"key":    types.StringType,
-				"value":  types.StringType,
-				"effect": types.StringType,
-			},
-		})
-	}
+	m.StartupTaints = taintListFromProto(policy.StartupTaints)
 
 	// Zonal shift
 	if policy.ZonalShift != nil {

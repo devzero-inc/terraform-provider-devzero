@@ -326,19 +326,19 @@ func (r *WorkloadPolicyTargetResource) Create(ctx context.Context, req resource.
 
 	workloadNamesNotIn, err := getStringList(ctx, data.WorkloadNamesNotIn.Elements())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in) to Terraform value, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in): %s", err))
 		return
 	}
 
 	kindFiltersNotIn, err := getKindFilters(ctx, data.KindFilterNotIn.Elements())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in) to Terraform value, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in): %s", err))
 		return
 	}
 
 	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector to Terraform value, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector: %s", err))
 		return
 	}
 
@@ -465,19 +465,19 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 
 	workloadNamesNotIn, err := getStringList(ctx, data.WorkloadNamesNotIn.Elements())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in) to Terraform value, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in): %s", err))
 		return
 	}
 
 	kindFiltersNotIn, err := getKindFilters(ctx, data.KindFilterNotIn.Elements())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in) to Terraform value, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in): %s", err))
 		return
 	}
 
 	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector to Terraform value, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector: %s", err))
 		return
 	}
 
@@ -737,22 +737,7 @@ func labelSelectorModelFromProto(selector *apiv1.LabelSelector) *LabelSelector {
 	// Manually convert match expressions from proto to Terraform types
 	var matchExpressions []attr.Value
 	for _, expr := range selector.MatchExpressions {
-		// Convert operator enum to string
-		var operatorStr string
-		switch expr.Operator {
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_IN:
-			operatorStr = "In"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_NOT_IN:
-			operatorStr = "NotIn"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_EXISTS:
-			operatorStr = "Exists"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST:
-			operatorStr = "DoesNotExist"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_GT:
-			operatorStr = "Gt"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_LT:
-			operatorStr = "Lt"
-		}
+		operatorStr := labelSelectorOperatorToString(expr.Operator)
 
 		// Convert values to Terraform list
 		values := types.ListNull(types.StringType)

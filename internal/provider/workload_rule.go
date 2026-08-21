@@ -1442,7 +1442,7 @@ func hpaFallbackFromProto(p *apiv1.HPAFallback) *HPAFallbackModel {
 	}
 	return &HPAFallbackModel{
 		Replicas:         types.Int32Value(p.Replicas),
-		Behavior:         stringOrNull(p.Behavior),
+		Behavior:         stringValue(p.Behavior),
 		FailureThreshold: int32OrNull(p.FailureThreshold),
 	}
 }
@@ -1491,7 +1491,7 @@ func hpaScalingRulesFromProto(p *apiv1.HPAScalingRules) *HPAScalingRulesModel {
 	}
 	m := &HPAScalingRulesModel{
 		StabilizationWindowSeconds: int32OrNull(p.StabilizationWindowSeconds),
-		SelectPolicy:               stringOrNull(p.SelectPolicy),
+		SelectPolicy:               stringValue(p.SelectPolicy),
 	}
 	for _, pol := range p.Policies {
 		if pol == nil {
@@ -1521,11 +1521,4 @@ func int32OrNull(v int32) types.Int32 {
 		return types.Int32Null()
 	}
 	return types.Int32Value(v)
-}
-
-func stringOrNull(v string) types.String {
-	if v == "" {
-		return types.StringNull()
-	}
-	return types.StringValue(v)
 }
