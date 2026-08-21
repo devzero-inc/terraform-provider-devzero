@@ -31,24 +31,26 @@ type fakeBackend struct {
 	apiv1connect.UnimplementedK8SServiceHandler
 	apiv1connect.UnimplementedClusterMutationServiceHandler
 
-	mu      sync.Mutex
-	nextID  int
-	teamID  string
-	nodePol map[string]*apiv1.NodePolicy
-	nodeTgt map[string]*apiv1.NodePolicyTarget
-	wp      map[string]*apiv1.WorkloadRecommendationPolicy
-	wpt     map[string]*apiv1.WorkloadPolicyTarget
-	rules   map[string]*apiv1.WorkloadRule
+	mu       sync.Mutex
+	nextID   int
+	teamID   string
+	nodePol  map[string]*apiv1.NodePolicy
+	nodeTgt  map[string]*apiv1.NodePolicyTarget
+	wp       map[string]*apiv1.WorkloadRecommendationPolicy
+	wpt      map[string]*apiv1.WorkloadPolicyTarget
+	rules    map[string]*apiv1.WorkloadRule
+	clusters map[string]*apiv1.Cluster
 }
 
 func newFakeBackend(teamID string) *fakeBackend {
 	return &fakeBackend{
-		teamID:  teamID,
-		nodePol: map[string]*apiv1.NodePolicy{},
-		nodeTgt: map[string]*apiv1.NodePolicyTarget{},
-		wp:      map[string]*apiv1.WorkloadRecommendationPolicy{},
-		wpt:     map[string]*apiv1.WorkloadPolicyTarget{},
-		rules:   map[string]*apiv1.WorkloadRule{},
+		teamID:   teamID,
+		nodePol:  map[string]*apiv1.NodePolicy{},
+		nodeTgt:  map[string]*apiv1.NodePolicyTarget{},
+		wp:       map[string]*apiv1.WorkloadRecommendationPolicy{},
+		wpt:      map[string]*apiv1.WorkloadPolicyTarget{},
+		rules:    map[string]*apiv1.WorkloadRule{},
+		clusters: map[string]*apiv1.Cluster{},
 	}
 }
 

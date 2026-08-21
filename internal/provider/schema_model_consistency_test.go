@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"google.golang.org/protobuf/proto"
 )
 
 // leafOverrides supplies valid values for attributes whose converters only
@@ -109,6 +110,10 @@ func allResourcesUnderTest() []resourceUnderTest {
 				p.Id = "id"
 				var back NodePolicyResourceModel
 				back.fromProto(p)
+				p2 := back.toProto(ctx, &d, "team")
+				if !d.HasError() && !proto.Equal(p, p2) {
+					d.AddError("Round-Trip", "node policy proto round-trip is lossy — a field is dropped in toProto or fromProto")
+				}
 				return &back, d
 			},
 		},
@@ -128,6 +133,10 @@ func allResourcesUnderTest() []resourceUnderTest {
 				}
 				var back NodePolicyTargetResourceModel
 				back.fromProto(p)
+				p2 := back.toProto(ctx, &d, "team")
+				if !d.HasError() && !proto.Equal(p, p2) {
+					d.AddError("Round-Trip", "node policy target proto round-trip is lossy — a field is dropped in toProto or fromProto")
+				}
 				return &back, d
 			},
 		},
@@ -147,6 +156,10 @@ func allResourcesUnderTest() []resourceUnderTest {
 				}
 				var back WorkloadPolicyResourceModel
 				back.fromProto(p)
+				p2 := back.toProto(ctx, &d, "team")
+				if !d.HasError() && !proto.Equal(p, p2) {
+					d.AddError("Round-Trip", "workload policy proto round-trip is lossy — a field is dropped in toProto or fromProto")
+				}
 				return &back, d
 			},
 		},
