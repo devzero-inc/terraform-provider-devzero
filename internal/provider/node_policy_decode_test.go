@@ -25,7 +25,10 @@ func nodePolicySchemaPlan(t *testing.T, set map[string]tftypes.Value) tfsdk.Plan
 		t.Fatalf("schema: %v", schemaResp.Diagnostics)
 	}
 
-	objType := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	objType, ok := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("schema type is not an object")
+	}
 	vals := make(map[string]tftypes.Value, len(objType.AttributeTypes))
 	for name, typ := range objType.AttributeTypes {
 		if v, ok := set[name]; ok {
@@ -43,7 +46,7 @@ func nodePolicyAttrType(t *testing.T, path ...string) tftypes.Type {
 	r := &NodePolicyResource{}
 	var schemaResp resource.SchemaResponse
 	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	var typ tftypes.Type = schemaResp.Schema.Type().TerraformType(ctx)
+	typ := schemaResp.Schema.Type().TerraformType(ctx)
 	for _, p := range path {
 		switch tt := typ.(type) {
 		case tftypes.Object:
@@ -61,8 +64,12 @@ func nodePolicyAttrType(t *testing.T, path ...string) tftypes.Type {
 }
 
 // nullObjectWith returns an object of type typ with all attributes null except those in set.
-func nullObjectWith(typ tftypes.Type, set map[string]tftypes.Value) tftypes.Value {
-	obj := typ.(tftypes.Object)
+func nullObjectWith(t *testing.T, typ tftypes.Type, set map[string]tftypes.Value) tftypes.Value {
+	t.Helper()
+	obj, ok := typ.(tftypes.Object)
+	if !ok {
+		t.Fatalf("type %v is not an object", typ)
+	}
 	vals := make(map[string]tftypes.Value, len(obj.AttributeTypes))
 	for name, at := range obj.AttributeTypes {
 		if v, ok := set[name]; ok {
@@ -82,7 +89,7 @@ func TestNodePolicy_PlanDecode_AzureBlock(t *testing.T) {
 	azureType := nodePolicyAttrType(t, "azure")
 	plan := nodePolicySchemaPlan(t, map[string]tftypes.Value{
 		"name": tftypes.NewValue(tftypes.String, "azure-pool"),
-		"azure": nullObjectWith(azureType, map[string]tftypes.Value{
+		"azure": nullObjectWith(t, azureType, map[string]tftypes.Value{
 			"vnet_subnet_id": tftypes.NewValue(tftypes.String, "/subscriptions/x/subnet/y"),
 		}),
 	})
@@ -117,8 +124,11 @@ func TestNodePolicy_PlanDecode_AzureBlock(t *testing.T) {
 // through tftypes.Value.As, which cannot populate tfsdk-tagged structs.
 func TestNodePolicy_PlanDecode_Taints(t *testing.T) {
 	ctx := context.Background()
-	taintsType := nodePolicyAttrType(t, "taints").(tftypes.List)
-	taint := nullObjectWith(taintsType.ElementType, map[string]tftypes.Value{
+	taintsType, ok := nodePolicyAttrType(t, "taints").(tftypes.List)
+	if !ok {
+		t.Fatal("taints attribute is not a list")
+	}
+	taint := nullObjectWith(t, taintsType.ElementType, map[string]tftypes.Value{
 		"key":    tftypes.NewValue(tftypes.String, "dedicated"),
 		"value":  tftypes.NewValue(tftypes.String, "gpu"),
 		"effect": tftypes.NewValue(tftypes.String, "NoSchedule"),
@@ -160,7 +170,7 @@ func TestNodePolicy_PlanDecode_AwsBlock(t *testing.T) {
 	awsType := nodePolicyAttrType(t, "aws")
 	plan := nodePolicySchemaPlan(t, map[string]tftypes.Value{
 		"name": tftypes.NewValue(tftypes.String, "aws-pool"),
-		"aws": nullObjectWith(awsType, map[string]tftypes.Value{
+		"aws": nullObjectWith(t, awsType, map[string]tftypes.Value{
 			"ami_family": tftypes.NewValue(tftypes.String, "AL2023"),
 		}),
 	})
@@ -190,8 +200,11 @@ func TestNodePolicy_PlanDecode_AwsBlock(t *testing.T) {
 // Raw karpenter specs also flow through getElementList with a struct element type.
 func TestNodePolicy_PlanDecode_Raw(t *testing.T) {
 	ctx := context.Background()
-	rawType := nodePolicyAttrType(t, "raw").(tftypes.List)
-	spec := nullObjectWith(rawType.ElementType, map[string]tftypes.Value{
+	rawType, ok := nodePolicyAttrType(t, "raw").(tftypes.List)
+	if !ok {
+		t.Fatal("raw attribute is not a list")
+	}
+	spec := nullObjectWith(t, rawType.ElementType, map[string]tftypes.Value{
 		"nodepool_yaml":  tftypes.NewValue(tftypes.String, "apiVersion: karpenter.sh/v1\nkind: NodePool\n"),
 		"nodeclass_yaml": tftypes.NewValue(tftypes.String, ""),
 	})
@@ -224,14 +237,17 @@ func TestNodePolicy_PlanDecode_Raw(t *testing.T) {
 func TestNodePolicy_StateSet_RoundTrip(t *testing.T) {
 	ctx := context.Background()
 	azureType := nodePolicyAttrType(t, "azure")
-	taintsType := nodePolicyAttrType(t, "taints").(tftypes.List)
+	taintsType, ok := nodePolicyAttrType(t, "taints").(tftypes.List)
+	if !ok {
+		t.Fatal("taints attribute is not a list")
+	}
 	plan := nodePolicySchemaPlan(t, map[string]tftypes.Value{
 		"name": tftypes.NewValue(tftypes.String, "rt"),
-		"azure": nullObjectWith(azureType, map[string]tftypes.Value{
+		"azure": nullObjectWith(t, azureType, map[string]tftypes.Value{
 			"vnet_subnet_id": tftypes.NewValue(tftypes.String, "subnet"),
 		}),
 		"taints": tftypes.NewValue(taintsType, []tftypes.Value{
-			nullObjectWith(taintsType.ElementType, map[string]tftypes.Value{
+			nullObjectWith(t, taintsType.ElementType, map[string]tftypes.Value{
 				"key":    tftypes.NewValue(tftypes.String, "k"),
 				"value":  tftypes.NewValue(tftypes.String, "v"),
 				"effect": tftypes.NewValue(tftypes.String, "NoExecute"),

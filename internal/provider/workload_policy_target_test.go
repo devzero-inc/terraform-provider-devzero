@@ -361,8 +361,7 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 		}
 
 		// Convert from proto
-		selector := &LabelSelector{}
-		selector = labelSelectorModelFromProto(proto)
+		selector := labelSelectorModelFromProto(proto)
 
 		// Verify that empty collections are converted to null
 		if !selector.MatchLabels.IsNull() {
@@ -438,8 +437,7 @@ func TestWorkloadPolicyTargetResourceModel(t *testing.T) {
 		}
 
 		// Convert back from proto
-		converted := &LabelSelector{}
-		converted = labelSelectorModelFromProto(proto)
+		converted := labelSelectorModelFromProto(proto)
 
 		// Verify match labels
 		if !original.MatchLabels.Equal(converted.MatchLabels) {

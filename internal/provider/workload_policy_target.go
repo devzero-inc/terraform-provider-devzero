@@ -358,7 +358,7 @@ func (r *WorkloadPolicyTargetResource) Create(ctx context.Context, req resource.
 		WorkloadNamesNotIn: workloadNamesNotIn,
 		KindFilterNotIn:    kindFiltersNotIn,
 		AnnotationSelector: annotationSelector,
-		NodeGroupNames:     nodeGroupNames,
+		NodeGroupNames:     nodeGroupNames, //nolint:staticcheck // deprecated upstream; still sent for compatibility
 		ClusterIds:         clusterIds,
 	}
 
@@ -498,7 +498,7 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		WorkloadNamesNotIn: workloadNamesNotIn,
 		KindFilterNotIn:    kindFiltersNotIn,
 		AnnotationSelector: annotationSelector,
-		NodeGroupNames:     nodeGroupNames,
+		NodeGroupNames:     nodeGroupNames, //nolint:staticcheck // deprecated upstream; still sent for compatibility
 		ClusterIds:         clusterIds,
 	}
 
@@ -717,7 +717,7 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 	m.WorkloadNamesNotIn = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNamesNotIn))
 	m.KindFilterNotIn = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilterNotIn))
 	m.AnnotationSelector = labelSelectorModelFromProto(target.AnnotationSelector)
-	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames))
+	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames)) //nolint:staticcheck // deprecated upstream; still read back
 	m.ClusterIds = types.ListValueMust(types.StringType, fromStringList(target.ClusterIds))
 }
 

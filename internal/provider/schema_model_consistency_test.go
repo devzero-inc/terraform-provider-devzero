@@ -98,7 +98,10 @@ func allResourcesUnderTest() []resourceUnderTest {
 			newModel: func() any { return &NodePolicyResourceModel{} },
 			roundTrip: func(ctx context.Context, model any) (any, diag.Diagnostics) {
 				var d diag.Diagnostics
-				m := model.(*NodePolicyResourceModel)
+				m, ok := model.(*NodePolicyResourceModel)
+				if !ok {
+					return nil, d
+				}
 				p := m.toProto(ctx, &d, "team")
 				if d.HasError() {
 					return nil, d
@@ -115,7 +118,10 @@ func allResourcesUnderTest() []resourceUnderTest {
 			newModel: func() any { return &NodePolicyTargetResourceModel{} },
 			roundTrip: func(ctx context.Context, model any) (any, diag.Diagnostics) {
 				var d diag.Diagnostics
-				m := model.(*NodePolicyTargetResourceModel)
+				m, ok := model.(*NodePolicyTargetResourceModel)
+				if !ok {
+					return nil, d
+				}
 				p := m.toProto(ctx, &d, "team")
 				if d.HasError() {
 					return nil, d
@@ -131,7 +137,10 @@ func allResourcesUnderTest() []resourceUnderTest {
 			newModel: func() any { return &WorkloadPolicyResourceModel{} },
 			roundTrip: func(ctx context.Context, model any) (any, diag.Diagnostics) {
 				var d diag.Diagnostics
-				m := model.(*WorkloadPolicyResourceModel)
+				m, ok := model.(*WorkloadPolicyResourceModel)
+				if !ok {
+					return nil, d
+				}
 				p := m.toProto(ctx, &d, "team")
 				if d.HasError() {
 					return nil, d
@@ -204,7 +213,10 @@ func TestSchemaModelConsistency_AllNull(t *testing.T) {
 	for _, rt := range allResourcesUnderTest() {
 		t.Run(rt.name, func(t *testing.T) {
 			s := resourceSchema(t, rt.resource())
-			objType := s.Type().TerraformType(ctx).(tftypes.Object)
+			objType, ok := s.Type().TerraformType(ctx).(tftypes.Object)
+			if !ok {
+				t.Fatal("schema type is not an object")
+			}
 			vals := map[string]tftypes.Value{}
 			for name, at := range objType.AttributeTypes {
 				vals[name] = tftypes.NewValue(at, nil)

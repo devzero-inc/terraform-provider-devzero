@@ -237,7 +237,7 @@ func (f *fakeBackend) CreateWorkloadPolicyTarget(_ context.Context, req *connect
 		NamespacePattern:   req.Msg.NamespacePattern,
 		WorkloadNames:      req.Msg.WorkloadNames,
 		WorkloadNamesNotIn: req.Msg.WorkloadNamesNotIn,
-		NodeGroupNames:     req.Msg.NodeGroupNames,
+		NodeGroupNames:     req.Msg.NodeGroupNames, //nolint:staticcheck // deprecated upstream but still round-tripped
 		ClusterIds:         req.Msg.ClusterIds,
 	}
 	f.wpt[t.TargetId] = t
@@ -274,7 +274,7 @@ func (f *fakeBackend) UpdateWorkloadPolicyTarget(_ context.Context, req *connect
 	t.NamespacePattern = req.Msg.NamespacePattern
 	t.WorkloadNames = req.Msg.WorkloadNames
 	t.WorkloadNamesNotIn = req.Msg.WorkloadNamesNotIn
-	t.NodeGroupNames = req.Msg.NodeGroupNames
+	t.NodeGroupNames = req.Msg.NodeGroupNames //nolint:staticcheck // deprecated upstream but still round-tripped
 	if len(req.Msg.ClusterIds) > 0 {
 		t.ClusterIds = req.Msg.ClusterIds
 	}
@@ -431,7 +431,10 @@ func buildPlan[M any](t *testing.T, res resource.Resource, mutate func(*M)) tfsd
 	if schemaResp.Diagnostics.HasError() {
 		t.Fatalf("schema: %v", schemaResp.Diagnostics)
 	}
-	objType := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	objType, ok := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("schema type is not an object")
+	}
 	nulls := make(map[string]tftypes.Value, len(objType.AttributeTypes))
 	for name, at := range objType.AttributeTypes {
 		nulls[name] = tftypes.NewValue(at, nil)
@@ -457,7 +460,10 @@ func hydrateNested(t *testing.T, res resource.Resource, attrName string, target 
 	ctx := context.Background()
 	var schemaResp resource.SchemaResponse
 	res.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	objType := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	objType, okObj := schemaResp.Schema.Type().TerraformType(ctx).(tftypes.Object)
+	if !okObj {
+		t.Fatal("schema type is not an object")
+	}
 	at, ok := objType.AttributeTypes[attrName]
 	if !ok {
 		t.Fatalf("attribute %q not in schema", attrName)
@@ -555,7 +561,7 @@ func TestLifecycle_NodePolicy(t *testing.T) {
 	mustNoDiags(t, "State.Get", createResp.State.Get(ctx, &created))
 
 	delResp := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(createResp.State)}, &delResp)
+	r.Delete(ctx, resource.DeleteRequest{State: createResp.State}, &delResp)
 	mustNoDiags(t, "Delete", delResp.Diagnostics)
 	fake.mu.Lock()
 	_, still := fake.nodePol[created.Id.ValueString()]
@@ -564,7 +570,7 @@ func TestLifecycle_NodePolicy(t *testing.T) {
 		t.Fatal("Delete did not remove the policy from the backend")
 	}
 	delAgain := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(createResp.State)}, &delAgain)
+	r.Delete(ctx, resource.DeleteRequest{State: createResp.State}, &delAgain)
 	mustNoDiags(t, "Delete (already gone)", delAgain.Diagnostics)
 }
 
@@ -592,7 +598,7 @@ func TestLifecycle_NodePolicyTarget(t *testing.T) {
 
 	// Destroy must disable the target (no delete RPC exists).
 	delResp := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(createResp.State)}, &delResp)
+	r.Delete(ctx, resource.DeleteRequest{State: createResp.State}, &delResp)
 	mustNoDiags(t, "Delete", delResp.Diagnostics)
 	fake.mu.Lock()
 	tgt := fake.nodeTgt[created.Id.ValueString()]
@@ -684,7 +690,7 @@ func TestLifecycle_WorkloadRule(t *testing.T) {
 		m.Disabled = types.BoolValue(true)
 	})
 	updResp := resource.UpdateResponse{State: createResp.State}
-	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: tfsdk.State(createResp.State)}, &updResp)
+	r.Update(ctx, resource.UpdateRequest{Plan: updatePlan, State: createResp.State}, &updResp)
 	mustNoDiags(t, "Update", updResp.Diagnostics)
 	fake.mu.Lock()
 	rule := fake.rules[created.Id.ValueString()]
@@ -695,10 +701,10 @@ func TestLifecycle_WorkloadRule(t *testing.T) {
 
 	// Delete + idempotent delete.
 	delResp := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(updResp.State)}, &delResp)
+	r.Delete(ctx, resource.DeleteRequest{State: updResp.State}, &delResp)
 	mustNoDiags(t, "Delete", delResp.Diagnostics)
 	delAgain := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(updResp.State)}, &delAgain)
+	r.Delete(ctx, resource.DeleteRequest{State: updResp.State}, &delAgain)
 	mustNoDiags(t, "Delete (already gone)", delAgain.Diagnostics)
 }
 
@@ -728,9 +734,9 @@ func TestLifecycle_WorkloadPolicyTarget(t *testing.T) {
 	}
 
 	delResp := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(createResp.State)}, &delResp)
+	r.Delete(ctx, resource.DeleteRequest{State: createResp.State}, &delResp)
 	mustNoDiags(t, "Delete", delResp.Diagnostics)
 	delAgain := resource.DeleteResponse{}
-	r.Delete(ctx, resource.DeleteRequest{State: tfsdk.State(createResp.State)}, &delAgain)
+	r.Delete(ctx, resource.DeleteRequest{State: createResp.State}, &delAgain)
 	mustNoDiags(t, "Delete (already gone)", delAgain.Diagnostics)
 }
