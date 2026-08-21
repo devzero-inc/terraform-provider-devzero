@@ -170,12 +170,16 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	getClusterResp, err := r.client.K8SServiceClient.GetCluster(ctx, connect.NewRequest(getClusterReq))
 	if err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get cluster, got error: %s", err))
 		return
 	}
 
 	if getClusterResp.Msg.Cluster == nil {
-		resp.Diagnostics.AddError("Client Error", "Cluster not found")
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -217,7 +221,11 @@ func (r *ClusterResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	data.Name = types.StringValue(updateClusterResp.Msg.Cluster.CustomName)
+	updatedName := updateClusterResp.Msg.Cluster.CustomName
+	if updatedName == "" {
+		updatedName = updateClusterResp.Msg.Cluster.Name
+	}
+	data.Name = types.StringValue(updatedName)
 
 	// If prior token was empty, rotate it now and persist the new token in state
 	if data.Token.IsNull() || data.Token.IsUnknown() || data.Token.ValueString() == "" {
@@ -257,7 +265,7 @@ func (r *ClusterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 
 	_, err := r.client.ClusterMutationClient.DeleteCluster(ctx, connect.NewRequest(deleteClusterReq))
-	if err != nil {
+	if err != nil && connect.CodeOf(err) != connect.CodeNotFound {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete cluster, got error: %s", err))
 		return
 	}

@@ -44,29 +44,20 @@ resource "devzero_node_policy_target" "comprehensive" {
   ]
 }
 
-# Example with multiple clusters
-resource "devzero_cluster" "us_east" {
-  name = "production-us-east-1"
+# The API allows at most ONE cluster per target — to cover several clusters,
+# create one target per cluster (for_each keeps it concise).
+resource "devzero_cluster" "production_regions" {
+  for_each = toset(["us-east-1", "us-west-2", "eu-west-1"])
+  name     = "production-${each.key}"
 }
 
-resource "devzero_cluster" "us_west" {
-  name = "production-us-west-2"
-}
-
-resource "devzero_cluster" "eu_west" {
-  name = "production-eu-west-1"
-}
-
-resource "devzero_node_policy_target" "multi_cluster" {
-  name        = "all-production-clusters"
-  description = "Apply cost optimization policy to all production clusters"
+resource "devzero_node_policy_target" "per_cluster" {
+  for_each    = devzero_cluster.production_regions
+  name        = "standard-nodes-${each.key}"
+  description = "Apply cost optimization policy to ${each.key}"
   policy_id   = devzero_node_policy.standard_nodes.id
   enabled     = true
-  cluster_ids = [
-    devzero_cluster.us_east.id,
-    devzero_cluster.us_west.id,
-    devzero_cluster.eu_west.id,
-  ]
+  cluster_ids = [each.value.id]
 }
 
 # Example of disabled target (for temporary disabling without destroying)
@@ -84,7 +75,7 @@ resource "devzero_node_policy_target" "disabled" {
 
 ### Required
 
-- `cluster_ids` (List of String) List of cluster IDs to apply the node policy to. Must reference existing cluster IDs.
+- `cluster_ids` (List of String) Cluster ID to apply the node policy to. The API accepts at most one cluster per target; create one target per cluster.
 - `name` (String) Human-friendly name for the target. Used for display in the DevZero UI.
 - `policy_id` (String) Node policy to attach this target to. Must reference an existing `devzero_node_policy` resource ID.
 

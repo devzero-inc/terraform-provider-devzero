@@ -66,7 +66,8 @@ type NodePolicyResourceModel struct {
 	CapacityTypeTip        types.String      `tfsdk:"capacity_type_tip"`
 	OperatingSystemsTip    types.String      `tfsdk:"operating_systems_tip"`
 	Labels                 types.Map         `tfsdk:"labels"`
-	Taints                 types.List        `tfsdk:"taints"` // List of Taint objects
+	Taints                 types.List        `tfsdk:"taints"`         // List of Taint objects
+	StartupTaints          types.List        `tfsdk:"startup_taints"` // List of Taint objects
 	Disruption             *DisruptionPolicy `tfsdk:"disruption"`
 	Limits                 *ResourceLimits   `tfsdk:"limits"`
 	TaintsTip              types.String      `tfsdk:"taints_tip"`
@@ -77,6 +78,9 @@ type NodePolicyResourceModel struct {
 	NodeClassName          types.String      `tfsdk:"node_class_name"`
 	Aws                    *AWSNodeClass     `tfsdk:"aws"`
 	Azure                  *AzureNodeClass   `tfsdk:"azure"`
+	ZonalShift             *ZonalShiftConfig `tfsdk:"zonal_shift"`
+	InstanceLocalNvme      *LabelSelector    `tfsdk:"instance_local_nvme"`
+	CloudProviderId        types.Int64       `tfsdk:"cloud_provider_id"`
 	Raw                    types.List        `tfsdk:"raw"` // List of RawKarpenterSpec objects
 }
 
@@ -85,6 +89,13 @@ type Taint struct {
 	Key    types.String `tfsdk:"key"`
 	Value  types.String `tfsdk:"value"`
 	Effect types.String `tfsdk:"effect"`
+}
+
+// ZonalShiftConfig configures behavior during an AWS ARC zonal shift (AWS only).
+type ZonalShiftConfig struct {
+	RespectZonalShift  types.Bool `tfsdk:"respect_zonal_shift"`
+	EvictImpactedNodes types.Bool `tfsdk:"evict_impacted_nodes"`
+	AllowZoneFallback  types.Bool `tfsdk:"allow_zone_fallback"`
 }
 
 // DisruptionPolicy defines node disruption policy.
@@ -178,6 +189,7 @@ type AzureNodeClass struct {
 	Tags         types.Map                  `tfsdk:"tags"`
 	Kubelet      *AzureKubeletConfiguration `tfsdk:"kubelet"`
 	MaxPods      types.Int32                `tfsdk:"max_pods"`
+	ImageVersion types.String               `tfsdk:"image_version"`
 }
 
 // RawKarpenterSpec defines raw Karpenter YAML specs.
@@ -275,6 +287,59 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						},
 					},
 				},
+			},
+			"startup_taints": schema.ListNestedAttribute{
+				Description:         "Taints applied to nodes only during startup",
+				MarkdownDescription: "List of Kubernetes taints applied to nodes only while they start up (Karpenter `startupTaints`). Removed once the node is ready.",
+				Optional:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Description: "Taint key",
+							Required:    true,
+						},
+						"value": schema.StringAttribute{
+							Description: "Taint value",
+							Required:    true,
+						},
+						"effect": schema.StringAttribute{
+							Description:         "Taint effect (NoSchedule, PreferNoSchedule, NoExecute)",
+							MarkdownDescription: "Taint effect. Valid values: `NoSchedule`, `PreferNoSchedule`, `NoExecute`.",
+							Required:            true,
+						},
+					},
+				},
+			},
+			"zonal_shift": schema.SingleNestedAttribute{
+				Description:         "AWS ARC zonal shift behavior (AWS only)",
+				MarkdownDescription: "Behavior during an AWS ARC zonal shift. AWS only — silently ignored for other clouds.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"respect_zonal_shift": schema.BoolAttribute{
+						Description: "Master opt-in. When false the other fields are ignored",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"evict_impacted_nodes": schema.BoolAttribute{
+						Description: "Also terminate existing nodes in the impacted zone (respects PDBs)",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"allow_zone_fallback": schema.BoolAttribute{
+						Description: "Expand a single-zone policy to other zones when its zone is impacted",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+				},
+			},
+			"instance_local_nvme": labelSelectorAttribute("Ephemeral NVMe storage per node in GiB (AWS only; karpenter.k8s.aws/instance-local-nvme)"),
+			"cloud_provider_id": schema.Int64Attribute{
+				Description:         "Cloud provider ID this policy is intended for (informational)",
+				MarkdownDescription: "Cloud provider ID this policy is intended for: `1` = AWS, `2` = Azure, `3` = GCP, `4` = OCI. Informational/UI filter — compilation always uses the target cluster's provider.",
+				Optional:            true,
 			},
 			"disruption": schema.SingleNestedAttribute{
 				Description:         "Node disruption policy configuration",
@@ -581,6 +646,94 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 							},
 						},
 					},
+					"capacity_reservation_selector_terms": schema.ListNestedAttribute{
+						Description:         "Capacity reservation selector terms",
+						MarkdownDescription: "Selects EC2 Capacity Reservations that nodes launched by this policy may use. Terms are ORed; criteria within a term are ANDed.",
+						Optional:            true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"id": schema.StringAttribute{
+									Description: "Capacity reservation ID",
+									Optional:    true,
+								},
+								"owner_id": schema.StringAttribute{
+									Description: "AWS account ID that owns the capacity reservation",
+									Optional:    true,
+								},
+								"tags": schema.MapAttribute{
+									Description: "Tags to match on the capacity reservation",
+									Optional:    true,
+									ElementType: types.StringType,
+								},
+							},
+						},
+					},
+					"kubelet": schema.SingleNestedAttribute{
+						Description:         "Kubelet configuration overrides",
+						MarkdownDescription: "Kubelet configuration overrides applied to nodes launched by this policy (maps to the EC2NodeClass `spec.kubelet` block).",
+						Optional:            true,
+						Attributes: map[string]schema.Attribute{
+							"cluster_dns": schema.ListAttribute{
+								Description: "Cluster DNS server IPs",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"max_pods": schema.Int32Attribute{
+								Description: "Maximum number of pods per node",
+								Optional:    true,
+							},
+							"pods_per_core": schema.Int32Attribute{
+								Description: "Maximum pods per CPU core",
+								Optional:    true,
+							},
+							"system_reserved": schema.MapAttribute{
+								Description: "Resources reserved for system daemons (e.g. cpu, memory, ephemeral-storage)",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"kube_reserved": schema.MapAttribute{
+								Description: "Resources reserved for Kubernetes system daemons",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_hard": schema.MapAttribute{
+								Description: "Hard eviction thresholds (e.g. memory.available = 100Mi)",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_soft": schema.MapAttribute{
+								Description: "Soft eviction thresholds",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_soft_grace_period": schema.MapAttribute{
+								Description: "Grace periods for soft eviction thresholds",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_max_pod_grace_period": schema.Int32Attribute{
+								Description: "Maximum pod termination grace period (seconds) used on soft eviction",
+								Optional:    true,
+							},
+							"image_gc_high_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage above which image garbage collection runs",
+								Optional:    true,
+							},
+							"image_gc_low_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage below which image garbage collection stops",
+								Optional:    true,
+							},
+							"cpu_cfs_quota": schema.BoolAttribute{
+								Description: "Enable CPU CFS quota enforcement for containers that specify CPU limits",
+								Optional:    true,
+							},
+						},
+					},
+					"context": schema.StringAttribute{
+						Description:         "EC2 Fleet context (reserved for AWS use)",
+						MarkdownDescription: "Context passed through to EC2 Fleet launches (`spec.context` on the EC2NodeClass). Reserved for use by AWS.",
+						Optional:            true,
+					},
 				},
 			},
 			// Azure provider configuration
@@ -615,6 +768,61 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 					"max_pods": schema.Int32Attribute{
 						Description: "Maximum number of pods per node",
 						Optional:    true,
+					},
+					"image_version": schema.StringAttribute{
+						Description:         "Pinned node image version",
+						MarkdownDescription: "Pinned node image version. Requires the DevZero node operator >= 1.8.4.",
+						Optional:            true,
+					},
+					"kubelet": schema.SingleNestedAttribute{
+						Description:         "Kubelet configuration overrides",
+						MarkdownDescription: "Kubelet configuration overrides applied to nodes launched by this policy (maps to the AKSNodeClass `spec.kubelet` block).",
+						Optional:            true,
+						Attributes: map[string]schema.Attribute{
+							"cpu_manager_policy": schema.StringAttribute{
+								Description:         "CPU manager policy (none, static)",
+								MarkdownDescription: "CPU manager policy. Valid values: `none`, `static`.",
+								Optional:            true,
+							},
+							"cpu_cfs_quota": schema.BoolAttribute{
+								Description: "Enable CPU CFS quota enforcement for containers that specify CPU limits",
+								Optional:    true,
+							},
+							"cpu_cfs_quota_period": schema.StringAttribute{
+								Description: "CPU CFS quota period (e.g. 100ms)",
+								Optional:    true,
+							},
+							"image_gc_high_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage above which image garbage collection runs",
+								Optional:    true,
+							},
+							"image_gc_low_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage below which image garbage collection stops",
+								Optional:    true,
+							},
+							"topology_manager_policy": schema.StringAttribute{
+								Description:         "Topology manager policy (none, best-effort, restricted, single-numa-node)",
+								MarkdownDescription: "Topology manager policy. Valid values: `none`, `best-effort`, `restricted`, `single-numa-node`.",
+								Optional:            true,
+							},
+							"allowed_unsafe_sysctls": schema.ListAttribute{
+								Description: "Unsafe sysctls or sysctl patterns allowed on the node",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"container_log_max_size": schema.StringAttribute{
+								Description: "Maximum size of a container log file before rotation (e.g. 50Mi)",
+								Optional:    true,
+							},
+							"container_log_max_files": schema.Int32Attribute{
+								Description: "Maximum number of container log files retained per container",
+								Optional:    true,
+							},
+							"pod_pids_limit": schema.Int64Attribute{
+								Description: "Maximum number of PIDs per pod",
+								Optional:    true,
+							},
+						},
 					},
 				},
 			},
@@ -768,9 +976,14 @@ func (r *NodePolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// Find the policy with matching ID
+	// Find the policy with matching ID. ListNodePolicies also returns read-only
+	// virtual policies mirrored from non-dakr Karpenter resources (source ==
+	// "cluster"); those are never managed by Terraform, so skip them.
 	var foundPolicy *apiv1.NodePolicy
 	for _, policy := range listNodePoliciesResp.Msg.Policies {
+		if policy.Source != "" && policy.Source != "dakr" {
+			continue
+		}
 		if policy.Id == data.Id.ValueString() {
 			foundPolicy = policy
 			break
@@ -778,7 +991,8 @@ func (r *NodePolicyResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	if foundPolicy == nil {
-		resp.Diagnostics.AddError("Client Error", "Node policy not found")
+		// Deleted out of band — drop it from state so the plan recreates it.
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -834,10 +1048,20 @@ func (r *NodePolicyResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	// No-op delete: just remove from state
-	// The API doesn't provide a delete endpoint, so we just remove it from Terraform state
-	// The policy will remain in the backend
-	tflog.Warn(ctx, "Node policy delete is a no-op operation. The policy will remain in the backend.")
+	_, err := r.client.RecommendationClient.DeleteNodePolicy(ctx, connect.NewRequest(&apiv1.DeleteNodePolicyRequest{
+		TeamId:   r.client.TeamId,
+		PolicyId: data.Id.ValueString(),
+	}))
+	if err != nil {
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			// Already gone — treat delete as successful.
+			return
+		}
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete node policy, got error: %s", err))
+		return
+	}
+
+	tflog.Trace(ctx, "deleted node policy (targets are cascade-deleted server-side)")
 }
 
 func (r *NodePolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -1016,6 +1240,44 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 		policy.Taints = taints
 	}
 
+	// Startup taints
+	if !m.StartupTaints.IsNull() && !m.StartupTaints.IsUnknown() {
+		startupTaints, err := getElementList(ctx, m.StartupTaints.Elements(), func(ctx context.Context, value Taint) (*apiv1.Taint, error) {
+			return &apiv1.Taint{
+				Key:    value.Key.ValueString(),
+				Value:  value.Value.ValueString(),
+				Effect: value.Effect.ValueString(),
+			}, nil
+		})
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert startup taints: %s", err))
+			return nil
+		}
+		policy.StartupTaints = startupTaints
+	}
+
+	// Zonal shift (AWS only)
+	if m.ZonalShift != nil {
+		policy.ZonalShift = &apiv1.ZonalShiftConfig{
+			RespectZonalShift:  m.ZonalShift.RespectZonalShift.ValueBool(),
+			EvictImpactedNodes: m.ZonalShift.EvictImpactedNodes.ValueBool(),
+			AllowZoneFallback:  m.ZonalShift.AllowZoneFallback.ValueBool(),
+		}
+	}
+
+	// Instance local NVMe selector (AWS only)
+	if m.InstanceLocalNvme != nil {
+		selector, err := m.InstanceLocalNvme.toProto(ctx)
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert instance local NVMe selector: %s", err))
+			return nil
+		}
+		policy.InstanceLocalNvme = selector
+	}
+
+	// Cloud provider id (informational)
+	policy.CloudProviderId = m.CloudProviderId.ValueInt64Pointer()
+
 	// Disruption policy
 	if m.Disruption != nil {
 		policy.Disruption = m.Disruption.toProto(ctx, diags)
@@ -1077,6 +1339,30 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 }
 
 // fromProto converts protobuf message to Terraform model.
+// taintAttrTypes is the Terraform object shape shared by taints and startup_taints.
+var taintAttrTypes = map[string]attr.Type{
+	"key":    types.StringType,
+	"value":  types.StringType,
+	"effect": types.StringType,
+}
+
+// taintListFromProto converts API taints into the Terraform list value, or a
+// typed null when the list is empty.
+func taintListFromProto(taints []*apiv1.Taint) types.List {
+	if len(taints) == 0 {
+		return types.ListNull(types.ObjectType{AttrTypes: taintAttrTypes})
+	}
+	values := make([]attr.Value, 0, len(taints))
+	for _, taint := range taints {
+		values = append(values, types.ObjectValueMust(taintAttrTypes, map[string]attr.Value{
+			"key":    types.StringValue(taint.Key),
+			"value":  types.StringValue(taint.Value),
+			"effect": types.StringValue(taint.Effect),
+		}))
+	}
+	return types.ListValueMust(types.ObjectType{AttrTypes: taintAttrTypes}, values)
+}
+
 func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	m.Id = types.StringValue(policy.Id)
 	m.Name = types.StringValue(policy.Name)
@@ -1142,41 +1428,7 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	}
 
 	// Taints
-	if len(policy.Taints) > 0 {
-		taints := make([]attr.Value, 0, len(policy.Taints))
-		for _, taint := range policy.Taints {
-			taints = append(taints, types.ObjectValueMust(
-				map[string]attr.Type{
-					"key":    types.StringType,
-					"value":  types.StringType,
-					"effect": types.StringType,
-				},
-				map[string]attr.Value{
-					"key":    types.StringValue(taint.Key),
-					"value":  types.StringValue(taint.Value),
-					"effect": types.StringValue(taint.Effect),
-				},
-			))
-		}
-		m.Taints = types.ListValueMust(
-			types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"key":    types.StringType,
-					"value":  types.StringType,
-					"effect": types.StringType,
-				},
-			},
-			taints,
-		)
-	} else {
-		m.Taints = types.ListNull(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"key":    types.StringType,
-				"value":  types.StringType,
-				"effect": types.StringType,
-			},
-		})
-	}
+	m.Taints = taintListFromProto(policy.Taints)
 
 	// Disruption policy
 	if policy.Disruption != nil {
@@ -1192,6 +1444,29 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	}
 
 	// Tooltip fields for node config
+	// Startup taints
+	m.StartupTaints = taintListFromProto(policy.StartupTaints)
+
+	// Zonal shift
+	if policy.ZonalShift != nil {
+		m.ZonalShift = &ZonalShiftConfig{
+			RespectZonalShift:  types.BoolValue(policy.ZonalShift.RespectZonalShift),
+			EvictImpactedNodes: types.BoolValue(policy.ZonalShift.EvictImpactedNodes),
+			AllowZoneFallback:  types.BoolValue(policy.ZonalShift.AllowZoneFallback),
+		}
+	} else {
+		m.ZonalShift = nil
+	}
+
+	// Instance local NVMe selector
+	if policy.InstanceLocalNvme != nil {
+		m.InstanceLocalNvme = labelSelectorFromProto(policy.InstanceLocalNvme)
+	} else {
+		m.InstanceLocalNvme = nil
+	}
+
+	m.CloudProviderId = types.Int64PointerValue(policy.CloudProviderId)
+
 	m.TaintsTip = stringPointerValue(policy.TaintsTip)
 	m.DisruptionsTip = stringPointerValue(policy.DisruptionsTip)
 	m.LimitsTip = stringPointerValue(policy.LimitsTip)
@@ -2201,6 +2476,11 @@ func (azure *AzureNodeClass) toProto(ctx context.Context, diags *diag.Diagnostic
 		spec.MaxPods = &val
 	}
 
+	if !azure.ImageVersion.IsNull() {
+		val := azure.ImageVersion.ValueString()
+		spec.ImageVersion = &val
+	}
+
 	if azure.Kubelet != nil {
 		k := &apiv1.AzureKubeletConfiguration{}
 		if !azure.Kubelet.CpuManagerPolicy.IsNull() {
@@ -2316,6 +2596,8 @@ func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {
 	} else {
 		azure.MaxPods = types.Int32Null()
 	}
+
+	azure.ImageVersion = stringPointerValue(spec.ImageVersion)
 
 	if spec.Kubelet != nil {
 		k := &AzureKubeletConfiguration{}

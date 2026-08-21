@@ -255,8 +255,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			Enabled:                 types.BoolValue(true),
 			MinReplicas:             types.Int32Value(2),
 			MaxReplicas:             types.Int32Value(10),
-			TargetUtilization:       types.Float32Value(0.7),
-			PrimaryMetric:           types.StringValue("cpu"),
 			MaxReplicaChangePercent: types.Float32Value(50.0),
 		}
 
@@ -273,12 +271,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		if p.MaxReplicas == nil || *p.MaxReplicas != 10 {
 			t.Errorf("Expected MaxReplicas=10, got %v", p.MaxReplicas)
 		}
-		if p.TargetUtilization == nil || *p.TargetUtilization != 0.7 {
-			t.Errorf("Expected TargetUtilization=0.7, got %v", p.TargetUtilization)
-		}
-		if p.PrimaryMetric == nil || *p.PrimaryMetric != apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU {
-			t.Errorf("Expected PrimaryMetric=CPU, got %v", p.PrimaryMetric)
-		}
 		if p.MaxReplicaChangePercent == nil || *p.MaxReplicaChangePercent != 50.0 {
 			t.Errorf("Expected MaxReplicaChangePercent=50.0, got %v", p.MaxReplicaChangePercent)
 		}
@@ -294,16 +286,12 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 	t.Run("HPARuleConfigFromProto_AllFields", func(t *testing.T) {
 		minR := int32(2)
 		maxR := int32(10)
-		util := float32(0.7)
-		metric := apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY
 		maxChange := float32(50.0)
 
 		p := &apiv1.HPARuleConfig{
 			Enabled:                 true,
 			MinReplicas:             &minR,
 			MaxReplicas:             &maxR,
-			TargetUtilization:       &util,
-			PrimaryMetric:           &metric,
 			MaxReplicaChangePercent: &maxChange,
 		}
 
@@ -319,12 +307,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 		if m.MaxReplicas.ValueInt32() != 10 {
 			t.Errorf("Expected MaxReplicas=10, got %d", m.MaxReplicas.ValueInt32())
-		}
-		if m.TargetUtilization.ValueFloat32() != 0.7 {
-			t.Errorf("Expected TargetUtilization=0.7, got %f", m.TargetUtilization.ValueFloat32())
-		}
-		if m.PrimaryMetric.ValueString() != "memory" {
-			t.Errorf("Expected PrimaryMetric='memory', got %s", m.PrimaryMetric.ValueString())
 		}
 		if m.MaxReplicaChangePercent.ValueFloat32() != 50.0 {
 			t.Errorf("Expected MaxReplicaChangePercent=50.0, got %f", m.MaxReplicaChangePercent.ValueFloat32())
@@ -343,9 +325,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			Enabled:                  types.BoolValue(true),
 			MinReplicas:              types.Int32Value(1),
 			MaxReplicas:              types.Int32Value(5),
-			TargetUtilization:        types.Float32Value(0.7),
-			TargetMemoryUtilization:  types.Float32Value(0.8),
-			PrimaryMetric:            types.StringValue("cpu"),
 			MaxReplicaChangePercent:  types.Float32Null(),
 			ScaleDownCooldownSeconds: types.Int32Value(300),
 			CompositeFormula:         types.StringValue(formula),
@@ -388,9 +367,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		p := m.toProto()
 		if p == nil {
 			t.Fatal("Expected non-nil proto")
-		}
-		if p.TargetMemoryUtilization == nil || *p.TargetMemoryUtilization != 0.8 {
-			t.Errorf("Expected TargetMemoryUtilization=0.8, got %v", p.TargetMemoryUtilization)
 		}
 		if p.ScaleDownCooldownSeconds == nil || *p.ScaleDownCooldownSeconds != 300 {
 			t.Errorf("Expected ScaleDownCooldownSeconds=300, got %v", p.ScaleDownCooldownSeconds)
@@ -449,7 +425,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 	})
 
 	t.Run("HPARuleConfigFromProto_NewFields", func(t *testing.T) {
-		memUtil := float32(0.8)
 		cooldown := int32(300)
 		formula := "0.6*cpu + 0.4*memory"
 		targetVal := "100"
@@ -457,7 +432,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 
 		p := &apiv1.HPARuleConfig{
 			Enabled:                  true,
-			TargetMemoryUtilization:  &memUtil,
 			ScaleDownCooldownSeconds: &cooldown,
 			CompositeFormula:         &formula,
 			Metrics: []*apiv1.HPAMetricTrigger{
@@ -485,9 +459,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		m := hpaRuleConfigFromProto(p)
 		if m == nil {
 			t.Fatal("Expected non-nil model")
-		}
-		if m.TargetMemoryUtilization.ValueFloat32() != 0.8 {
-			t.Errorf("Expected TargetMemoryUtilization=0.8, got %f", m.TargetMemoryUtilization.ValueFloat32())
 		}
 		if m.ScaleDownCooldownSeconds.ValueInt32() != 300 {
 			t.Errorf("Expected ScaleDownCooldownSeconds=300, got %d", m.ScaleDownCooldownSeconds.ValueInt32())
@@ -576,56 +547,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 		if m.Fallback != nil {
 			t.Error("Expected nil Fallback")
-		}
-	})
-
-	// ---------- HPA metric conversions ----------
-
-	t.Run("HPAMetricToProto", func(t *testing.T) {
-		cases := []struct {
-			input    string
-			expected apiv1.HPAMetricType
-		}{
-			{"cpu", apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU},
-			{"memory", apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY},
-			{"gpu", apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU},
-			{"network_ingress", apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS},
-			{"network_egress", apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_EGRESS},
-		}
-		for _, tc := range cases {
-			result := wrHPAMetricToProto(tc.input)
-			if result == nil {
-				t.Errorf("Expected non-nil for %q", tc.input)
-				continue
-			}
-			if *result != tc.expected {
-				t.Errorf("Input %q: expected %v, got %v", tc.input, tc.expected, *result)
-			}
-		}
-		if wrHPAMetricToProto("unknown") != nil {
-			t.Error("Expected nil for unknown metric")
-		}
-	})
-
-	t.Run("HPAMetricFromProto", func(t *testing.T) {
-		cases := []struct {
-			input    apiv1.HPAMetricType
-			expected string
-		}{
-			{apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU, "cpu"},
-			{apiv1.HPAMetricType_HPA_METRIC_TYPE_MEMORY, "memory"},
-			{apiv1.HPAMetricType_HPA_METRIC_TYPE_GPU, "gpu"},
-			{apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_INGRESS, "network_ingress"},
-			{apiv1.HPAMetricType_HPA_METRIC_TYPE_NETWORK_EGRESS, "network_egress"},
-		}
-		for _, tc := range cases {
-			result := wrHPAMetricFromProto(tc.input)
-			if result != tc.expected {
-				t.Errorf("Input %v: expected %q, got %q", tc.input, tc.expected, result)
-			}
-		}
-		if wrHPAMetricFromProto(apiv1.HPAMetricType_HPA_METRIC_TYPE_UNSPECIFIED) != "" {
-			t.Error("Expected empty string for unspecified metric")
 		}
 	})
 
@@ -938,7 +859,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-123")
+		req := m.toProto(ctx, &diags, "team-123", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1014,7 +935,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			Containers:                nil,
 		}
 
-		req := m.toProto(ctx, &diags, "team-456")
+		req := m.toProto(ctx, &diags, "team-456", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1401,11 +1322,9 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			Name:         types.StringValue("my-app"),
 			AutoGenerate: types.BoolValue(false),
 			HpaRule: &HPARuleConfigModel{
-				Enabled:           types.BoolValue(true),
-				MinReplicas:       types.Int32Value(2),
-				MaxReplicas:       types.Int32Value(10),
-				TargetUtilization: types.Float32Value(0.7),
-				PrimaryMetric:     types.StringValue("cpu"),
+				Enabled:     types.BoolValue(true),
+				MinReplicas: types.Int32Value(2),
+				MaxReplicas: types.Int32Value(10),
 			},
 			CpuRule:                   nil,
 			MemoryRule:                nil,
@@ -1422,7 +1341,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-123")
+		req := m.toProto(ctx, &diags, "team-123", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1461,8 +1380,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 	t.Run("WorkloadRuleResourceModel_FromProto_WithHpaRule", func(t *testing.T) {
 		minR := int32(2)
 		maxR := int32(10)
-		util := float32(0.7)
-		metric := apiv1.HPAMetricType_HPA_METRIC_TYPE_CPU
 
 		r := &apiv1.WorkloadRule{
 			RuleId:        "rule-hpa",
@@ -1472,11 +1389,9 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			Name:          "my-app",
 			CurrentSource: "manual",
 			HpaRule: &apiv1.HPARuleConfig{
-				Enabled:           true,
-				MinReplicas:       &minR,
-				MaxReplicas:       &maxR,
-				TargetUtilization: &util,
-				PrimaryMetric:     &metric,
+				Enabled:     true,
+				MinReplicas: &minR,
+				MaxReplicas: &maxR,
 			},
 		}
 
@@ -1494,12 +1409,6 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 		if m.HpaRule.MaxReplicas.ValueInt32() != 10 {
 			t.Errorf("Expected MaxReplicas=10, got %d", m.HpaRule.MaxReplicas.ValueInt32())
-		}
-		if m.HpaRule.TargetUtilization.ValueFloat32() != 0.7 {
-			t.Errorf("Expected TargetUtilization=0.7, got %f", m.HpaRule.TargetUtilization.ValueFloat32())
-		}
-		if m.HpaRule.PrimaryMetric.ValueString() != "cpu" {
-			t.Errorf("Expected PrimaryMetric='cpu', got %s", m.HpaRule.PrimaryMetric.ValueString())
 		}
 	})
 
@@ -1526,7 +1435,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-1")
+		req := m.toProto(ctx, &diags, "team-1", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}
@@ -1556,7 +1465,7 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			UseInPlaceVerticalScaling: types.BoolValue(false),
 		}
 
-		req := m.toProto(ctx, &diags, "team-1")
+		req := m.toProto(ctx, &diags, "team-1", true)
 		if diags.HasError() {
 			t.Fatalf("Unexpected error: %v", diags)
 		}

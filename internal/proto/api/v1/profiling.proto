@@ -3,6 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/timestamp.proto";
+import "google/type/money.proto";
 import "api/v1/common.proto";
 
 option go_package = "github.com/devzero-inc/services/dakr/gen/api/v1;gen";
@@ -12,6 +13,13 @@ option java_package = "gen.api.v1";
 service ProfilingService {
   rpc GetWorkloadProfiles(GetWorkloadProfilesRequest)
     returns (GetWorkloadProfilesResponse);
+
+  // GetWorkloadProfileAvailability is a lightweight check the frontend uses to
+  // decide whether the 1D/7D DB-snapshot tabs should be enabled (and default
+  // to) versus falling back to a live compute. It never reads snapshot payloads
+  // — only per-window row counts and the most recent computed_at.
+  rpc GetWorkloadProfileAvailability(GetWorkloadProfileAvailabilityRequest)
+    returns (GetWorkloadProfileAvailabilityResponse);
 }
 
 message ProfilingWorkloadKey {
@@ -26,10 +34,34 @@ message GetWorkloadProfilesRequest {
 
   optional google.protobuf.Timestamp start_time = 11;
   optional google.protobuf.Timestamp end_time = 12;
+
+  // When set to 1D or 7D, serve from the persisted workload_profile_cache
+  // snapshot for that window instead of computing live over start_time/end_time.
+  // UNSPECIFIED (default) preserves today's live-compute behavior.
+  ProfileWindow window = 13;
 }
 
 message GetWorkloadProfilesResponse {
   repeated WorkloadProfileResult workload_profiles = 1;
+}
+
+message GetWorkloadProfileAvailabilityRequest {
+  string team_id = 1;
+  string cluster_id = 2;
+}
+
+// ProfileWindowAvailability summarizes the cached-snapshot state for a single
+// profile window. available reflects both presence (workload_count > 0) and
+// freshness (latest_computed_at within the window's staleness threshold).
+message ProfileWindowAvailability {
+  bool available = 1;
+  google.protobuf.Timestamp latest_computed_at = 2;
+  int32 workload_count = 3;
+}
+
+message GetWorkloadProfileAvailabilityResponse {
+  ProfileWindowAvailability window_1d = 1;
+  ProfileWindowAvailability window_7d = 2;
 }
 
 message WorkloadProfileResult {
@@ -39,6 +71,17 @@ message WorkloadProfileResult {
   ProfilingClassification classification = 4;
   double confidence = 5;
   ProfileDataQuality data_quality = 6;
+
+  // The window over which this profile's distributions were computed.
+  google.protobuf.Timestamp window_start = 7;
+  google.protobuf.Timestamp window_end = 8;
+
+  // distribution_source identifies how the percentile distributions were
+  // derived. "exact_timeseries" = exact percentiles over the deduplicated
+  // busiest-pod-per-minute series (engine path); "sketch" = GK sketch
+  // aggregates (tail may collapse onto max — do not label as P99 on fleet
+  // screens).
+  string distribution_source = 9;
 }
 
 message ContainerProfileResult {
@@ -200,6 +243,45 @@ message ContainerProfileSnapshot {
   bool insufficient_data = 12;
   int64 current_cpu_request_millicores = 13;
   int64 current_memory_request_bytes = 14;
+  // Container-level startup timing (scheduled -> Ready condition).
+  double avg_time_to_ready_ms = 15;
+  double p50_time_to_ready_ms = 16;
+  double p75_time_to_ready_ms = 17;
+  double p95_time_to_ready_ms = 18;
+  double p99_time_to_ready_ms = 19;
+  double p999_time_to_ready_ms = 20;
+  double max_time_to_ready_ms = 21;
+  // Container-level startup timing (container create -> Running state).
+  double avg_time_to_running_ms = 22;
+  double p50_time_to_running_ms = 23;
+  double p75_time_to_running_ms = 24;
+  double p95_time_to_running_ms = 25;
+  double p99_time_to_running_ms = 26;
+  double p999_time_to_running_ms = 27;
+  double max_time_to_running_ms = 28;
+}
+
+// WorkloadPeerConnectivity describes one outbound (egress) internal
+// workload-to-workload traffic edge from the profiled workload to a destination
+// workload in the same cluster, aggregated over the profile window. Only
+// internal cluster traffic is represented here (destination workload
+// name/namespace populated); external egress is out of scope.
+message WorkloadPeerConnectivity {
+  // Stable owner-workload UID of the destination, resolved at ingestion. Used
+  // for stable peer identity — name/namespace alone can collide across workload
+  // replacements.
+  string dst_workload_uid = 1;
+  string dst_workload_name = 2;
+  string dst_namespace = 3;
+  // traffic_type mirrors models.TrafficType (e.g. INTERNAL_SAME_NODE,
+  // INTERNAL_SAME_AZ, INTERNAL_CROSS_AZ). Kept as a string to match the
+  // ClickHouse-stored classification.
+  string traffic_type = 4;
+  // Total transmit/receive bytes over the profile window for this edge.
+  int64 tx_bytes = 5;
+  int64 rx_bytes = 6;
+  // Total network cost attributed to this edge over the window.
+  google.type.Money cost = 7;
 }
 
 message WorkloadProfileSnapshot {
@@ -209,4 +291,34 @@ message WorkloadProfileSnapshot {
   ProfileDataQuality data_quality = 4;
   google.protobuf.Timestamp computed_at = 5;
   string ui_url = 6;
+  // Workload-level startup aggregates, pooled across every container of every
+  // pod in the window. Mirrors WorkloadHealthSummary's startup fields.
+  double avg_time_to_ready_ms = 7;
+  double p50_time_to_ready_ms = 8;
+  double p75_time_to_ready_ms = 9;
+  double p95_time_to_ready_ms = 10;
+  double p99_time_to_ready_ms = 11;
+  double p999_time_to_ready_ms = 12;
+  double max_time_to_ready_ms = 13;
+  // Always false from this pipeline: the batched cluster-wide fetch does not
+  // compute a previous-period comparison, matching the existing precedent in
+  // GetWorkloadHealthSummaries's cluster-list handler.
+  bool startup_degraded = 14;
+  // False when no container_startup_lifecycles rows matched this workload in
+  // the window — i.e. no pod lifecycle transitions (Pending, ContainerCreating,
+  // Running, or Ready) were observed for it, so the zero-valued timing fields
+  // above mean "no data" rather than a real zero-latency startup.
+  //
+  // Reflects workload-level (time_to_ready_ms) presence only. A workload can
+  // have has_startup_data=false with all *_time_to_ready_ms fields zero, while
+  // its containers[].{avg,p50,...}_time_to_running_ms are still populated —
+  // e.g. containers that reached Running but never became Ready in the
+  // window. Do not use this flag to gate reads of container-level
+  // *_time_to_running_ms; check each container's own fields instead.
+  bool has_startup_data = 15;
+
+  // peers carries the top outbound internal workload-to-workload traffic edges
+  // from this workload over the profile window (capped, ranked by tx+rx bytes).
+  // Only internal cluster traffic is included; external egress is excluded.
+  repeated WorkloadPeerConnectivity peers = 16;
 }

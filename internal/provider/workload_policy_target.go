@@ -40,20 +40,23 @@ type WorkloadPolicyTargetResource struct {
 
 // ExampleResourceModel describes the resource data model.
 type WorkloadPolicyTargetResourceModel struct {
-	Id                types.String   `tfsdk:"id"`
-	PolicyId          types.String   `tfsdk:"policy_id"`
-	Name              types.String   `tfsdk:"name"`
-	Description       types.String   `tfsdk:"description"`
-	Priority          types.Int32    `tfsdk:"priority"`
-	Enabled           types.Bool     `tfsdk:"enabled"`
-	NamespaceSelector *LabelSelector `tfsdk:"namespace_selector"`
-	WorkloadSelector  *LabelSelector `tfsdk:"workload_selector"`
-	KindFilter        types.List     `tfsdk:"kind_filter"`
-	NamePattern       *RegexPattern  `tfsdk:"name_pattern"`
-	NamespacePattern  *RegexPattern  `tfsdk:"namespace_pattern"`
-	WorkloadNames     types.List     `tfsdk:"workload_names"`
-	NodeGroupNames    types.List     `tfsdk:"node_group_names"`
-	ClusterIds        types.List     `tfsdk:"cluster_ids"`
+	Id                 types.String   `tfsdk:"id"`
+	PolicyId           types.String   `tfsdk:"policy_id"`
+	Name               types.String   `tfsdk:"name"`
+	Description        types.String   `tfsdk:"description"`
+	Priority           types.Int32    `tfsdk:"priority"`
+	Enabled            types.Bool     `tfsdk:"enabled"`
+	NamespaceSelector  *LabelSelector `tfsdk:"namespace_selector"`
+	WorkloadSelector   *LabelSelector `tfsdk:"workload_selector"`
+	KindFilter         types.List     `tfsdk:"kind_filter"`
+	NamePattern        *RegexPattern  `tfsdk:"name_pattern"`
+	NamespacePattern   *RegexPattern  `tfsdk:"namespace_pattern"`
+	WorkloadNames      types.List     `tfsdk:"workload_names"`
+	WorkloadNamesNotIn types.List     `tfsdk:"workload_names_not_in"`
+	KindFilterNotIn    types.List     `tfsdk:"kind_filter_not_in"`
+	AnnotationSelector *LabelSelector `tfsdk:"annotation_selector"`
+	NodeGroupNames     types.List     `tfsdk:"node_group_names"`
+	ClusterIds         types.List     `tfsdk:"cluster_ids"`
 }
 
 type LabelSelector struct {
@@ -216,13 +219,36 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
-			"node_group_names": schema.ListAttribute{
-				Description:         "Restrict matching to specific node groups",
-				MarkdownDescription: "Restrict matching to specific node groups by name",
+			"workload_names_not_in": schema.ListAttribute{
+				Description:         "Explicit list of workload names to exclude",
+				MarkdownDescription: "Explicit list of workload names to exclude from matching.",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+			},
+			"kind_filter_not_in": schema.ListAttribute{
+				Description:         "Kubernetes kinds to exclude from matching",
+				MarkdownDescription: "Kubernetes kinds to exclude from matching. Same allowed values as `kind_filter`.",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+			},
+			"annotation_selector": schema.SingleNestedAttribute{
+				Description:         "Select workloads by annotations",
+				MarkdownDescription: "Select workloads by annotations. Uses the same semantics as label selectors, evaluated against workload annotations.",
+				Optional:            true,
+				Attributes:          labelSelectorAttributes,
+			},
+			"node_group_names": schema.ListAttribute{
+				Description:         "Restrict matching to specific node groups (deprecated upstream)",
+				MarkdownDescription: "Restrict matching to specific node groups by name. Deprecated upstream — unused by any active target and removed from the UI.",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				DeprecationMessage:  "node_group_names is deprecated by the DevZero API and no longer evaluated.",
 			},
 			"cluster_ids": schema.ListAttribute{
 				Description:         "Clusters where this target should apply",
@@ -298,21 +324,42 @@ func (r *WorkloadPolicyTargetResource) Create(ctx context.Context, req resource.
 		return
 	}
 
+	workloadNamesNotIn, err := getStringList(ctx, data.WorkloadNamesNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in): %s", err))
+		return
+	}
+
+	kindFiltersNotIn, err := getKindFilters(ctx, data.KindFilterNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in): %s", err))
+		return
+	}
+
+	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector: %s", err))
+		return
+	}
+
 	createWorkloadPolicyTargetReq := &apiv1.CreateWorkloadPolicyTargetRequest{
-		TeamId:            r.client.TeamId,
-		PolicyId:          data.PolicyId.ValueString(),
-		Name:              data.Name.ValueString(),
-		Description:       data.Description.ValueString(),
-		Priority:          data.Priority.ValueInt32(),
-		Enabled:           data.Enabled.ValueBool(),
-		NamespaceSelector: namespaceSelector,
-		WorkloadSelector:  workloadSelector,
-		KindFilter:        kindFilters,
-		NamePattern:       data.NamePattern.toProto(),
-		NamespacePattern:  data.NamespacePattern.toProto(),
-		WorkloadNames:     workloadNames,
-		NodeGroupNames:    nodeGroupNames,
-		ClusterIds:        clusterIds,
+		TeamId:             r.client.TeamId,
+		PolicyId:           data.PolicyId.ValueString(),
+		Name:               data.Name.ValueString(),
+		Description:        data.Description.ValueString(),
+		Priority:           data.Priority.ValueInt32(),
+		Enabled:            data.Enabled.ValueBool(),
+		NamespaceSelector:  namespaceSelector,
+		WorkloadSelector:   workloadSelector,
+		KindFilter:         kindFilters,
+		NamePattern:        data.NamePattern.toProto(),
+		NamespacePattern:   data.NamespacePattern.toProto(),
+		WorkloadNames:      workloadNames,
+		WorkloadNamesNotIn: workloadNamesNotIn,
+		KindFilterNotIn:    kindFiltersNotIn,
+		AnnotationSelector: annotationSelector,
+		NodeGroupNames:     nodeGroupNames, //nolint:staticcheck // deprecated upstream; still sent for compatibility
+		ClusterIds:         clusterIds,
 	}
 
 	createWorkloadPolicyTargetResp, err := r.client.RecommendationClient.CreateWorkloadPolicyTarget(ctx, connect.NewRequest(createWorkloadPolicyTargetReq))
@@ -352,12 +399,16 @@ func (r *WorkloadPolicyTargetResource) Read(ctx context.Context, req resource.Re
 
 	getWorkloadPolicyTargetResp, err := r.client.RecommendationClient.GetWorkloadPolicyTarget(ctx, connect.NewRequest(getWorkloadPolicyTargetReq))
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get cluster, got error: %s", err))
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get workload policy target, got error: %s", err))
 		return
 	}
 
 	if getWorkloadPolicyTargetResp.Msg.Target == nil {
-		resp.Diagnostics.AddError("Client Error", "Workload policy target not found")
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -412,22 +463,43 @@ func (r *WorkloadPolicyTargetResource) Update(ctx context.Context, req resource.
 		return
 	}
 
+	workloadNamesNotIn, err := getStringList(ctx, data.WorkloadNamesNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert workload names (not in): %s", err))
+		return
+	}
+
+	kindFiltersNotIn, err := getKindFilters(ctx, data.KindFilterNotIn.Elements())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert kind filter (not in): %s", err))
+		return
+	}
+
+	annotationSelector, err := data.AnnotationSelector.toProto(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to convert annotation selector: %s", err))
+		return
+	}
+
 	updateWorkloadPolicyTargetReq := &apiv1.UpdateWorkloadPolicyTargetRequest{
-		TeamId:            r.client.TeamId,
-		TargetId:          data.Id.ValueString(),
-		PolicyId:          data.PolicyId.ValueStringPointer(),
-		Name:              data.Name.ValueString(),
-		Description:       data.Description.ValueString(),
-		Priority:          data.Priority.ValueInt32(),
-		Enabled:           data.Enabled.ValueBool(),
-		NamespaceSelector: namespaceSelector,
-		WorkloadSelector:  workloadSelector,
-		KindFilter:        kindFilters,
-		NamePattern:       data.NamePattern.toProto(),
-		NamespacePattern:  data.NamespacePattern.toProto(),
-		WorkloadNames:     workloadNames,
-		NodeGroupNames:    nodeGroupNames,
-		ClusterIds:        clusterIds,
+		TeamId:             r.client.TeamId,
+		TargetId:           data.Id.ValueString(),
+		PolicyId:           data.PolicyId.ValueStringPointer(),
+		Name:               data.Name.ValueString(),
+		Description:        data.Description.ValueString(),
+		Priority:           data.Priority.ValueInt32(),
+		Enabled:            data.Enabled.ValueBool(),
+		NamespaceSelector:  namespaceSelector,
+		WorkloadSelector:   workloadSelector,
+		KindFilter:         kindFilters,
+		NamePattern:        data.NamePattern.toProto(),
+		NamespacePattern:   data.NamespacePattern.toProto(),
+		WorkloadNames:      workloadNames,
+		WorkloadNamesNotIn: workloadNamesNotIn,
+		KindFilterNotIn:    kindFiltersNotIn,
+		AnnotationSelector: annotationSelector,
+		NodeGroupNames:     nodeGroupNames, //nolint:staticcheck // deprecated upstream; still sent for compatibility
+		ClusterIds:         clusterIds,
 	}
 
 	updateWorkloadPolicyTargetResp, err := r.client.RecommendationClient.UpdateWorkloadPolicyTarget(ctx, connect.NewRequest(updateWorkloadPolicyTargetReq))
@@ -463,8 +535,8 @@ func (r *WorkloadPolicyTargetResource) Delete(ctx context.Context, req resource.
 	}
 
 	_, err := r.client.RecommendationClient.DeleteWorkloadPolicyTarget(ctx, connect.NewRequest(deleteWorkloadPolicyTargetReq))
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete cluster, got error: %s", err))
+	if err != nil && connect.CodeOf(err) != connect.CodeNotFound {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete workload policy target, got error: %s", err))
 		return
 	}
 }
@@ -636,24 +708,24 @@ func (m *WorkloadPolicyTargetResourceModel) fromProto(target *apiv1.WorkloadPoli
 	m.Description = types.StringValue(target.Description)
 	m.Priority = types.Int32Value(target.Priority)
 	m.Enabled = types.BoolValue(target.Enabled)
-	m.NamespaceSelector.fromProto(target.NamespaceSelector)
-	m.WorkloadSelector.fromProto(target.WorkloadSelector)
+	m.NamespaceSelector = labelSelectorModelFromProto(target.NamespaceSelector)
+	m.WorkloadSelector = labelSelectorModelFromProto(target.WorkloadSelector)
 	m.KindFilter = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilter))
-	m.NamePattern.fromProto(target.NamePattern)
-	m.NamespacePattern.fromProto(target.NamespacePattern)
+	m.NamePattern = regexPatternModelFromProto(target.NamePattern)
+	m.NamespacePattern = regexPatternModelFromProto(target.NamespacePattern)
 	m.WorkloadNames = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNames))
-	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames))
+	m.WorkloadNamesNotIn = types.ListValueMust(types.StringType, fromStringList(target.WorkloadNamesNotIn))
+	m.KindFilterNotIn = types.ListValueMust(types.StringType, fromKindFilter(target.KindFilterNotIn))
+	m.AnnotationSelector = labelSelectorModelFromProto(target.AnnotationSelector)
+	m.NodeGroupNames = types.ListValueMust(types.StringType, fromStringList(target.NodeGroupNames)) //nolint:staticcheck // deprecated upstream; still read back
 	m.ClusterIds = types.ListValueMust(types.StringType, fromStringList(target.ClusterIds))
 }
 
-func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
+func labelSelectorModelFromProto(selector *apiv1.LabelSelector) *LabelSelector {
 	if selector == nil {
-		m = nil
-		return
+		return nil
 	}
-	if m == nil {
-		m = &LabelSelector{}
-	}
+	m := &LabelSelector{}
 
 	// Handle match_labels: if empty, set to null instead of empty map
 	if len(selector.MatchLabels) == 0 {
@@ -665,25 +737,13 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 	// Manually convert match expressions from proto to Terraform types
 	var matchExpressions []attr.Value
 	for _, expr := range selector.MatchExpressions {
-		// Convert operator enum to string
-		var operatorStr string
-		switch expr.Operator {
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_IN:
-			operatorStr = "In"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_NOT_IN:
-			operatorStr = "NotIn"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_EXISTS:
-			operatorStr = "Exists"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_DOES_NOT_EXIST:
-			operatorStr = "DoesNotExist"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_GT:
-			operatorStr = "Gt"
-		case apiv1.LabelSelectorOperator_LABEL_SELECTOR_OPERATOR_LT:
-			operatorStr = "Lt"
-		}
+		operatorStr := labelSelectorOperatorToString(expr.Operator)
 
 		// Convert values to Terraform list
-		values := types.ListValueMust(types.StringType, fromStringList(expr.Values))
+		values := types.ListNull(types.StringType)
+		if len(expr.Values) > 0 {
+			values = types.ListValueMust(types.StringType, fromStringList(expr.Values))
+		}
 
 		// Build the match expression object
 		matchExpr := types.ObjectValueMust(
@@ -703,16 +763,19 @@ func (m *LabelSelector) fromProto(selector *apiv1.LabelSelector) {
 	} else {
 		m.MatchExpressions = types.ListValueMust(types.ObjectType{AttrTypes: MatchExpression{}.AttrTypes()}, matchExpressions)
 	}
+	return m
 }
 
-func (m *RegexPattern) fromProto(pattern *apiv1.RegexPattern) {
+func regexPatternModelFromProto(pattern *apiv1.RegexPattern) *RegexPattern {
 	if pattern == nil {
-		m = nil
-		return
+		return nil
 	}
-	if m == nil {
-		m = &RegexPattern{}
-	}
+	m := &RegexPattern{}
 	m.Pattern = types.StringValue(pattern.Pattern)
-	m.Flags = types.StringValue(pattern.Flags)
+	if pattern.Flags == "" {
+		m.Flags = types.StringNull()
+	} else {
+		m.Flags = types.StringValue(pattern.Flags)
+	}
+	return m
 }
