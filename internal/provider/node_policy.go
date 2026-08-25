@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -51,12 +52,14 @@ type NodePolicyResourceModel struct {
 	InstanceGenerations    *LabelSelector    `tfsdk:"instance_generations"`
 	InstanceSizes          *LabelSelector    `tfsdk:"instance_sizes"`
 	InstanceTypes          *LabelSelector    `tfsdk:"instance_types"`
+	InstanceShapes         *LabelSelector    `tfsdk:"instance_shapes"`
 	InstanceCategoriesTip  types.String      `tfsdk:"instance_categories_tip"`
 	InstanceFamiliesTip    types.String      `tfsdk:"instance_families_tip"`
 	InstanceCpusTip        types.String      `tfsdk:"instance_cpus_tip"`
 	InstanceHypervisorsTip types.String      `tfsdk:"instance_hypervisors_tip"`
 	InstanceGenerationsTip types.String      `tfsdk:"instance_generations_tip"`
 	InstanceSizesTip       types.String      `tfsdk:"instance_sizes_tip"`
+	InstanceShapesTip      types.String      `tfsdk:"instance_shapes_tip"`
 	Zones                  *LabelSelector    `tfsdk:"zones"`
 	Architectures          *LabelSelector    `tfsdk:"architectures"`
 	CapacityTypes          *LabelSelector    `tfsdk:"capacity_types"`
@@ -68,6 +71,7 @@ type NodePolicyResourceModel struct {
 	Labels                 types.Map         `tfsdk:"labels"`
 	Taints                 types.List        `tfsdk:"taints"`         // List of Taint objects
 	StartupTaints          types.List        `tfsdk:"startup_taints"` // List of Taint objects
+	StartupTaintsTip       types.String      `tfsdk:"startup_taints_tip"`
 	Disruption             *DisruptionPolicy `tfsdk:"disruption"`
 	Limits                 *ResourceLimits   `tfsdk:"limits"`
 	TaintsTip              types.String      `tfsdk:"taints_tip"`
@@ -78,8 +82,11 @@ type NodePolicyResourceModel struct {
 	NodeClassName          types.String      `tfsdk:"node_class_name"`
 	Aws                    *AWSNodeClass     `tfsdk:"aws"`
 	Azure                  *AzureNodeClass   `tfsdk:"azure"`
+	Gcp                    *GCPNodeClass     `tfsdk:"gcp"`
+	Oci                    *OCINodeClass     `tfsdk:"oci"`
 	ZonalShift             *ZonalShiftConfig `tfsdk:"zonal_shift"`
 	InstanceLocalNvme      *LabelSelector    `tfsdk:"instance_local_nvme"`
+	InstanceLocalNvmeTip   types.String      `tfsdk:"instance_local_nvme_tip"`
 	CloudProviderId        types.Int64       `tfsdk:"cloud_provider_id"`
 	Raw                    types.List        `tfsdk:"raw"` // List of RawKarpenterSpec objects
 }
@@ -192,6 +199,51 @@ type AzureNodeClass struct {
 	ImageVersion types.String               `tfsdk:"image_version"`
 }
 
+// GCPNodeClass defines GCP-specific node configuration.
+type GCPNodeClass struct {
+	ServiceAccount     types.String          `tfsdk:"service_account"`
+	ImageSelectorTerms types.List            `tfsdk:"image_selector_terms"` // List of {alias, id}
+	ImageFamily        types.String          `tfsdk:"image_family"`
+	Kubelet            *KubeletConfiguration `tfsdk:"kubelet"`
+	Labels             types.Map             `tfsdk:"labels"`
+	Metadata           types.Map             `tfsdk:"metadata"`
+	NetworkTags        types.List            `tfsdk:"network_tags"` // List of strings
+	Disks              types.List            `tfsdk:"disks"`        // List of {size_gib, category, boot, secondary_boot_image, secondary_boot_mode}
+}
+
+// OCINodeClass defines OCI-specific node configuration.
+type OCINodeClass struct {
+	VcnId                 types.String      `tfsdk:"vcn_id"`
+	ImageSelector         types.List        `tfsdk:"image_selector"`          // List of {id, name, compartment_id}
+	SubnetSelector        types.List        `tfsdk:"subnet_selector"`         // List of {id, name}
+	SecurityGroupSelector types.List        `tfsdk:"security_group_selector"` // List of {id, name}
+	UserData              types.String      `tfsdk:"user_data"`
+	PreInstallScript      types.String      `tfsdk:"pre_install_script"`
+	MetaData              types.Map         `tfsdk:"meta_data"`
+	ImageFamily           types.String      `tfsdk:"image_family"`
+	Tags                  types.Map         `tfsdk:"tags"`
+	FreeFormTags          types.Map         `tfsdk:"free_form_tags"`
+	BootConfig            *OCIBootConfig    `tfsdk:"boot_config"`
+	LaunchOptions         *OCILaunchOptions `tfsdk:"launch_options"`
+	BlockDevices          types.List        `tfsdk:"block_devices"` // List of {size_in_gbs, vpus_per_gb}
+	AgentList             types.List        `tfsdk:"agent_list"`    // List of strings
+}
+
+// OCIBootConfig defines OCI boot volume configuration.
+type OCIBootConfig struct {
+	BootVolumeSizeInGbs types.Int64 `tfsdk:"boot_volume_size_in_gbs"`
+	BootVolumeVpusPerGb types.Int64 `tfsdk:"boot_volume_vpus_per_gb"`
+}
+
+// OCILaunchOptions defines OCI instance launch options.
+type OCILaunchOptions struct {
+	BootVolumeType                  types.String `tfsdk:"boot_volume_type"`
+	Firmware                        types.String `tfsdk:"firmware"`
+	NetworkType                     types.String `tfsdk:"network_type"`
+	RemoteDataVolumeType            types.String `tfsdk:"remote_data_volume_type"`
+	IsConsistentVolumeNamingEnabled types.Bool   `tfsdk:"is_consistent_volume_naming_enabled"`
+}
+
 // RawKarpenterSpec defines raw Karpenter YAML specs.
 type RawKarpenterSpec struct {
 	NodepoolYaml  types.String `tfsdk:"nodepool_yaml"`
@@ -242,6 +294,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"instance_generations": labelSelectorAttribute("Instance generations selector (e.g., 4 for Azure, 5 for AWS)"),
 			"instance_sizes":       labelSelectorAttribute("Instance sizes selector (e.g., Standard_D4s for Azure, large for AWS)"),
 			"instance_types":       labelSelectorAttribute("Instance types selector — explicit full type names (e.g., m5.xlarge for AWS, Standard_D4s_v2 for Azure)"),
+			"instance_shapes":      labelSelectorAttribute("Instance shapes selector (GCP only, e.g., custom shape tokens)"),
 			// Tooltip fields for instance selectors
 			"instance_categories_tip":  tooltipAttribute("Tooltip for instance categories"),
 			"instance_families_tip":    tooltipAttribute("Tooltip for instance families"),
@@ -249,6 +302,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"instance_hypervisors_tip": tooltipAttribute("Tooltip for instance hypervisors"),
 			"instance_generations_tip": tooltipAttribute("Tooltip for instance generations"),
 			"instance_sizes_tip":       tooltipAttribute("Tooltip for instance sizes"),
+			"instance_shapes_tip":      tooltipAttribute("Tooltip for instance shapes"),
 			// Additional selectors
 			"zones":             labelSelectorAttribute("Availability zones selector"),
 			"architectures":     labelSelectorAttribute("CPU architectures selector (e.g., amd64, arm64)"),
@@ -335,7 +389,8 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 					},
 				},
 			},
-			"instance_local_nvme": labelSelectorAttribute("Ephemeral NVMe storage per node in GiB (AWS only; karpenter.k8s.aws/instance-local-nvme)"),
+			"instance_local_nvme":     labelSelectorAttribute("Ephemeral NVMe storage per node in GiB (AWS only; karpenter.k8s.aws/instance-local-nvme)"),
+			"instance_local_nvme_tip": tooltipAttribute("Tooltip for instance local NVMe"),
 			"cloud_provider_id": schema.Int64Attribute{
 				Description:         "Cloud provider ID this policy is intended for (informational)",
 				MarkdownDescription: "Cloud provider ID this policy is intended for: `1` = AWS, `2` = Azure, `3` = GCP, `4` = OCI. Informational/UI filter — compilation always uses the target cluster's provider.",
@@ -427,9 +482,10 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				},
 			},
 			// Tooltips for node configuration
-			"taints_tip":      tooltipAttribute("Tooltip for taints"),
-			"disruptions_tip": tooltipAttribute("Tooltip for disruptions"),
-			"limits_tip":      tooltipAttribute("Tooltip for limits"),
+			"taints_tip":         tooltipAttribute("Tooltip for taints"),
+			"startup_taints_tip": tooltipAttribute("Tooltip for startup taints"),
+			"disruptions_tip":    tooltipAttribute("Tooltip for disruptions"),
+			"limits_tip":         tooltipAttribute("Tooltip for limits"),
 			// Karpenter naming
 			"master_override_role_name": schema.StringAttribute{
 				Description: "Master override role name for Karpenter",
@@ -514,6 +570,11 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 									Description: "AMI alias",
 									Optional:    true,
 								},
+								"ssm_parameter": schema.StringAttribute{
+									Description:         "SSM parameter path to resolve the AMI ID from",
+									MarkdownDescription: "SSM parameter path used to resolve the AMI ID (e.g., `/aws/service/eks/optimized-ami/...`).",
+									Optional:            true,
+								},
 								"tags": schema.MapAttribute{
 									Description: "AMI tags selector",
 									Optional:    true,
@@ -552,6 +613,10 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 									Description: "Device name (e.g., /dev/xvda)",
 									Optional:    true,
 								},
+								"root_volume": schema.BoolAttribute{
+									Description: "Whether this mapping targets the root volume",
+									Optional:    true,
+								},
 								"ebs": schema.SingleNestedAttribute{
 									Description: "EBS volume configuration",
 									Optional:    true,
@@ -588,6 +653,11 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 											Description: "Encrypt the volume",
 											Optional:    true,
 										},
+										"volume_initialization_rate": schema.Int32Attribute{
+											Description:         "EBS volume initialization (fast snapshot restore) rate in MiB/s",
+											MarkdownDescription: "Initialization rate for the EBS volume in MiB/s, used when restoring from a snapshot.",
+											Optional:            true,
+										},
 									},
 								},
 							},
@@ -615,6 +685,20 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						MarkdownDescription: "Configuration for EC2 instance metadata service. Defaults provide secure IMDS v2 configuration.",
 						Optional:            true,
 						Computed:            true,
+						Default: objectdefault.StaticValue(types.ObjectValueMust(
+							map[string]attr.Type{
+								"http_endpoint":               types.StringType,
+								"http_protocol_ipv6":          types.StringType,
+								"http_put_response_hop_limit": types.Int64Type,
+								"http_tokens":                 types.StringType,
+							},
+							map[string]attr.Value{
+								"http_endpoint":               types.StringValue("enabled"),
+								"http_protocol_ipv6":          types.StringValue("disabled"),
+								"http_put_response_hop_limit": types.Int64Value(2),
+								"http_tokens":                 types.StringValue("required"),
+							},
+						)),
 						Attributes: map[string]schema.Attribute{
 							"http_endpoint": schema.StringAttribute{
 								Description:         "Enable or disable the HTTP metadata endpoint",
@@ -823,6 +907,294 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 								Optional:    true,
 							},
 						},
+					},
+				},
+			},
+			// GCP provider configuration
+			"gcp": schema.SingleNestedAttribute{
+				Description:         "GCP-specific node configuration",
+				MarkdownDescription: "GCP-specific configuration for nodes provisioned with this policy.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"service_account": schema.StringAttribute{
+						Description: "GCP service account email to attach to nodes",
+						Optional:    true,
+					},
+					"image_selector_terms": schema.ListNestedAttribute{
+						Description: "Image selector terms",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"alias": schema.StringAttribute{
+									Description: "Image alias",
+									Optional:    true,
+								},
+								"id": schema.StringAttribute{
+									Description: "Image ID",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"image_family": schema.StringAttribute{
+						Description: "Image family",
+						Optional:    true,
+					},
+					"kubelet": schema.SingleNestedAttribute{
+						Description:         "Kubelet configuration overrides",
+						MarkdownDescription: "Kubelet configuration overrides applied to nodes launched by this policy.",
+						Optional:            true,
+						Attributes: map[string]schema.Attribute{
+							"cluster_dns": schema.ListAttribute{
+								Description: "Cluster DNS server IPs",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"max_pods": schema.Int32Attribute{
+								Description: "Maximum number of pods per node",
+								Optional:    true,
+							},
+							"pods_per_core": schema.Int32Attribute{
+								Description: "Maximum pods per CPU core",
+								Optional:    true,
+							},
+							"system_reserved": schema.MapAttribute{
+								Description: "Resources reserved for system daemons (e.g. cpu, memory, ephemeral-storage)",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"kube_reserved": schema.MapAttribute{
+								Description: "Resources reserved for Kubernetes system daemons",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_hard": schema.MapAttribute{
+								Description: "Hard eviction thresholds (e.g. memory.available = 100Mi)",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_soft": schema.MapAttribute{
+								Description: "Soft eviction thresholds",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_soft_grace_period": schema.MapAttribute{
+								Description: "Grace periods for soft eviction thresholds",
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"eviction_max_pod_grace_period": schema.Int32Attribute{
+								Description: "Maximum pod termination grace period (seconds) used on soft eviction",
+								Optional:    true,
+							},
+							"image_gc_high_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage above which image garbage collection runs",
+								Optional:    true,
+							},
+							"image_gc_low_threshold_percent": schema.Int32Attribute{
+								Description: "Disk usage percentage below which image garbage collection stops",
+								Optional:    true,
+							},
+							"cpu_cfs_quota": schema.BoolAttribute{
+								Description: "Enable CPU CFS quota enforcement for containers that specify CPU limits",
+								Optional:    true,
+							},
+						},
+					},
+					"labels": schema.MapAttribute{
+						Description: "GCP instance labels",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
+					"metadata": schema.MapAttribute{
+						Description: "GCP instance metadata",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
+					"network_tags": schema.ListAttribute{
+						Description: "GCP network tags",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
+					"disks": schema.ListNestedAttribute{
+						Description: "Disks to attach to nodes",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"size_gib": schema.Int32Attribute{
+									Description: "Disk size in GiB",
+									Optional:    true,
+								},
+								"category": schema.StringAttribute{
+									Description: "Disk category (e.g. pd-standard, pd-ssd, pd-balanced)",
+									Optional:    true,
+								},
+								"boot": schema.BoolAttribute{
+									Description: "Whether this is the boot disk",
+									Optional:    true,
+								},
+								"secondary_boot_image": schema.StringAttribute{
+									Description: "Secondary boot image reference",
+									Optional:    true,
+								},
+								"secondary_boot_mode": schema.StringAttribute{
+									Description: "Secondary boot mode",
+									Optional:    true,
+								},
+							},
+						},
+					},
+				},
+			},
+			// OCI provider configuration
+			"oci": schema.SingleNestedAttribute{
+				Description:         "OCI-specific node configuration",
+				MarkdownDescription: "OCI-specific configuration for nodes provisioned with this policy.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"vcn_id": schema.StringAttribute{
+						Description: "OCI VCN ID",
+						Optional:    true,
+					},
+					"image_selector": schema.ListNestedAttribute{
+						Description: "Image selector terms",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"id": schema.StringAttribute{
+									Description: "Image ID",
+									Optional:    true,
+								},
+								"name": schema.StringAttribute{
+									Description: "Image name",
+									Optional:    true,
+								},
+								"compartment_id": schema.StringAttribute{
+									Description: "Compartment ID the image belongs to",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"subnet_selector": schema.ListNestedAttribute{
+						Description: "Subnet selector terms",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"id": schema.StringAttribute{
+									Description: "Subnet ID",
+									Optional:    true,
+								},
+								"name": schema.StringAttribute{
+									Description: "Subnet name",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"security_group_selector": schema.ListNestedAttribute{
+						Description: "Security group (NSG) selector terms",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"id": schema.StringAttribute{
+									Description: "Security group ID",
+									Optional:    true,
+								},
+								"name": schema.StringAttribute{
+									Description: "Security group name",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"user_data": schema.StringAttribute{
+						Description: "User data script for instance initialization",
+						Optional:    true,
+					},
+					"pre_install_script": schema.StringAttribute{
+						Description: "Script to run before installation",
+						Optional:    true,
+					},
+					"meta_data": schema.MapAttribute{
+						Description: "OCI instance metadata",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
+					"image_family": schema.StringAttribute{
+						Description: "Image family",
+						Optional:    true,
+					},
+					"tags": schema.MapAttribute{
+						Description: "OCI defined tags to apply to instances",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
+					"free_form_tags": schema.MapAttribute{
+						Description: "OCI free-form tags to apply to instances",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
+					"boot_config": schema.SingleNestedAttribute{
+						Description: "Boot volume configuration",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"boot_volume_size_in_gbs": schema.Int64Attribute{
+								Description: "Boot volume size in GB",
+								Optional:    true,
+							},
+							"boot_volume_vpus_per_gb": schema.Int64Attribute{
+								Description: "Boot volume performance units per GB",
+								Optional:    true,
+							},
+						},
+					},
+					"launch_options": schema.SingleNestedAttribute{
+						Description: "Instance launch options",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"boot_volume_type": schema.StringAttribute{
+								Description: "Boot volume attachment type",
+								Optional:    true,
+							},
+							"firmware": schema.StringAttribute{
+								Description: "Firmware type",
+								Optional:    true,
+							},
+							"network_type": schema.StringAttribute{
+								Description: "Network attachment type",
+								Optional:    true,
+							},
+							"remote_data_volume_type": schema.StringAttribute{
+								Description: "Remote data volume attachment type",
+								Optional:    true,
+							},
+							"is_consistent_volume_naming_enabled": schema.BoolAttribute{
+								Description: "Enable consistent volume naming",
+								Optional:    true,
+							},
+						},
+					},
+					"block_devices": schema.ListNestedAttribute{
+						Description: "Additional block volumes to attach",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"size_in_gbs": schema.Int64Attribute{
+									Description: "Volume size in GB",
+									Optional:    true,
+								},
+								"vpus_per_gb": schema.Int64Attribute{
+									Description: "Volume performance units per GB",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"agent_list": schema.ListAttribute{
+						Description: "Oracle Cloud Agent plugins to enable",
+						Optional:    true,
+						ElementType: types.StringType,
 					},
 				},
 			},
@@ -1135,6 +1507,14 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 		}
 		policy.InstanceTypes = selector
 	}
+	if m.InstanceShapes != nil {
+		selector, err := m.InstanceShapes.toProto(ctx)
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert instance shapes: %s", err))
+			return nil
+		}
+		policy.InstanceShapes = selector
+	}
 
 	// Tooltip fields (pointers for optional)
 	if !m.InstanceCategoriesTip.IsNull() {
@@ -1160,6 +1540,10 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 	if !m.InstanceSizesTip.IsNull() {
 		val := m.InstanceSizesTip.ValueString()
 		policy.InstanceSizesTip = &val
+	}
+	if !m.InstanceShapesTip.IsNull() {
+		val := m.InstanceShapesTip.ValueString()
+		policy.InstanceShapesTip = &val
 	}
 
 	// Additional selectors
@@ -1256,6 +1640,11 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 		policy.StartupTaints = startupTaints
 	}
 
+	if !m.StartupTaintsTip.IsNull() {
+		val := m.StartupTaintsTip.ValueString()
+		policy.StartupTaintsTip = &val
+	}
+
 	// Zonal shift (AWS only)
 	if m.ZonalShift != nil {
 		policy.ZonalShift = &apiv1.ZonalShiftConfig{
@@ -1273,6 +1662,10 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 			return nil
 		}
 		policy.InstanceLocalNvme = selector
+	}
+	if !m.InstanceLocalNvmeTip.IsNull() {
+		val := m.InstanceLocalNvmeTip.ValueString()
+		policy.InstanceLocalNvmeTip = &val
 	}
 
 	// Cloud provider id (informational)
@@ -1318,6 +1711,16 @@ func (m *NodePolicyResourceModel) toProto(ctx context.Context, diags *diag.Diagn
 	// Azure configuration
 	if m.Azure != nil {
 		policy.Azure = m.Azure.toProto(ctx, diags)
+	}
+
+	// GCP configuration
+	if m.Gcp != nil {
+		policy.Gcp = m.Gcp.toProto(ctx, diags)
+	}
+
+	// OCI configuration
+	if m.Oci != nil {
+		policy.Oci = m.Oci.toProto(ctx, diags)
 	}
 
 	// Raw Karpenter specs
@@ -1391,6 +1794,9 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	if policy.InstanceTypes != nil {
 		m.InstanceTypes = labelSelectorFromProto(policy.InstanceTypes)
 	}
+	if policy.InstanceShapes != nil {
+		m.InstanceShapes = labelSelectorFromProto(policy.InstanceShapes)
+	}
 
 	// Tooltip fields
 	m.InstanceCategoriesTip = stringPointerValue(policy.InstanceCategoriesTip)
@@ -1399,6 +1805,7 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	m.InstanceHypervisorsTip = stringPointerValue(policy.InstanceHypervisorsTip)
 	m.InstanceGenerationsTip = stringPointerValue(policy.InstanceGenerationsTip)
 	m.InstanceSizesTip = stringPointerValue(policy.InstanceSizesTip)
+	m.InstanceShapesTip = stringPointerValue(policy.InstanceShapesTip)
 
 	// Additional selectors
 	if policy.Zones != nil {
@@ -1431,12 +1838,12 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	m.Taints = taintListFromProto(policy.Taints)
 
 	// Disruption policy
-	if policy.Disruption != nil {
+	if policy.Disruption != nil && !isDisruptionEmpty(policy.Disruption) {
 		m.Disruption = disruptionPolicyFromProto(policy.Disruption)
 	}
 
 	// Limits
-	if policy.Limits != nil {
+	if policy.Limits != nil && !isResourceLimitsEmpty(policy.Limits) {
 		m.Limits = &ResourceLimits{
 			Cpu:    types.StringValue(policy.Limits.Cpu),
 			Memory: types.StringValue(policy.Limits.Memory),
@@ -1446,9 +1853,10 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	// Tooltip fields for node config
 	// Startup taints
 	m.StartupTaints = taintListFromProto(policy.StartupTaints)
+	m.StartupTaintsTip = stringPointerValue(policy.StartupTaintsTip)
 
 	// Zonal shift
-	if policy.ZonalShift != nil {
+	if policy.ZonalShift != nil && !isZonalShiftEmpty(policy.ZonalShift) {
 		m.ZonalShift = &ZonalShiftConfig{
 			RespectZonalShift:  types.BoolValue(policy.ZonalShift.RespectZonalShift),
 			EvictImpactedNodes: types.BoolValue(policy.ZonalShift.EvictImpactedNodes),
@@ -1464,6 +1872,7 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	} else {
 		m.InstanceLocalNvme = nil
 	}
+	m.InstanceLocalNvmeTip = stringPointerValue(policy.InstanceLocalNvmeTip)
 
 	m.CloudProviderId = types.Int64PointerValue(policy.CloudProviderId)
 
@@ -1484,6 +1893,16 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	// Azure configuration
 	if policy.Azure != nil && !isAzureSpecEmpty(policy.Azure) {
 		m.Azure = azureNodeClassFromProto(policy.Azure)
+	}
+
+	// GCP configuration
+	if policy.Gcp != nil && !isGCPSpecEmpty(policy.Gcp) {
+		m.Gcp = gcpNodeClassFromProto(policy.Gcp)
+	}
+
+	// OCI configuration
+	if policy.Oci != nil && !isOCISpecEmpty(policy.Oci) {
+		m.Oci = ociNodeClassFromProto(policy.Oci)
 	}
 
 	// Raw specs
@@ -1801,6 +2220,9 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 			if alias, ok := attrs["alias"].(types.String); ok && !alias.IsNull() {
 				term.Alias = alias.ValueString()
 			}
+			if ssmParameter, ok := attrs["ssm_parameter"].(types.String); ok && !ssmParameter.IsNull() {
+				term.SsmParameter = ssmParameter.ValueString()
+			}
 			if tags, ok := attrs["tags"].(types.Map); ok && !tags.IsNull() {
 				tagMap, err := getStringMap(ctx, tags.Elements())
 				if err != nil {
@@ -1860,6 +2282,12 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 				mapping.DeviceName = &val
 			}
 
+			// Root volume (pointer)
+			if rootVolume, ok := attrs["root_volume"].(types.Bool); ok && !rootVolume.IsNull() {
+				val := rootVolume.ValueBool()
+				mapping.RootVolume = &val
+			}
+
 			// EBS configuration (nested)
 			if ebsObj, ok := attrs["ebs"].(types.Object); ok && !ebsObj.IsNull() {
 				ebsAttrs := ebsObj.Attributes()
@@ -1896,6 +2324,10 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 				if encrypted, ok := ebsAttrs["encrypted"].(types.Bool); ok && !encrypted.IsNull() {
 					val := encrypted.ValueBool()
 					ebs.Encrypted = &val
+				}
+				if volInitRate, ok := ebsAttrs["volume_initialization_rate"].(types.Int32); ok && !volInitRate.IsNull() {
+					val := volInitRate.ValueInt32()
+					ebs.VolumeInitializationRate = &val
 				}
 
 				mapping.Ebs = ebs
@@ -1975,78 +2407,10 @@ func (aws *AWSNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *
 
 	// Kubelet configuration
 	if aws.Kubelet != nil {
-		kubelet := &apiv1.KubeletConfiguration{}
-		if !aws.Kubelet.ClusterDns.IsNull() {
-			dns, err := getStringList(ctx, aws.Kubelet.ClusterDns.Elements())
-			if err != nil {
-				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert cluster_dns: %s", err))
-				return nil
-			}
-			kubelet.ClusterDns = dns
-		}
-		if !aws.Kubelet.MaxPods.IsNull() {
-			val := aws.Kubelet.MaxPods.ValueInt32()
-			kubelet.MaxPods = &val
-		}
-		if !aws.Kubelet.PodsPerCore.IsNull() {
-			val := aws.Kubelet.PodsPerCore.ValueInt32()
-			kubelet.PodsPerCore = &val
-		}
-		if !aws.Kubelet.SystemReserved.IsNull() {
-			m, err := getStringMap(ctx, aws.Kubelet.SystemReserved.Elements())
-			if err != nil {
-				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert system_reserved: %s", err))
-				return nil
-			}
-			kubelet.SystemReserved = m
-		}
-		if !aws.Kubelet.KubeReserved.IsNull() {
-			m, err := getStringMap(ctx, aws.Kubelet.KubeReserved.Elements())
-			if err != nil {
-				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert kube_reserved: %s", err))
-				return nil
-			}
-			kubelet.KubeReserved = m
-		}
-		if !aws.Kubelet.EvictionHard.IsNull() {
-			m, err := getStringMap(ctx, aws.Kubelet.EvictionHard.Elements())
-			if err != nil {
-				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert eviction_hard: %s", err))
-				return nil
-			}
-			kubelet.EvictionHard = m
-		}
-		if !aws.Kubelet.EvictionSoft.IsNull() {
-			m, err := getStringMap(ctx, aws.Kubelet.EvictionSoft.Elements())
-			if err != nil {
-				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert eviction_soft: %s", err))
-				return nil
-			}
-			kubelet.EvictionSoft = m
-		}
-		if !aws.Kubelet.EvictionSoftGracePeriod.IsNull() {
-			m, err := getStringMap(ctx, aws.Kubelet.EvictionSoftGracePeriod.Elements())
-			if err != nil {
-				diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert eviction_soft_grace_period: %s", err))
-				return nil
-			}
-			kubelet.EvictionSoftGracePeriod = m
-		}
-		if !aws.Kubelet.EvictionMaxPodGracePeriod.IsNull() {
-			val := aws.Kubelet.EvictionMaxPodGracePeriod.ValueInt32()
-			kubelet.EvictionMaxPodGracePeriod = &val
-		}
-		if !aws.Kubelet.ImageGcHighThresholdPercent.IsNull() {
-			val := aws.Kubelet.ImageGcHighThresholdPercent.ValueInt32()
-			kubelet.ImageGcHighThresholdPercent = &val
-		}
-		if !aws.Kubelet.ImageGcLowThresholdPercent.IsNull() {
-			val := aws.Kubelet.ImageGcLowThresholdPercent.ValueInt32()
-			kubelet.ImageGcLowThresholdPercent = &val
-		}
-		if !aws.Kubelet.CpuCfsQuota.IsNull() {
-			val := aws.Kubelet.CpuCfsQuota.ValueBool()
-			kubelet.CpuCfsQuota = &val
+		kubelet, err := kubeletConfigurationToProto(ctx, aws.Kubelet)
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert kubelet configuration: %s", err))
+			return nil
 		}
 		spec.Kubelet = kubelet
 	}
@@ -2148,10 +2512,11 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		terms := make([]attr.Value, 0, len(spec.AmiSelectorTerms))
 		for _, term := range spec.AmiSelectorTerms {
 			termAttrs := map[string]attr.Value{
-				"id":    stringValue(term.Id),
-				"name":  stringValue(term.Name),
-				"owner": stringValue(term.Owner),
-				"alias": stringValue(term.Alias),
+				"id":            stringValue(term.Id),
+				"name":          stringValue(term.Name),
+				"owner":         stringValue(term.Owner),
+				"alias":         stringValue(term.Alias),
+				"ssm_parameter": stringValue(term.SsmParameter),
 			}
 			if term.Tags != nil {
 				termAttrs["tags"] = types.MapValueMust(types.StringType, fromStringMap(term.Tags))
@@ -2160,11 +2525,12 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 			}
 			terms = append(terms, types.ObjectValueMust(
 				map[string]attr.Type{
-					"id":    types.StringType,
-					"name":  types.StringType,
-					"owner": types.StringType,
-					"alias": types.StringType,
-					"tags":  types.MapType{ElemType: types.StringType},
+					"id":            types.StringType,
+					"name":          types.StringType,
+					"owner":         types.StringType,
+					"alias":         types.StringType,
+					"ssm_parameter": types.StringType,
+					"tags":          types.MapType{ElemType: types.StringType},
 				},
 				termAttrs,
 			))
@@ -2172,11 +2538,12 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		aws.AmiSelectorTerms = types.ListValueMust(
 			types.ObjectType{
 				AttrTypes: map[string]attr.Type{
-					"id":    types.StringType,
-					"name":  types.StringType,
-					"owner": types.StringType,
-					"alias": types.StringType,
-					"tags":  types.MapType{ElemType: types.StringType},
+					"id":            types.StringType,
+					"name":          types.StringType,
+					"owner":         types.StringType,
+					"alias":         types.StringType,
+					"ssm_parameter": types.StringType,
+					"tags":          types.MapType{ElemType: types.StringType},
 				},
 			},
 			terms,
@@ -2184,11 +2551,12 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 	} else {
 		aws.AmiSelectorTerms = types.ListNull(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"id":    types.StringType,
-				"name":  types.StringType,
-				"owner": types.StringType,
-				"alias": types.StringType,
-				"tags":  types.MapType{ElemType: types.StringType},
+				"id":            types.StringType,
+				"name":          types.StringType,
+				"owner":         types.StringType,
+				"alias":         types.StringType,
+				"ssm_parameter": types.StringType,
+				"tags":          types.MapType{ElemType: types.StringType},
 			},
 		})
 	}
@@ -2212,6 +2580,7 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		for _, mapping := range spec.BlockDeviceMappings {
 			mappingAttrs := map[string]attr.Value{
 				"device_name": stringPointerValue(mapping.DeviceName),
+				"root_volume": boolPointerValue(mapping.RootVolume),
 			}
 
 			// EBS configuration (nested)
@@ -2243,46 +2612,51 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 				} else {
 					ebsAttrs["encrypted"] = types.BoolNull()
 				}
+				ebsAttrs["volume_initialization_rate"] = int32PointerValue(mapping.Ebs.VolumeInitializationRate)
 
 				mappingAttrs["ebs"] = types.ObjectValueMust(
 					map[string]attr.Type{
-						"volume_size":           types.StringType,
-						"volume_type":           types.StringType,
-						"iops":                  types.Int64Type,
-						"throughput":            types.Int64Type,
-						"kms_key_id":            types.StringType,
-						"snapshot_id":           types.StringType,
-						"delete_on_termination": types.BoolType,
-						"encrypted":             types.BoolType,
+						"volume_size":                types.StringType,
+						"volume_type":                types.StringType,
+						"iops":                       types.Int64Type,
+						"throughput":                 types.Int64Type,
+						"kms_key_id":                 types.StringType,
+						"snapshot_id":                types.StringType,
+						"delete_on_termination":      types.BoolType,
+						"encrypted":                  types.BoolType,
+						"volume_initialization_rate": types.Int32Type,
 					},
 					ebsAttrs,
 				)
 			} else {
 				mappingAttrs["ebs"] = types.ObjectNull(map[string]attr.Type{
-					"volume_size":           types.StringType,
-					"volume_type":           types.StringType,
-					"iops":                  types.Int64Type,
-					"throughput":            types.Int64Type,
-					"kms_key_id":            types.StringType,
-					"snapshot_id":           types.StringType,
-					"delete_on_termination": types.BoolType,
-					"encrypted":             types.BoolType,
+					"volume_size":                types.StringType,
+					"volume_type":                types.StringType,
+					"iops":                       types.Int64Type,
+					"throughput":                 types.Int64Type,
+					"kms_key_id":                 types.StringType,
+					"snapshot_id":                types.StringType,
+					"delete_on_termination":      types.BoolType,
+					"encrypted":                  types.BoolType,
+					"volume_initialization_rate": types.Int32Type,
 				})
 			}
 
 			mappings = append(mappings, types.ObjectValueMust(
 				map[string]attr.Type{
 					"device_name": types.StringType,
+					"root_volume": types.BoolType,
 					"ebs": types.ObjectType{
 						AttrTypes: map[string]attr.Type{
-							"volume_size":           types.StringType,
-							"volume_type":           types.StringType,
-							"iops":                  types.Int64Type,
-							"throughput":            types.Int64Type,
-							"kms_key_id":            types.StringType,
-							"snapshot_id":           types.StringType,
-							"delete_on_termination": types.BoolType,
-							"encrypted":             types.BoolType,
+							"volume_size":                types.StringType,
+							"volume_type":                types.StringType,
+							"iops":                       types.Int64Type,
+							"throughput":                 types.Int64Type,
+							"kms_key_id":                 types.StringType,
+							"snapshot_id":                types.StringType,
+							"delete_on_termination":      types.BoolType,
+							"encrypted":                  types.BoolType,
+							"volume_initialization_rate": types.Int32Type,
 						},
 					},
 				},
@@ -2293,16 +2667,18 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 			types.ObjectType{
 				AttrTypes: map[string]attr.Type{
 					"device_name": types.StringType,
+					"root_volume": types.BoolType,
 					"ebs": types.ObjectType{
 						AttrTypes: map[string]attr.Type{
-							"volume_size":           types.StringType,
-							"volume_type":           types.StringType,
-							"iops":                  types.Int64Type,
-							"throughput":            types.Int64Type,
-							"kms_key_id":            types.StringType,
-							"snapshot_id":           types.StringType,
-							"delete_on_termination": types.BoolType,
-							"encrypted":             types.BoolType,
+							"volume_size":                types.StringType,
+							"volume_type":                types.StringType,
+							"iops":                       types.Int64Type,
+							"throughput":                 types.Int64Type,
+							"kms_key_id":                 types.StringType,
+							"snapshot_id":                types.StringType,
+							"delete_on_termination":      types.BoolType,
+							"encrypted":                  types.BoolType,
+							"volume_initialization_rate": types.Int32Type,
 						},
 					},
 				},
@@ -2313,16 +2689,18 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		aws.BlockDeviceMappings = types.ListNull(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
 				"device_name": types.StringType,
+				"root_volume": types.BoolType,
 				"ebs": types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"volume_size":           types.StringType,
-						"volume_type":           types.StringType,
-						"iops":                  types.Int64Type,
-						"throughput":            types.Int64Type,
-						"kms_key_id":            types.StringType,
-						"snapshot_id":           types.StringType,
-						"delete_on_termination": types.BoolType,
-						"encrypted":             types.BoolType,
+						"volume_size":                types.StringType,
+						"volume_type":                types.StringType,
+						"iops":                       types.Int64Type,
+						"throughput":                 types.Int64Type,
+						"kms_key_id":                 types.StringType,
+						"snapshot_id":                types.StringType,
+						"delete_on_termination":      types.BoolType,
+						"encrypted":                  types.BoolType,
+						"volume_initialization_rate": types.Int32Type,
 					},
 				},
 			},
@@ -2414,31 +2792,108 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 
 	// Kubelet configuration
 	if spec.Kubelet != nil {
-		k := spec.Kubelet
-		kubelet := &KubeletConfiguration{}
-		if len(k.ClusterDns) > 0 {
-			kubelet.ClusterDns = types.ListValueMust(types.StringType, fromStringList(k.ClusterDns))
-		} else {
-			kubelet.ClusterDns = types.ListNull(types.StringType)
-		}
-		kubelet.MaxPods = int32PointerValue(k.MaxPods)
-		kubelet.PodsPerCore = int32PointerValue(k.PodsPerCore)
-		kubelet.SystemReserved = stringMapOrNull(k.SystemReserved)
-		kubelet.KubeReserved = stringMapOrNull(k.KubeReserved)
-		kubelet.EvictionHard = stringMapOrNull(k.EvictionHard)
-		kubelet.EvictionSoft = stringMapOrNull(k.EvictionSoft)
-		kubelet.EvictionSoftGracePeriod = stringMapOrNull(k.EvictionSoftGracePeriod)
-		kubelet.EvictionMaxPodGracePeriod = int32PointerValue(k.EvictionMaxPodGracePeriod)
-		kubelet.ImageGcHighThresholdPercent = int32PointerValue(k.ImageGcHighThresholdPercent)
-		kubelet.ImageGcLowThresholdPercent = int32PointerValue(k.ImageGcLowThresholdPercent)
-		kubelet.CpuCfsQuota = boolPointerValue(k.CpuCfsQuota)
-		aws.Kubelet = kubelet
+		aws.Kubelet = kubeletConfigurationFromProto(spec.Kubelet)
 	}
 
 	// Context
 	aws.Context = stringPointerValue(spec.Context)
 
 	return aws
+}
+
+// kubeletConfigurationToProto converts the shared kubelet configuration model to protobuf.
+// Used by both AWS and GCP node classes, which reuse the same KubeletConfiguration message.
+func kubeletConfigurationToProto(ctx context.Context, k *KubeletConfiguration) (*apiv1.KubeletConfiguration, error) {
+	kubelet := &apiv1.KubeletConfiguration{}
+	if !k.ClusterDns.IsNull() {
+		dns, err := getStringList(ctx, k.ClusterDns.Elements())
+		if err != nil {
+			return nil, fmt.Errorf("cluster_dns: %w", err)
+		}
+		kubelet.ClusterDns = dns
+	}
+	if !k.MaxPods.IsNull() {
+		val := k.MaxPods.ValueInt32()
+		kubelet.MaxPods = &val
+	}
+	if !k.PodsPerCore.IsNull() {
+		val := k.PodsPerCore.ValueInt32()
+		kubelet.PodsPerCore = &val
+	}
+	if !k.SystemReserved.IsNull() {
+		m, err := getStringMap(ctx, k.SystemReserved.Elements())
+		if err != nil {
+			return nil, fmt.Errorf("system_reserved: %w", err)
+		}
+		kubelet.SystemReserved = m
+	}
+	if !k.KubeReserved.IsNull() {
+		m, err := getStringMap(ctx, k.KubeReserved.Elements())
+		if err != nil {
+			return nil, fmt.Errorf("kube_reserved: %w", err)
+		}
+		kubelet.KubeReserved = m
+	}
+	if !k.EvictionHard.IsNull() {
+		m, err := getStringMap(ctx, k.EvictionHard.Elements())
+		if err != nil {
+			return nil, fmt.Errorf("eviction_hard: %w", err)
+		}
+		kubelet.EvictionHard = m
+	}
+	if !k.EvictionSoft.IsNull() {
+		m, err := getStringMap(ctx, k.EvictionSoft.Elements())
+		if err != nil {
+			return nil, fmt.Errorf("eviction_soft: %w", err)
+		}
+		kubelet.EvictionSoft = m
+	}
+	if !k.EvictionSoftGracePeriod.IsNull() {
+		m, err := getStringMap(ctx, k.EvictionSoftGracePeriod.Elements())
+		if err != nil {
+			return nil, fmt.Errorf("eviction_soft_grace_period: %w", err)
+		}
+		kubelet.EvictionSoftGracePeriod = m
+	}
+	if !k.EvictionMaxPodGracePeriod.IsNull() {
+		val := k.EvictionMaxPodGracePeriod.ValueInt32()
+		kubelet.EvictionMaxPodGracePeriod = &val
+	}
+	if !k.ImageGcHighThresholdPercent.IsNull() {
+		val := k.ImageGcHighThresholdPercent.ValueInt32()
+		kubelet.ImageGcHighThresholdPercent = &val
+	}
+	if !k.ImageGcLowThresholdPercent.IsNull() {
+		val := k.ImageGcLowThresholdPercent.ValueInt32()
+		kubelet.ImageGcLowThresholdPercent = &val
+	}
+	if !k.CpuCfsQuota.IsNull() {
+		val := k.CpuCfsQuota.ValueBool()
+		kubelet.CpuCfsQuota = &val
+	}
+	return kubelet, nil
+}
+
+// kubeletConfigurationFromProto converts the shared kubelet configuration message to the Terraform model.
+func kubeletConfigurationFromProto(k *apiv1.KubeletConfiguration) *KubeletConfiguration {
+	kubelet := &KubeletConfiguration{}
+	if len(k.ClusterDns) > 0 {
+		kubelet.ClusterDns = types.ListValueMust(types.StringType, fromStringList(k.ClusterDns))
+	} else {
+		kubelet.ClusterDns = types.ListNull(types.StringType)
+	}
+	kubelet.MaxPods = int32PointerValue(k.MaxPods)
+	kubelet.PodsPerCore = int32PointerValue(k.PodsPerCore)
+	kubelet.SystemReserved = stringMapOrNull(k.SystemReserved)
+	kubelet.KubeReserved = stringMapOrNull(k.KubeReserved)
+	kubelet.EvictionHard = stringMapOrNull(k.EvictionHard)
+	kubelet.EvictionSoft = stringMapOrNull(k.EvictionSoft)
+	kubelet.EvictionSoftGracePeriod = stringMapOrNull(k.EvictionSoftGracePeriod)
+	kubelet.EvictionMaxPodGracePeriod = int32PointerValue(k.EvictionMaxPodGracePeriod)
+	kubelet.ImageGcHighThresholdPercent = int32PointerValue(k.ImageGcHighThresholdPercent)
+	kubelet.ImageGcLowThresholdPercent = int32PointerValue(k.ImageGcLowThresholdPercent)
+	kubelet.CpuCfsQuota = boolPointerValue(k.CpuCfsQuota)
+	return kubelet
 }
 
 // Azure Node Class conversion functions.
@@ -2557,6 +3012,36 @@ func isAWSSpecEmpty(spec *apiv1.AWSNodeClassSpec) bool {
 		spec.Context == nil
 }
 
+// isDisruptionEmpty reports whether the API returned an unset disruption policy
+// (the backend echoes back a non-nil, all-zero-value message rather than nil).
+func isDisruptionEmpty(d *apiv1.DisruptionPolicy) bool {
+	if d == nil {
+		return true
+	}
+	return d.ConsolidateAfter == "" &&
+		d.ConsolidationPolicy == "" &&
+		d.ExpireAfter == "" &&
+		d.TtlSecondsAfterEmpty == 0 &&
+		d.TerminationGracePeriodSeconds == 0 &&
+		len(d.Budgets) == 0
+}
+
+// isResourceLimitsEmpty reports whether the API returned an unset resource limits block.
+func isResourceLimitsEmpty(l *apiv1.ResourceLimits) bool {
+	if l == nil {
+		return true
+	}
+	return l.Cpu == "" && l.Memory == ""
+}
+
+// isZonalShiftEmpty reports whether the API returned an unset zonal shift config.
+func isZonalShiftEmpty(z *apiv1.ZonalShiftConfig) bool {
+	if z == nil {
+		return true
+	}
+	return !z.RespectZonalShift && !z.EvictImpactedNodes && !z.AllowZoneFallback
+}
+
 // Helper to check if Azure spec is empty (all fields are nil).
 func isAzureSpecEmpty(spec *apiv1.AzureNodeClassSpec) bool {
 	if spec == nil {
@@ -2623,6 +3108,480 @@ func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {
 	}
 
 	return azure
+}
+
+// GCP Node Class conversion functions.
+func (gcp *GCPNodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *apiv1.GCPNodeClassSpec {
+	spec := &apiv1.GCPNodeClassSpec{
+		ServiceAccount: gcp.ServiceAccount.ValueString(),
+	}
+
+	// Image selector terms
+	if !gcp.ImageSelectorTerms.IsNull() && !gcp.ImageSelectorTerms.IsUnknown() {
+		var terms []*apiv1.GCPImageSelectorTerm
+		for _, elem := range gcp.ImageSelectorTerms.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			term := &apiv1.GCPImageSelectorTerm{}
+			if alias, ok := attrs["alias"].(types.String); ok && !alias.IsNull() {
+				term.Alias = alias.ValueString()
+			}
+			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
+				term.Id = id.ValueString()
+			}
+			terms = append(terms, term)
+		}
+		spec.ImageSelectorTerms = terms
+	}
+
+	if !gcp.ImageFamily.IsNull() {
+		val := gcp.ImageFamily.ValueString()
+		spec.ImageFamily = &val
+	}
+
+	if gcp.Kubelet != nil {
+		kubelet, err := kubeletConfigurationToProto(ctx, gcp.Kubelet)
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert GCP kubelet configuration: %s", err))
+			return nil
+		}
+		spec.KubeletConfiguration = kubelet
+	}
+
+	if !gcp.Labels.IsNull() {
+		labels, err := getStringMap(ctx, gcp.Labels.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert GCP labels: %s", err))
+			return nil
+		}
+		spec.Labels = labels
+	}
+
+	if !gcp.Metadata.IsNull() {
+		metadata, err := getStringMap(ctx, gcp.Metadata.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert GCP metadata: %s", err))
+			return nil
+		}
+		spec.Metadata = metadata
+	}
+
+	if !gcp.NetworkTags.IsNull() {
+		tags, err := getStringList(ctx, gcp.NetworkTags.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert GCP network tags: %s", err))
+			return nil
+		}
+		spec.NetworkTags = tags
+	}
+
+	// Disks
+	if !gcp.Disks.IsNull() && !gcp.Disks.IsUnknown() {
+		var disks []*apiv1.GCPDisk
+		for _, elem := range gcp.Disks.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			disk := &apiv1.GCPDisk{}
+			if sizeGib, ok := attrs["size_gib"].(types.Int32); ok && !sizeGib.IsNull() {
+				disk.SizeGib = sizeGib.ValueInt32()
+			}
+			if category, ok := attrs["category"].(types.String); ok && !category.IsNull() {
+				disk.Category = category.ValueString()
+			}
+			if boot, ok := attrs["boot"].(types.Bool); ok && !boot.IsNull() {
+				disk.Boot = boot.ValueBool()
+			}
+			if secondaryBootImage, ok := attrs["secondary_boot_image"].(types.String); ok && !secondaryBootImage.IsNull() {
+				disk.SecondaryBootImage = secondaryBootImage.ValueString()
+			}
+			if secondaryBootMode, ok := attrs["secondary_boot_mode"].(types.String); ok && !secondaryBootMode.IsNull() {
+				disk.SecondaryBootMode = secondaryBootMode.ValueString()
+			}
+			disks = append(disks, disk)
+		}
+		spec.Disks = disks
+	}
+
+	return spec
+}
+
+// Helper to check if GCP spec is empty (all fields are nil/empty).
+func isGCPSpecEmpty(spec *apiv1.GCPNodeClassSpec) bool {
+	if spec == nil {
+		return true
+	}
+	return spec.ServiceAccount == "" &&
+		len(spec.ImageSelectorTerms) == 0 &&
+		spec.ImageFamily == nil &&
+		spec.KubeletConfiguration == nil &&
+		len(spec.Labels) == 0 &&
+		len(spec.Metadata) == 0 &&
+		len(spec.NetworkTags) == 0 &&
+		len(spec.Disks) == 0
+}
+
+func gcpNodeClassFromProto(spec *apiv1.GCPNodeClassSpec) *GCPNodeClass {
+	gcp := &GCPNodeClass{
+		ServiceAccount: stringValue(spec.ServiceAccount),
+	}
+
+	imageSelectorTermAttrTypes := map[string]attr.Type{
+		"alias": types.StringType,
+		"id":    types.StringType,
+	}
+	if len(spec.ImageSelectorTerms) > 0 {
+		terms := make([]attr.Value, 0, len(spec.ImageSelectorTerms))
+		for _, term := range spec.ImageSelectorTerms {
+			terms = append(terms, types.ObjectValueMust(imageSelectorTermAttrTypes, map[string]attr.Value{
+				"alias": stringValue(term.Alias),
+				"id":    stringValue(term.Id),
+			}))
+		}
+		gcp.ImageSelectorTerms = types.ListValueMust(types.ObjectType{AttrTypes: imageSelectorTermAttrTypes}, terms)
+	} else {
+		gcp.ImageSelectorTerms = types.ListNull(types.ObjectType{AttrTypes: imageSelectorTermAttrTypes})
+	}
+
+	gcp.ImageFamily = stringPointerValue(spec.ImageFamily)
+
+	if spec.KubeletConfiguration != nil {
+		gcp.Kubelet = kubeletConfigurationFromProto(spec.KubeletConfiguration)
+	}
+
+	gcp.Labels = stringMapOrNull(spec.Labels)
+	gcp.Metadata = stringMapOrNull(spec.Metadata)
+
+	if len(spec.NetworkTags) > 0 {
+		gcp.NetworkTags = types.ListValueMust(types.StringType, fromStringList(spec.NetworkTags))
+	} else {
+		gcp.NetworkTags = types.ListNull(types.StringType)
+	}
+
+	diskAttrTypes := map[string]attr.Type{
+		"size_gib":             types.Int32Type,
+		"category":             types.StringType,
+		"boot":                 types.BoolType,
+		"secondary_boot_image": types.StringType,
+		"secondary_boot_mode":  types.StringType,
+	}
+	if len(spec.Disks) > 0 {
+		disks := make([]attr.Value, 0, len(spec.Disks))
+		for _, disk := range spec.Disks {
+			disks = append(disks, types.ObjectValueMust(diskAttrTypes, map[string]attr.Value{
+				"size_gib":             types.Int32Value(disk.SizeGib),
+				"category":             stringValue(disk.Category),
+				"boot":                 types.BoolValue(disk.Boot),
+				"secondary_boot_image": stringValue(disk.SecondaryBootImage),
+				"secondary_boot_mode":  stringValue(disk.SecondaryBootMode),
+			}))
+		}
+		gcp.Disks = types.ListValueMust(types.ObjectType{AttrTypes: diskAttrTypes}, disks)
+	} else {
+		gcp.Disks = types.ListNull(types.ObjectType{AttrTypes: diskAttrTypes})
+	}
+
+	return gcp
+}
+
+// OCI Node Class conversion functions.
+func (oci *OCINodeClass) toProto(ctx context.Context, diags *diag.Diagnostics) *apiv1.OCINodeClassSpec {
+	spec := &apiv1.OCINodeClassSpec{
+		VcnId:       oci.VcnId.ValueString(),
+		ImageFamily: oci.ImageFamily.ValueString(),
+	}
+
+	if !oci.ImageSelector.IsNull() && !oci.ImageSelector.IsUnknown() {
+		var terms []*apiv1.OCIImageSelectorTerm
+		for _, elem := range oci.ImageSelector.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			term := &apiv1.OCIImageSelectorTerm{}
+			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
+				term.Id = id.ValueString()
+			}
+			if name, ok := attrs["name"].(types.String); ok && !name.IsNull() {
+				term.Name = name.ValueString()
+			}
+			if compartmentId, ok := attrs["compartment_id"].(types.String); ok && !compartmentId.IsNull() {
+				term.CompartmentId = compartmentId.ValueString()
+			}
+			terms = append(terms, term)
+		}
+		spec.ImageSelector = terms
+	}
+
+	if !oci.SubnetSelector.IsNull() && !oci.SubnetSelector.IsUnknown() {
+		var terms []*apiv1.OCISubnetSelectorTerm
+		for _, elem := range oci.SubnetSelector.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			term := &apiv1.OCISubnetSelectorTerm{}
+			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
+				term.Id = id.ValueString()
+			}
+			if name, ok := attrs["name"].(types.String); ok && !name.IsNull() {
+				term.Name = name.ValueString()
+			}
+			terms = append(terms, term)
+		}
+		spec.SubnetSelector = terms
+	}
+
+	if !oci.SecurityGroupSelector.IsNull() && !oci.SecurityGroupSelector.IsUnknown() {
+		var terms []*apiv1.OCISecurityGroupSelectorTerm
+		for _, elem := range oci.SecurityGroupSelector.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			term := &apiv1.OCISecurityGroupSelectorTerm{}
+			if id, ok := attrs["id"].(types.String); ok && !id.IsNull() {
+				term.Id = id.ValueString()
+			}
+			if name, ok := attrs["name"].(types.String); ok && !name.IsNull() {
+				term.Name = name.ValueString()
+			}
+			terms = append(terms, term)
+		}
+		spec.SecurityGroupSelector = terms
+	}
+
+	if !oci.UserData.IsNull() {
+		val := oci.UserData.ValueString()
+		spec.UserData = &val
+	}
+	if !oci.PreInstallScript.IsNull() {
+		val := oci.PreInstallScript.ValueString()
+		spec.PreInstallScript = &val
+	}
+
+	if !oci.MetaData.IsNull() {
+		metaData, err := getStringMap(ctx, oci.MetaData.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert OCI meta_data: %s", err))
+			return nil
+		}
+		spec.MetaData = metaData
+	}
+
+	if !oci.Tags.IsNull() {
+		tags, err := getStringMap(ctx, oci.Tags.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert OCI tags: %s", err))
+			return nil
+		}
+		spec.Tags = tags
+	}
+
+	if !oci.FreeFormTags.IsNull() {
+		freeFormTags, err := getStringMap(ctx, oci.FreeFormTags.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert OCI free_form_tags: %s", err))
+			return nil
+		}
+		spec.FreeFormTags = freeFormTags
+	}
+
+	if oci.BootConfig != nil {
+		spec.BootConfig = &apiv1.OCIBootConfig{
+			BootVolumeSizeInGbs: oci.BootConfig.BootVolumeSizeInGbs.ValueInt64(),
+			BootVolumeVpusPerGb: oci.BootConfig.BootVolumeVpusPerGb.ValueInt64(),
+		}
+	}
+
+	if oci.LaunchOptions != nil {
+		launchOptions := &apiv1.OCILaunchOptions{}
+		if !oci.LaunchOptions.BootVolumeType.IsNull() {
+			val := oci.LaunchOptions.BootVolumeType.ValueString()
+			launchOptions.BootVolumeType = &val
+		}
+		if !oci.LaunchOptions.Firmware.IsNull() {
+			val := oci.LaunchOptions.Firmware.ValueString()
+			launchOptions.Firmware = &val
+		}
+		if !oci.LaunchOptions.NetworkType.IsNull() {
+			val := oci.LaunchOptions.NetworkType.ValueString()
+			launchOptions.NetworkType = &val
+		}
+		if !oci.LaunchOptions.RemoteDataVolumeType.IsNull() {
+			val := oci.LaunchOptions.RemoteDataVolumeType.ValueString()
+			launchOptions.RemoteDataVolumeType = &val
+		}
+		if !oci.LaunchOptions.IsConsistentVolumeNamingEnabled.IsNull() {
+			val := oci.LaunchOptions.IsConsistentVolumeNamingEnabled.ValueBool()
+			launchOptions.IsConsistentVolumeNamingEnabled = &val
+		}
+		spec.LaunchOptions = launchOptions
+	}
+
+	if !oci.BlockDevices.IsNull() && !oci.BlockDevices.IsUnknown() {
+		var devices []*apiv1.OCIVolumeAttributes
+		for _, elem := range oci.BlockDevices.Elements() {
+			objVal, ok := elem.(types.Object)
+			if !ok {
+				continue
+			}
+			attrs := objVal.Attributes()
+			device := &apiv1.OCIVolumeAttributes{}
+			if sizeInGbs, ok := attrs["size_in_gbs"].(types.Int64); ok && !sizeInGbs.IsNull() {
+				device.SizeInGbs = sizeInGbs.ValueInt64()
+			}
+			if vpusPerGb, ok := attrs["vpus_per_gb"].(types.Int64); ok && !vpusPerGb.IsNull() {
+				device.VpusPerGb = vpusPerGb.ValueInt64()
+			}
+			devices = append(devices, device)
+		}
+		spec.BlockDevices = devices
+	}
+
+	if !oci.AgentList.IsNull() {
+		agents, err := getStringList(ctx, oci.AgentList.Elements())
+		if err != nil {
+			diags.AddError("Conversion Error", fmt.Sprintf("Unable to convert OCI agent_list: %s", err))
+			return nil
+		}
+		spec.AgentList = agents
+	}
+
+	return spec
+}
+
+// Helper to check if OCI spec is empty (all fields are nil/empty).
+func isOCISpecEmpty(spec *apiv1.OCINodeClassSpec) bool {
+	if spec == nil {
+		return true
+	}
+	return spec.VcnId == "" &&
+		len(spec.ImageSelector) == 0 &&
+		len(spec.SubnetSelector) == 0 &&
+		len(spec.SecurityGroupSelector) == 0 &&
+		spec.UserData == nil &&
+		spec.PreInstallScript == nil &&
+		len(spec.MetaData) == 0 &&
+		spec.ImageFamily == "" &&
+		len(spec.Tags) == 0 &&
+		len(spec.FreeFormTags) == 0 &&
+		spec.BootConfig == nil &&
+		spec.LaunchOptions == nil &&
+		len(spec.BlockDevices) == 0 &&
+		len(spec.AgentList) == 0
+}
+
+func ociNodeClassFromProto(spec *apiv1.OCINodeClassSpec) *OCINodeClass {
+	oci := &OCINodeClass{
+		VcnId:       stringValue(spec.VcnId),
+		ImageFamily: stringValue(spec.ImageFamily),
+	}
+
+	imageSelectorAttrTypes := map[string]attr.Type{
+		"id":             types.StringType,
+		"name":           types.StringType,
+		"compartment_id": types.StringType,
+	}
+	if len(spec.ImageSelector) > 0 {
+		terms := make([]attr.Value, 0, len(spec.ImageSelector))
+		for _, term := range spec.ImageSelector {
+			terms = append(terms, types.ObjectValueMust(imageSelectorAttrTypes, map[string]attr.Value{
+				"id":             stringValue(term.Id),
+				"name":           stringValue(term.Name),
+				"compartment_id": stringValue(term.CompartmentId),
+			}))
+		}
+		oci.ImageSelector = types.ListValueMust(types.ObjectType{AttrTypes: imageSelectorAttrTypes}, terms)
+	} else {
+		oci.ImageSelector = types.ListNull(types.ObjectType{AttrTypes: imageSelectorAttrTypes})
+	}
+
+	idNameAttrTypes := map[string]attr.Type{
+		"id":   types.StringType,
+		"name": types.StringType,
+	}
+	if len(spec.SubnetSelector) > 0 {
+		terms := make([]attr.Value, 0, len(spec.SubnetSelector))
+		for _, term := range spec.SubnetSelector {
+			terms = append(terms, types.ObjectValueMust(idNameAttrTypes, map[string]attr.Value{
+				"id":   stringValue(term.Id),
+				"name": stringValue(term.Name),
+			}))
+		}
+		oci.SubnetSelector = types.ListValueMust(types.ObjectType{AttrTypes: idNameAttrTypes}, terms)
+	} else {
+		oci.SubnetSelector = types.ListNull(types.ObjectType{AttrTypes: idNameAttrTypes})
+	}
+
+	if len(spec.SecurityGroupSelector) > 0 {
+		terms := make([]attr.Value, 0, len(spec.SecurityGroupSelector))
+		for _, term := range spec.SecurityGroupSelector {
+			terms = append(terms, types.ObjectValueMust(idNameAttrTypes, map[string]attr.Value{
+				"id":   stringValue(term.Id),
+				"name": stringValue(term.Name),
+			}))
+		}
+		oci.SecurityGroupSelector = types.ListValueMust(types.ObjectType{AttrTypes: idNameAttrTypes}, terms)
+	} else {
+		oci.SecurityGroupSelector = types.ListNull(types.ObjectType{AttrTypes: idNameAttrTypes})
+	}
+
+	oci.UserData = stringPointerValue(spec.UserData)
+	oci.PreInstallScript = stringPointerValue(spec.PreInstallScript)
+	oci.MetaData = stringMapOrNull(spec.MetaData)
+	oci.Tags = stringMapOrNull(spec.Tags)
+	oci.FreeFormTags = stringMapOrNull(spec.FreeFormTags)
+
+	if spec.BootConfig != nil {
+		oci.BootConfig = &OCIBootConfig{
+			BootVolumeSizeInGbs: types.Int64Value(spec.BootConfig.BootVolumeSizeInGbs),
+			BootVolumeVpusPerGb: types.Int64Value(spec.BootConfig.BootVolumeVpusPerGb),
+		}
+	}
+
+	if spec.LaunchOptions != nil {
+		oci.LaunchOptions = &OCILaunchOptions{
+			BootVolumeType:                  stringPointerValue(spec.LaunchOptions.BootVolumeType),
+			Firmware:                        stringPointerValue(spec.LaunchOptions.Firmware),
+			NetworkType:                     stringPointerValue(spec.LaunchOptions.NetworkType),
+			RemoteDataVolumeType:            stringPointerValue(spec.LaunchOptions.RemoteDataVolumeType),
+			IsConsistentVolumeNamingEnabled: boolPointerValue(spec.LaunchOptions.IsConsistentVolumeNamingEnabled),
+		}
+	}
+
+	blockDeviceAttrTypes := map[string]attr.Type{
+		"size_in_gbs": types.Int64Type,
+		"vpus_per_gb": types.Int64Type,
+	}
+	if len(spec.BlockDevices) > 0 {
+		devices := make([]attr.Value, 0, len(spec.BlockDevices))
+		for _, device := range spec.BlockDevices {
+			devices = append(devices, types.ObjectValueMust(blockDeviceAttrTypes, map[string]attr.Value{
+				"size_in_gbs": types.Int64Value(device.SizeInGbs),
+				"vpus_per_gb": types.Int64Value(device.VpusPerGb),
+			}))
+		}
+		oci.BlockDevices = types.ListValueMust(types.ObjectType{AttrTypes: blockDeviceAttrTypes}, devices)
+	} else {
+		oci.BlockDevices = types.ListNull(types.ObjectType{AttrTypes: blockDeviceAttrTypes})
+	}
+
+	if len(spec.AgentList) > 0 {
+		oci.AgentList = types.ListValueMust(types.StringType, fromStringList(spec.AgentList))
+	} else {
+		oci.AgentList = types.ListNull(types.StringType)
+	}
+
+	return oci
 }
 
 // Helper functions for enum conversions.

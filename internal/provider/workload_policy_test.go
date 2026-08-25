@@ -256,6 +256,102 @@ func TestWorkloadPolicyResourceModel(t *testing.T) {
 			t.Errorf("Expected pod_evict, got %v", elems[0])
 		}
 	})
+
+	t.Run("EmergencyResponse_ToProto", func(t *testing.T) {
+		ctx := context.Background()
+		m := &WorkloadPolicyResourceModel{
+			Name:                    types.StringValue("test"),
+			Description:             types.StringValue(""),
+			ActionTriggers:          types.ListValueMust(types.StringType, nil),
+			DetectionTriggers:       types.ListValueMust(types.StringType, nil),
+			SchedulerPlugins:        types.ListValueMust(types.StringType, nil),
+			CronSchedule:            types.StringValue("*/15 * * * *"),
+			DefragmentationSchedule: types.StringValue("*/15 * * * *"),
+			EmergencyResponse: &EmergencyResponseModel{
+				OomEnabled:              types.BoolValue(true),
+				OomMemoryMultiplier:     types.Float32Value(2.0),
+				OomMaxReactions:         types.Int32Value(3),
+				OomCooldownSeconds:      types.Int32Value(60),
+				CpuThrottlingEnabled:    types.BoolValue(true),
+				CpuThrottlingThreshold:  types.Float32Value(0.8),
+				CpuThrottlingMultiplier: types.Float32Value(1.5),
+			},
+		}
+		var diags diag.Diagnostics
+		proto := m.toProto(ctx, &diags, "team-1")
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.EmergencyResponse == nil {
+			t.Fatal("Expected non-nil EmergencyResponse")
+		}
+		if !proto.EmergencyResponse.OomEnabled {
+			t.Error("Expected OomEnabled=true")
+		}
+		if proto.EmergencyResponse.OomMemoryMultiplier != 2.0 {
+			t.Errorf("Expected OomMemoryMultiplier=2.0, got %f", proto.EmergencyResponse.OomMemoryMultiplier)
+		}
+	})
+
+	t.Run("EmergencyResponse_ToProto_NilWhenUnset", func(t *testing.T) {
+		ctx := context.Background()
+		m := &WorkloadPolicyResourceModel{
+			Name:                    types.StringValue("test"),
+			Description:             types.StringValue(""),
+			ActionTriggers:          types.ListValueMust(types.StringType, nil),
+			DetectionTriggers:       types.ListValueMust(types.StringType, nil),
+			SchedulerPlugins:        types.ListValueMust(types.StringType, nil),
+			CronSchedule:            types.StringValue("*/15 * * * *"),
+			DefragmentationSchedule: types.StringValue("*/15 * * * *"),
+		}
+		var diags diag.Diagnostics
+		proto := m.toProto(ctx, &diags, "team-1")
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.EmergencyResponse != nil {
+			t.Error("Expected nil EmergencyResponse when unset")
+		}
+	})
+
+	t.Run("EmergencyResponse_FromProto", func(t *testing.T) {
+		policy := &apiv1.WorkloadRecommendationPolicy{
+			PolicyId: "p1",
+			Name:     "test",
+			EmergencyResponse: &apiv1.EmergencyResponseConfig{
+				OomEnabled:              true,
+				OomMemoryMultiplier:     2.0,
+				OomMaxReactions:         3,
+				OomCooldownSeconds:      60,
+				CpuThrottlingEnabled:    true,
+				CpuThrottlingThreshold:  0.8,
+				CpuThrottlingMultiplier: 1.5,
+			},
+		}
+		var m WorkloadPolicyResourceModel
+		m.fromProto(policy)
+		if m.EmergencyResponse == nil {
+			t.Fatal("Expected non-nil EmergencyResponse")
+		}
+		if !m.EmergencyResponse.OomEnabled.ValueBool() {
+			t.Error("Expected OomEnabled=true")
+		}
+		if m.EmergencyResponse.OomMemoryMultiplier.ValueFloat32() != 2.0 {
+			t.Errorf("Expected OomMemoryMultiplier=2.0, got %f", m.EmergencyResponse.OomMemoryMultiplier.ValueFloat32())
+		}
+	})
+
+	t.Run("EmergencyResponse_FromProto_NilWhenUnset", func(t *testing.T) {
+		policy := &apiv1.WorkloadRecommendationPolicy{
+			PolicyId: "p1",
+			Name:     "test",
+		}
+		var m WorkloadPolicyResourceModel
+		m.fromProto(policy)
+		if m.EmergencyResponse != nil {
+			t.Error("Expected nil EmergencyResponse when unset")
+		}
+	})
 }
 
 func validateSchema(t *testing.T, s schema.Schema) {

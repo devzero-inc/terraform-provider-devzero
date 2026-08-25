@@ -66,8 +66,44 @@ resource "devzero_workload_rule" "manual" {
     cpu_throttling_multiplier = 1.25
   }
 
-  live_migration_enabled        = false
-  use_in_place_vertical_scaling = false
+  # JVM heap sizing (only applies when the workload is detected as running a JVM)
+  jvm_heap_rule = {
+    enabled                   = true
+    target_percentile         = 0.95
+    headroom_multiplier       = 1.2
+    non_heap_overhead_percent = 0.15
+    min_heap_bytes            = 268435456  # 256Mi
+    max_heap_bytes            = 4294967296 # 4Gi
+    prefer_container_support  = false
+  }
+  jvm_cpu_startup_floor_millicores = 250 # override the 75m default while the JVM warms up
+
+  # Hand the ScaledObject lifecycle to KEDA instead of generating an HPA
+  keda_scaled_object = {
+    min_replica_count = 1
+    max_replica_count = 20
+    cooldown_period   = 300
+
+    triggers = [
+      {
+        type = "prometheus"
+        metadata = {
+          serverAddress = "http://prometheus.monitoring.svc.cluster.local:9090"
+          query         = "rate(http_requests_total{job=\"my-api\"}[5m])"
+          threshold     = "100"
+        }
+      }
+    ]
+
+    fallback = {
+      failure_threshold = 3
+      replicas          = 2
+    }
+  }
+
+  live_migration_enabled               = false
+  use_in_place_vertical_scaling        = false
+  allow_in_place_memory_limit_decrease = false
 }
 
 # Per-container rules

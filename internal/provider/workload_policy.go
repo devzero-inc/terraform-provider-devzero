@@ -69,9 +69,10 @@ type WorkloadPolicyResourceModel struct {
 	EnablePmaxProtection    types.Bool                `tfsdk:"enable_pmax_protection"`
 	PmaxRatioThreshold      types.Float32             `tfsdk:"pmax_ratio_threshold"`
 
-	EnableInPlaceVerticalScaling    types.Bool `tfsdk:"enable_in_place_vertical_scaling"`
-	AllowInPlaceMemoryLimitDecrease types.Bool `tfsdk:"allow_in_place_memory_limit_decrease"`
-	PdbEnabled                      types.Bool `tfsdk:"pdb_enabled"`
+	EnableInPlaceVerticalScaling    types.Bool              `tfsdk:"enable_in_place_vertical_scaling"`
+	AllowInPlaceMemoryLimitDecrease types.Bool              `tfsdk:"allow_in_place_memory_limit_decrease"`
+	PdbEnabled                      types.Bool              `tfsdk:"pdb_enabled"`
+	EmergencyResponse               *EmergencyResponseModel `tfsdk:"emergency_response"`
 
 	CpuFloorPercent           types.Int64 `tfsdk:"cpu_floor_percent"`
 	CpuCeilingPercent         types.Int64 `tfsdk:"cpu_ceiling_percent"`
@@ -495,6 +496,11 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
+			"emergency_response": schema.SingleNestedAttribute{
+				Description: "Emergency response configuration for OOM and CPU throttle events",
+				Optional:    true,
+				Attributes:  emergencyResponseAttributes(),
+			},
 			"cpu_floor_percent": schema.Int64Attribute{
 				Description: "Floor for CPU requests as a percent of the initial request (1-100)",
 				Optional:    true,
@@ -816,6 +822,7 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		EnableInPlaceVerticalScaling:    m.EnableInPlaceVerticalScaling.ValueBool(),
 		AllowInPlaceMemoryLimitDecrease: m.AllowInPlaceMemoryLimitDecrease.ValueBool(),
 		PdbEnabled:                      m.PdbEnabled.ValueBool(),
+		EmergencyResponse:               m.EmergencyResponse.toProto(),
 
 		CpuFloorPercent:           m.CpuFloorPercent.ValueInt64Pointer(),
 		CpuCeilingPercent:         m.CpuCeilingPercent.ValueInt64Pointer(),
@@ -928,6 +935,7 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	m.EnableInPlaceVerticalScaling = types.BoolValue(policy.EnableInPlaceVerticalScaling)
 	m.AllowInPlaceMemoryLimitDecrease = types.BoolValue(policy.AllowInPlaceMemoryLimitDecrease)
 	m.PdbEnabled = types.BoolValue(policy.PdbEnabled)
+	m.EmergencyResponse = emergencyResponseFromProto(policy.EmergencyResponse)
 
 	m.CpuFloorPercent = types.Int64PointerValue(policy.CpuFloorPercent)
 	m.CpuCeilingPercent = types.Int64PointerValue(policy.CpuCeilingPercent)
@@ -971,8 +979,18 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 	}
 }
 
+// isVerticalScalingEmpty reports whether the API returned an unset scaling
+// block. The backend echoes back a non-nil message with baseline defaults
+// (e.g. min_data_points=15) on every axis regardless of whether it was
+// configured, so field-by-field zero checks are unreliable — Enabled is the
+// only field the backend faithfully reports as unset for an axis the user
+// never configured.
+func isVerticalScalingEmpty(target *apiv1.VerticalScalingOptimizationTarget) bool {
+	return target == nil || !target.Enabled
+}
+
 func verticalScalingOptionsFromProto(target *apiv1.VerticalScalingOptimizationTarget) *VerticalScalingOptions {
-	if target == nil {
+	if isVerticalScalingEmpty(target) {
 		return nil
 	}
 	o := &VerticalScalingOptions{}
@@ -1032,8 +1050,15 @@ func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizatio
 	}
 }
 
+// isHorizontalScalingEmpty reports whether the API returned an unset
+// horizontal scaling block (see isVerticalScalingEmpty for why this check
+// is necessary).
+func isHorizontalScalingEmpty(target *apiv1.HorizontalScalingOptimizationTarget) bool {
+	return target == nil || !target.Enabled
+}
+
 func horizontalScalingOptionsFromProto(target *apiv1.HorizontalScalingOptimizationTarget) *HorizontalScalingOptions {
-	if target == nil {
+	if isHorizontalScalingEmpty(target) {
 		return nil
 	}
 	o := &HorizontalScalingOptions{}

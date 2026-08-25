@@ -641,6 +641,269 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 	})
 
+	// ---------- JVMHeapRuleModel ----------
+
+	t.Run("JVMHeapRuleModel_ToProto", func(t *testing.T) {
+		m := &JVMHeapRuleModel{
+			Enabled:                types.BoolValue(true),
+			TargetPercentile:       types.Float32Value(0.75),
+			HeadroomMultiplier:     types.Float32Value(1.2),
+			NonHeapOverheadPercent: types.Float32Value(0.1),
+			NonHeapOverheadBytes:   types.Int64Value(1024),
+			MinHeapBytes:           types.Int64Value(2048),
+			MaxHeapBytes:           types.Int64Value(4096),
+			PreferContainerSupport: types.BoolValue(true),
+		}
+
+		p := m.toProto()
+		if p == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if !p.Enabled {
+			t.Error("Expected Enabled=true")
+		}
+		if p.TargetPercentile == nil || *p.TargetPercentile != 0.75 {
+			t.Errorf("Expected TargetPercentile=0.75, got %v", p.TargetPercentile)
+		}
+		if p.HeadroomMultiplier == nil || *p.HeadroomMultiplier != 1.2 {
+			t.Errorf("Expected HeadroomMultiplier=1.2, got %v", p.HeadroomMultiplier)
+		}
+		if p.NonHeapOverheadPercent == nil || *p.NonHeapOverheadPercent != 0.1 {
+			t.Errorf("Expected NonHeapOverheadPercent=0.1, got %v", p.NonHeapOverheadPercent)
+		}
+		if p.NonHeapOverheadBytes == nil || *p.NonHeapOverheadBytes != 1024 {
+			t.Errorf("Expected NonHeapOverheadBytes=1024, got %v", p.NonHeapOverheadBytes)
+		}
+		if p.MinHeapBytes == nil || *p.MinHeapBytes != 2048 {
+			t.Errorf("Expected MinHeapBytes=2048, got %v", p.MinHeapBytes)
+		}
+		if p.MaxHeapBytes == nil || *p.MaxHeapBytes != 4096 {
+			t.Errorf("Expected MaxHeapBytes=4096, got %v", p.MaxHeapBytes)
+		}
+		if !p.PreferContainerSupport {
+			t.Error("Expected PreferContainerSupport=true")
+		}
+	})
+
+	t.Run("JVMHeapRuleModel_ToProto_NilWhenNil", func(t *testing.T) {
+		var m *JVMHeapRuleModel
+		if m.toProto() != nil {
+			t.Error("Expected nil proto from nil model")
+		}
+	})
+
+	t.Run("JVMHeapRuleFromProto", func(t *testing.T) {
+		targetPercentile := float32(0.75)
+		headroomMultiplier := float32(1.2)
+		nonHeapOverheadPercent := float32(0.1)
+		nonHeapOverheadBytes := int64(1024)
+		minHeapBytes := int64(2048)
+		maxHeapBytes := int64(4096)
+
+		p := &apiv1.JVMHeapRuleConfig{
+			Enabled:                true,
+			TargetPercentile:       &targetPercentile,
+			HeadroomMultiplier:     &headroomMultiplier,
+			NonHeapOverheadPercent: &nonHeapOverheadPercent,
+			NonHeapOverheadBytes:   &nonHeapOverheadBytes,
+			MinHeapBytes:           &minHeapBytes,
+			MaxHeapBytes:           &maxHeapBytes,
+			PreferContainerSupport: true,
+		}
+
+		m := jvmHeapRuleFromProto(p)
+		if m == nil {
+			t.Fatal("Expected non-nil model")
+		}
+		if !m.Enabled.ValueBool() {
+			t.Error("Expected Enabled=true")
+		}
+		if m.TargetPercentile.ValueFloat32() != 0.75 {
+			t.Errorf("Expected TargetPercentile=0.75, got %f", m.TargetPercentile.ValueFloat32())
+		}
+		if m.HeadroomMultiplier.ValueFloat32() != 1.2 {
+			t.Errorf("Expected HeadroomMultiplier=1.2, got %f", m.HeadroomMultiplier.ValueFloat32())
+		}
+		if m.NonHeapOverheadBytes.ValueInt64() != 1024 {
+			t.Errorf("Expected NonHeapOverheadBytes=1024, got %d", m.NonHeapOverheadBytes.ValueInt64())
+		}
+		if m.MinHeapBytes.ValueInt64() != 2048 {
+			t.Errorf("Expected MinHeapBytes=2048, got %d", m.MinHeapBytes.ValueInt64())
+		}
+		if m.MaxHeapBytes.ValueInt64() != 4096 {
+			t.Errorf("Expected MaxHeapBytes=4096, got %d", m.MaxHeapBytes.ValueInt64())
+		}
+		if !m.PreferContainerSupport.ValueBool() {
+			t.Error("Expected PreferContainerSupport=true")
+		}
+	})
+
+	t.Run("JVMHeapRuleFromProto_Nil", func(t *testing.T) {
+		if jvmHeapRuleFromProto(nil) != nil {
+			t.Error("Expected nil model from nil proto")
+		}
+	})
+
+	// ---------- KEDAScaledObjectModel ----------
+
+	t.Run("KEDAScaledObjectModel_ToProto", func(t *testing.T) {
+		metadata, diags := types.MapValue(types.StringType, map[string]attr.Value{
+			"query": types.StringValue("up"),
+		})
+		if diags.HasError() {
+			t.Fatalf("Failed to build metadata map: %v", diags)
+		}
+
+		m := &KEDAScaledObjectModel{
+			Triggers: []KEDATriggerModel{
+				{
+					Type:       types.StringValue("prometheus"),
+					Name:       types.StringValue("trigger-1"),
+					Metadata:   metadata,
+					MetricType: types.StringValue("Value"),
+					AuthenticationRef: &KEDAAuthenticationRefModel{
+						Name: types.StringValue("auth-secret"),
+						Kind: types.StringValue("TriggerAuthentication"),
+					},
+					UseCachedMetrics: types.BoolValue(true),
+				},
+			},
+			MinReplicaCount:       types.Int32Value(1),
+			MaxReplicaCount:       types.Int32Value(10),
+			IdleReplicaCount:      types.Int32Value(0),
+			PollingInterval:       types.Int32Value(30),
+			CooldownPeriod:        types.Int32Value(300),
+			InitialCooldownPeriod: types.Int32Value(60),
+			Fallback: &KEDAFallbackModel{
+				FailureThreshold: types.Int32Value(3),
+				Replicas:         types.Int32Value(2),
+				Behavior:         types.StringValue("static"),
+			},
+			Advanced: &KEDAAdvancedModel{
+				RestoreToOriginalReplicaCount: types.BoolValue(true),
+				AdvancedBehaviorJson:          types.StringValue(`{"foo":"bar"}`),
+			},
+		}
+
+		p := m.toProto()
+		if p == nil {
+			t.Fatal("Expected non-nil proto")
+		}
+		if len(p.Triggers) != 1 {
+			t.Fatalf("Expected 1 trigger, got %d", len(p.Triggers))
+		}
+		trig := p.Triggers[0]
+		if trig.Type != "prometheus" {
+			t.Errorf("Expected Type=prometheus, got %s", trig.Type)
+		}
+		if trig.Name != "trigger-1" {
+			t.Errorf("Expected Name=trigger-1, got %s", trig.Name)
+		}
+		if trig.Metadata["query"] != "up" {
+			t.Errorf("Expected Metadata[query]=up, got %v", trig.Metadata)
+		}
+		if trig.AuthenticationRef == nil || trig.AuthenticationRef.Name != "auth-secret" {
+			t.Errorf("Expected AuthenticationRef.Name=auth-secret, got %v", trig.AuthenticationRef)
+		}
+		if !trig.UseCachedMetrics {
+			t.Error("Expected UseCachedMetrics=true")
+		}
+		if p.MinReplicaCount == nil || *p.MinReplicaCount != 1 {
+			t.Errorf("Expected MinReplicaCount=1, got %v", p.MinReplicaCount)
+		}
+		if p.MaxReplicaCount == nil || *p.MaxReplicaCount != 10 {
+			t.Errorf("Expected MaxReplicaCount=10, got %v", p.MaxReplicaCount)
+		}
+		if p.Fallback == nil || p.Fallback.FailureThreshold != 3 || p.Fallback.Replicas != 2 || p.Fallback.Behavior != "static" {
+			t.Errorf("Unexpected Fallback: %+v", p.Fallback)
+		}
+		if p.Advanced == nil || !p.Advanced.RestoreToOriginalReplicaCount || p.Advanced.AdvancedBehaviorJson != `{"foo":"bar"}` {
+			t.Errorf("Unexpected Advanced: %+v", p.Advanced)
+		}
+	})
+
+	t.Run("KEDAScaledObjectModel_ToProto_NilWhenNil", func(t *testing.T) {
+		var m *KEDAScaledObjectModel
+		if m.toProto() != nil {
+			t.Error("Expected nil proto from nil model")
+		}
+	})
+
+	t.Run("KEDAScaledObjectFromProto", func(t *testing.T) {
+		minReplicaCount := int32(1)
+		maxReplicaCount := int32(10)
+
+		p := &apiv1.KEDAScaledObjectTemplate{
+			Triggers: []*apiv1.KEDATrigger{
+				{
+					Type:       "prometheus",
+					Name:       "trigger-1",
+					Metadata:   map[string]string{"query": "up"},
+					MetricType: "Value",
+					AuthenticationRef: &apiv1.KEDAAuthenticationRef{
+						Name: "auth-secret",
+						Kind: "TriggerAuthentication",
+					},
+					UseCachedMetrics: true,
+				},
+			},
+			MinReplicaCount: &minReplicaCount,
+			MaxReplicaCount: &maxReplicaCount,
+			Fallback: &apiv1.KEDAFallback{
+				FailureThreshold: 3,
+				Replicas:         2,
+				Behavior:         "static",
+			},
+			Advanced: &apiv1.KEDAAdvanced{
+				RestoreToOriginalReplicaCount: true,
+				AdvancedBehaviorJson:          `{"foo":"bar"}`,
+			},
+		}
+
+		m := kedaScaledObjectFromProto(p)
+		if m == nil {
+			t.Fatal("Expected non-nil model")
+		}
+		if len(m.Triggers) != 1 {
+			t.Fatalf("Expected 1 trigger, got %d", len(m.Triggers))
+		}
+		trig := m.Triggers[0]
+		if trig.Type.ValueString() != "prometheus" {
+			t.Errorf("Expected Type=prometheus, got %s", trig.Type.ValueString())
+		}
+		if trig.AuthenticationRef == nil || trig.AuthenticationRef.Name.ValueString() != "auth-secret" {
+			t.Errorf("Expected AuthenticationRef.Name=auth-secret, got %v", trig.AuthenticationRef)
+		}
+		if m.MinReplicaCount.ValueInt32() != 1 {
+			t.Errorf("Expected MinReplicaCount=1, got %d", m.MinReplicaCount.ValueInt32())
+		}
+		if m.Fallback == nil || m.Fallback.FailureThreshold.ValueInt32() != 3 {
+			t.Errorf("Unexpected Fallback: %+v", m.Fallback)
+		}
+		if m.Advanced == nil || !m.Advanced.RestoreToOriginalReplicaCount.ValueBool() {
+			t.Errorf("Unexpected Advanced: %+v", m.Advanced)
+		}
+	})
+
+	t.Run("KEDAScaledObjectFromProto_Nil", func(t *testing.T) {
+		if kedaScaledObjectFromProto(nil) != nil {
+			t.Error("Expected nil model from nil proto")
+		}
+	})
+
+	t.Run("KedaTriggersToProto_EmptyWhenEmpty", func(t *testing.T) {
+		if kedaTriggersToProto(nil) != nil {
+			t.Error("Expected nil slice from nil/empty input")
+		}
+	})
+
+	t.Run("KedaTriggersFromProto_EmptyWhenEmpty", func(t *testing.T) {
+		result := kedaTriggersFromProto(nil)
+		if len(result) != 0 {
+			t.Errorf("Expected empty slice, got %v", result)
+		}
+	})
+
 	// ---------- ContainerResourceConfigModel ----------
 
 	t.Run("ContainerResourceConfigModel_ToProto", func(t *testing.T) {
@@ -928,11 +1191,13 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 			DetectionTriggers: types.ListValueMust(types.StringType, []attr.Value{
 				types.StringValue("pod_creation"),
 			}),
-			SchedulerPlugins:          types.ListValueMust(types.StringType, []attr.Value{}),
-			DefragmentationSchedule:   types.StringNull(),
-			LiveMigrationEnabled:      types.BoolValue(false),
-			UseInPlaceVerticalScaling: types.BoolValue(true),
-			Containers:                nil,
+			SchedulerPlugins:                types.ListValueMust(types.StringType, []attr.Value{}),
+			DefragmentationSchedule:         types.StringNull(),
+			LiveMigrationEnabled:            types.BoolValue(false),
+			UseInPlaceVerticalScaling:       types.BoolValue(true),
+			AllowInPlaceMemoryLimitDecrease: types.BoolValue(true),
+			JvmCpuStartupFloorMillicores:    types.Int64Value(500),
+			Containers:                      nil,
 		}
 
 		req := m.toProto(ctx, &diags, "team-456", true)
@@ -972,6 +1237,18 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		if req.Fields.DefragmentationSchedule != nil {
 			t.Errorf("Expected nil DefragmentationSchedule, got %v", req.Fields.DefragmentationSchedule)
 		}
+		if !req.Fields.AllowInPlaceMemoryLimitDecrease {
+			t.Error("Expected AllowInPlaceMemoryLimitDecrease=true")
+		}
+		if req.Fields.JvmCpuStartupFloorMillicores == nil || *req.Fields.JvmCpuStartupFloorMillicores != 500 {
+			t.Errorf("Expected JvmCpuStartupFloorMillicores=500, got %v", req.Fields.JvmCpuStartupFloorMillicores)
+		}
+		if req.Fields.JvmHeapRule != nil {
+			t.Error("Expected nil JvmHeapRule when not set")
+		}
+		if req.Fields.KedaScaledObject != nil {
+			t.Error("Expected nil KedaScaledObject when not set")
+		}
 	})
 
 	// ---------- WorkloadRuleResourceModel.fromProto ----------
@@ -999,10 +1276,11 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 				apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_CREATION,
 				apiv1.WorkloadDetectionTrigger_DETECTION_TRIGGER_POD_UPDATE,
 			},
-			SchedulerPlugins:          []string{"binpacking"},
-			DefragmentationSchedule:   &defragSchedule,
-			LiveMigrationEnabled:      true,
-			UseInPlaceVerticalScaling: false,
+			SchedulerPlugins:                []string{"binpacking"},
+			DefragmentationSchedule:         &defragSchedule,
+			LiveMigrationEnabled:            true,
+			UseInPlaceVerticalScaling:       false,
+			AllowInPlaceMemoryLimitDecrease: true,
 		}
 
 		var m WorkloadRuleResourceModel
@@ -1034,6 +1312,15 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 		if m.UseInPlaceVerticalScaling.ValueBool() {
 			t.Error("Expected UseInPlaceVerticalScaling=false")
+		}
+		if !m.AllowInPlaceMemoryLimitDecrease.ValueBool() {
+			t.Error("Expected AllowInPlaceMemoryLimitDecrease=true")
+		}
+		if m.JvmHeapRule != nil {
+			t.Error("Expected nil JvmHeapRule when not set")
+		}
+		if m.KedaScaledObject != nil {
+			t.Error("Expected nil KedaScaledObject when not set")
 		}
 
 		// Verify action triggers

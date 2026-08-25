@@ -60,6 +60,11 @@ type WorkloadRuleResourceModel struct {
 	Containers                []ContainerRuleModel     `tfsdk:"containers"`
 	Disabled                  types.Bool               `tfsdk:"disabled"`
 	LookbackPeriodSeconds     types.Int32              `tfsdk:"lookback_period_seconds"`
+
+	AllowInPlaceMemoryLimitDecrease types.Bool             `tfsdk:"allow_in_place_memory_limit_decrease"`
+	JvmHeapRule                     *JVMHeapRuleModel      `tfsdk:"jvm_heap_rule"`
+	JvmCpuStartupFloorMillicores    types.Int64            `tfsdk:"jvm_cpu_startup_floor_millicores"`
+	KedaScaledObject                *KEDAScaledObjectModel `tfsdk:"keda_scaled_object"`
 }
 
 type ResourceRuleConfigModel struct {
@@ -138,6 +143,54 @@ type EmergencyResponseModel struct {
 	CpuThrottlingMultiplier types.Float32 `tfsdk:"cpu_throttling_multiplier"`
 }
 
+type JVMHeapRuleModel struct {
+	Enabled                types.Bool    `tfsdk:"enabled"`
+	TargetPercentile       types.Float32 `tfsdk:"target_percentile"`
+	HeadroomMultiplier     types.Float32 `tfsdk:"headroom_multiplier"`
+	NonHeapOverheadPercent types.Float32 `tfsdk:"non_heap_overhead_percent"`
+	NonHeapOverheadBytes   types.Int64   `tfsdk:"non_heap_overhead_bytes"`
+	MinHeapBytes           types.Int64   `tfsdk:"min_heap_bytes"`
+	MaxHeapBytes           types.Int64   `tfsdk:"max_heap_bytes"`
+	PreferContainerSupport types.Bool    `tfsdk:"prefer_container_support"`
+}
+
+type KEDAScaledObjectModel struct {
+	Triggers              []KEDATriggerModel `tfsdk:"triggers"`
+	MinReplicaCount       types.Int32        `tfsdk:"min_replica_count"`
+	MaxReplicaCount       types.Int32        `tfsdk:"max_replica_count"`
+	IdleReplicaCount      types.Int32        `tfsdk:"idle_replica_count"`
+	PollingInterval       types.Int32        `tfsdk:"polling_interval"`
+	CooldownPeriod        types.Int32        `tfsdk:"cooldown_period"`
+	InitialCooldownPeriod types.Int32        `tfsdk:"initial_cooldown_period"`
+	Fallback              *KEDAFallbackModel `tfsdk:"fallback"`
+	Advanced              *KEDAAdvancedModel `tfsdk:"advanced"`
+}
+
+type KEDATriggerModel struct {
+	Type              types.String                `tfsdk:"type"`
+	Name              types.String                `tfsdk:"name"`
+	Metadata          types.Map                   `tfsdk:"metadata"`
+	MetricType        types.String                `tfsdk:"metric_type"`
+	AuthenticationRef *KEDAAuthenticationRefModel `tfsdk:"authentication_ref"`
+	UseCachedMetrics  types.Bool                  `tfsdk:"use_cached_metrics"`
+}
+
+type KEDAAuthenticationRefModel struct {
+	Name types.String `tfsdk:"name"`
+	Kind types.String `tfsdk:"kind"`
+}
+
+type KEDAFallbackModel struct {
+	FailureThreshold types.Int32  `tfsdk:"failure_threshold"`
+	Replicas         types.Int32  `tfsdk:"replicas"`
+	Behavior         types.String `tfsdk:"behavior"`
+}
+
+type KEDAAdvancedModel struct {
+	RestoreToOriginalReplicaCount types.Bool   `tfsdk:"restore_to_original_replica_count"`
+	AdvancedBehaviorJson          types.String `tfsdk:"advanced_behavior_json"`
+}
+
 type ContainerRuleModel struct {
 	ContainerName types.String                  `tfsdk:"container_name"`
 	CpuRule       *ContainerResourceConfigModel `tfsdk:"cpu_rule"`
@@ -155,6 +208,45 @@ type ContainerResourceConfigModel struct {
 	LimitsRemovalEnabled    types.Bool    `tfsdk:"limits_removal_enabled"`
 	RequestUseRss           types.Bool    `tfsdk:"request_use_rss"`
 	LimitUseRss             types.Bool    `tfsdk:"limit_use_rss"`
+}
+
+func emergencyResponseAttributes() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"oom_enabled": schema.BoolAttribute{
+			Description: "React to OOM kills by increasing memory",
+			Optional:    true,
+			Computed:    true,
+			Default:     booldefault.StaticBool(false),
+		},
+		"oom_memory_multiplier": schema.Float32Attribute{
+			Description: "Multiplier applied to memory on OOM",
+			Optional:    true,
+		},
+		"oom_max_reactions": schema.Int32Attribute{
+			Description: "Maximum number of OOM reactions before giving up",
+			Optional:    true,
+			Computed:    true,
+		},
+		"oom_cooldown_seconds": schema.Int32Attribute{
+			Description: "Seconds to wait between OOM reactions",
+			Optional:    true,
+			Computed:    true,
+		},
+		"cpu_throttling_enabled": schema.BoolAttribute{
+			Description: "React to CPU throttling by increasing CPU request",
+			Optional:    true,
+			Computed:    true,
+			Default:     booldefault.StaticBool(false),
+		},
+		"cpu_throttling_threshold": schema.Float32Attribute{
+			Description: "Throttle ratio threshold that triggers a reaction (0-1)",
+			Optional:    true,
+		},
+		"cpu_throttling_multiplier": schema.Float32Attribute{
+			Description: "Multiplier applied to CPU request on throttle reaction",
+			Optional:    true,
+		},
+	}
 }
 
 func hpaScalingRulesAttributes() map[string]schema.Attribute {
@@ -276,10 +368,14 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"request_use_rss": schema.BoolAttribute{
 				Description: "Memory only: size the request from RSS instead of working set",
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 			"limit_use_rss": schema.BoolAttribute{
 				Description: "Memory only: derive the limit from an RSS-based recommendation",
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 		}
 	}
@@ -323,10 +419,14 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"request_use_rss": schema.BoolAttribute{
 				Description: "Memory only: size the request from RSS instead of working set",
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 			"limit_use_rss": schema.BoolAttribute{
 				Description: "Memory only: derive the limit from an RSS-based recommendation",
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 			},
 		}
 	}
@@ -492,40 +592,163 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"emergency_response": schema.SingleNestedAttribute{
 				Description: "Emergency response configuration for OOM and CPU throttle events",
 				Optional:    true,
+				Attributes:  emergencyResponseAttributes(),
+			},
+			"jvm_heap_rule": schema.SingleNestedAttribute{
+				Description: "JVM heap optimization overrides for this rule",
+				Optional:    true,
 				Attributes: map[string]schema.Attribute{
-					"oom_enabled": schema.BoolAttribute{
-						Description: "React to OOM kills by increasing memory",
+					"enabled": schema.BoolAttribute{
+						Description: "Enable JVM heap optimization",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
-					"oom_memory_multiplier": schema.Float32Attribute{
-						Description: "Multiplier applied to memory on OOM",
+					"target_percentile": schema.Float32Attribute{
+						Description: "Percentile of heap usage data used as the recommendation target (0-1)",
 						Optional:    true,
 					},
-					"oom_max_reactions": schema.Int32Attribute{
-						Description: "Maximum number of OOM reactions before giving up",
+					"headroom_multiplier": schema.Float32Attribute{
+						Description: "Multiplier applied to the target heap usage to derive the recommended max heap",
 						Optional:    true,
-						Computed:    true,
 					},
-					"oom_cooldown_seconds": schema.Int32Attribute{
-						Description: "Seconds to wait between OOM reactions",
+					"non_heap_overhead_percent": schema.Float32Attribute{
+						Description: "Non-heap memory overhead as a percentage of heap size",
 						Optional:    true,
-						Computed:    true,
 					},
-					"cpu_throttling_enabled": schema.BoolAttribute{
-						Description: "React to CPU throttling by increasing CPU request",
+					"non_heap_overhead_bytes": schema.Int64Attribute{
+						Description: "Non-heap memory overhead in bytes, added on top of non_heap_overhead_percent",
+						Optional:    true,
+					},
+					"min_heap_bytes": schema.Int64Attribute{
+						Description: "Minimum recommended max heap size in bytes",
+						Optional:    true,
+					},
+					"max_heap_bytes": schema.Int64Attribute{
+						Description: "Maximum recommended max heap size in bytes",
+						Optional:    true,
+					},
+					"prefer_container_support": schema.BoolAttribute{
+						Description: "Prefer the JVM's own container-aware ergonomics (-XX:+UseContainerSupport) over an explicit -Xmx",
 						Optional:    true,
 						Computed:    true,
 						Default:     booldefault.StaticBool(false),
 					},
-					"cpu_throttling_threshold": schema.Float32Attribute{
-						Description: "Throttle ratio threshold that triggers a reaction (0-1)",
+				},
+			},
+			"jvm_cpu_startup_floor_millicores": schema.Int64Attribute{
+				Description:         "Per-rule override of the JVM CPU startup floor in millicores",
+				MarkdownDescription: "Per-rule override of the JVM CPU startup floor in millicores. Unset inherits the policy/system default (75m); explicit `0` disables the floor for this rule. Always-on for detected JVMs, independent of `jvm_heap_rule.enabled`.",
+				Optional:            true,
+			},
+			"keda_scaled_object": schema.SingleNestedAttribute{
+				Description:         "KEDA ScaledObject template",
+				MarkdownDescription: "KEDA ScaledObject template authored by the user. When set, the in-cluster operator owns the ScaledObject lifecycle (create/update/delete) instead of generating its own HPA.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"triggers": schema.ListNestedAttribute{
+						Description: "KEDA scale triggers",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"type": schema.StringAttribute{
+									Description: "KEDA scaler type. Example: 'prometheus', 'cpu', 'kafka'",
+									Required:    true,
+								},
+								"name": schema.StringAttribute{
+									Description: "Trigger name",
+									Optional:    true,
+								},
+								"metadata": schema.MapAttribute{
+									Description: "Scaler-specific metadata, as required by the chosen KEDA scaler type",
+									Optional:    true,
+									ElementType: types.StringType,
+								},
+								"metric_type": schema.StringAttribute{
+									Description: "Metric target type. One of: 'Value', 'AverageValue', 'Utilization'",
+									Optional:    true,
+								},
+								"authentication_ref": schema.SingleNestedAttribute{
+									Description: "Reference to a KEDA TriggerAuthentication/ClusterTriggerAuthentication",
+									Optional:    true,
+									Attributes: map[string]schema.Attribute{
+										"name": schema.StringAttribute{
+											Description: "Name of the referenced authentication resource",
+											Required:    true,
+										},
+										"kind": schema.StringAttribute{
+											Description: "Kind of the referenced authentication resource. One of: 'TriggerAuthentication', 'ClusterTriggerAuthentication'",
+											Optional:    true,
+										},
+									},
+								},
+								"use_cached_metrics": schema.BoolAttribute{
+									Description: "Use KEDA's cached metrics for this trigger",
+									Optional:    true,
+									Computed:    true,
+									Default:     booldefault.StaticBool(false),
+								},
+							},
+						},
+					},
+					"min_replica_count": schema.Int32Attribute{
+						Description: "Minimum number of replicas",
 						Optional:    true,
 					},
-					"cpu_throttling_multiplier": schema.Float32Attribute{
-						Description: "Multiplier applied to CPU request on throttle reaction",
+					"max_replica_count": schema.Int32Attribute{
+						Description: "Maximum number of replicas",
 						Optional:    true,
+					},
+					"idle_replica_count": schema.Int32Attribute{
+						Description: "Number of replicas to scale down to when idle",
+						Optional:    true,
+					},
+					"polling_interval": schema.Int32Attribute{
+						Description: "Seconds between checks of the trigger sources",
+						Optional:    true,
+					},
+					"cooldown_period": schema.Int32Attribute{
+						Description: "Seconds to wait after the last trigger reported active before scaling down to idle/min replicas",
+						Optional:    true,
+					},
+					"initial_cooldown_period": schema.Int32Attribute{
+						Description: "Cooldown period applied only on initial ScaledObject creation",
+						Optional:    true,
+					},
+					"fallback": schema.SingleNestedAttribute{
+						Description: "Replica fallback configuration when the scaler's metrics are unavailable",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"failure_threshold": schema.Int32Attribute{
+								Description: "Number of consecutive metric failures before activating fallback",
+								Optional:    true,
+							},
+							"replicas": schema.Int32Attribute{
+								Description: "Number of replicas to fall back to when metrics are unavailable",
+								Optional:    true,
+							},
+							"behavior": schema.StringAttribute{
+								Description: "Fallback strategy",
+								Optional:    true,
+							},
+						},
+					},
+					"advanced": schema.SingleNestedAttribute{
+						Description: "Advanced KEDA ScaledObject settings",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"restore_to_original_replica_count": schema.BoolAttribute{
+								Description: "Restore the original replica count when the ScaledObject is deleted",
+								Optional:    true,
+								Computed:    true,
+								Default:     booldefault.StaticBool(false),
+							},
+							"advanced_behavior_json": schema.StringAttribute{
+								Description:         "Opaque JSON-encoded Kubernetes HorizontalPodAutoscalerBehavior",
+								MarkdownDescription: "Opaque JSON-encoded Kubernetes `HorizontalPodAutoscalerBehavior`, carried through verbatim so this provider never has to re-model Kubernetes autoscaling types.",
+								Optional:            true,
+							},
+						},
 					},
 				},
 			},
@@ -585,6 +808,13 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
+			},
+			"allow_in_place_memory_limit_decrease": schema.BoolAttribute{
+				Description:         "Allow an in-place resize to lower a container's memory limit",
+				MarkdownDescription: "Opt-in: allow an in-place resize to lower a container's memory limit. Only consulted when `use_in_place_vertical_scaling` is true; a decrease still additionally requires a cluster new enough to accept one. Default false because shrinking a live container's memory limit can OOM-kill it.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
 			},
 			"disabled": schema.BoolAttribute{
 				Description:         "Create the rule in a disabled state",
@@ -851,17 +1081,21 @@ func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Dia
 	}
 
 	fields := &apiv1.ManualRuleFields{
-		CpuRule:                   m.CpuRule.toProto(),
-		MemoryRule:                m.MemoryRule.toProto(),
-		GpuRule:                   m.GpuRule.toProto(),
-		HpaRule:                   m.HpaRule.toProto(),
-		EmergencyResponse:         m.EmergencyResponse.toProto(),
-		ActionTriggers:            actionTriggers,
-		DetectionTriggers:         detectionTriggers,
-		SchedulerPlugins:          schedulerPlugins,
-		LiveMigrationEnabled:      m.LiveMigrationEnabled.ValueBool(),
-		UseInPlaceVerticalScaling: m.UseInPlaceVerticalScaling.ValueBool(),
-		Containers:                containerRuleModelsToProto(m.Containers),
+		CpuRule:                         m.CpuRule.toProto(),
+		MemoryRule:                      m.MemoryRule.toProto(),
+		GpuRule:                         m.GpuRule.toProto(),
+		HpaRule:                         m.HpaRule.toProto(),
+		EmergencyResponse:               m.EmergencyResponse.toProto(),
+		ActionTriggers:                  actionTriggers,
+		DetectionTriggers:               detectionTriggers,
+		SchedulerPlugins:                schedulerPlugins,
+		LiveMigrationEnabled:            m.LiveMigrationEnabled.ValueBool(),
+		UseInPlaceVerticalScaling:       m.UseInPlaceVerticalScaling.ValueBool(),
+		AllowInPlaceMemoryLimitDecrease: m.AllowInPlaceMemoryLimitDecrease.ValueBool(),
+		Containers:                      containerRuleModelsToProto(m.Containers),
+		JvmHeapRule:                     m.JvmHeapRule.toProto(),
+		JvmCpuStartupFloorMillicores:    m.JvmCpuStartupFloorMillicores.ValueInt64Pointer(),
+		KedaScaledObject:                m.KedaScaledObject.toProto(),
 	}
 
 	if !m.StartupPeriodSeconds.IsNull() && !m.StartupPeriodSeconds.IsUnknown() {
@@ -908,6 +1142,15 @@ func (m *WorkloadRuleResourceModel) preserveNullsFrom(plan *WorkloadRuleResource
 	}
 	if plan.EmergencyResponse == nil {
 		m.EmergencyResponse = nil
+	}
+	if plan.JvmHeapRule == nil {
+		m.JvmHeapRule = nil
+	}
+	if plan.KedaScaledObject == nil {
+		m.KedaScaledObject = nil
+	}
+	if plan.JvmCpuStartupFloorMillicores.IsNull() {
+		m.JvmCpuStartupFloorMillicores = types.Int64Null()
 	}
 	if plan.ActionTriggers.IsNull() {
 		m.ActionTriggers = types.ListNull(types.StringType)
@@ -957,6 +1200,10 @@ func (m *WorkloadRuleResourceModel) fromProto(r *apiv1.WorkloadRule) {
 	m.GpuRule = resourceRuleConfigFromProto(r.GpuRule)
 	m.HpaRule = hpaRuleConfigFromProto(r.HpaRule)
 	m.EmergencyResponse = emergencyResponseFromProto(r.EmergencyResponse)
+	m.AllowInPlaceMemoryLimitDecrease = types.BoolValue(r.AllowInPlaceMemoryLimitDecrease)
+	m.JvmHeapRule = jvmHeapRuleFromProto(r.JvmHeapRule)
+	m.JvmCpuStartupFloorMillicores = types.Int64PointerValue(r.JvmCpuStartupFloorMillicores)
+	m.KedaScaledObject = kedaScaledObjectFromProto(r.KedaScaledObject)
 
 	actionTriggers := make([]attr.Value, 0)
 	for _, at := range r.ActionTriggers {
@@ -1083,8 +1330,8 @@ func resourceRuleConfigFromProto(p *apiv1.ResourceRuleConfig) *ResourceRuleConfi
 		InitialLimit:            types.Int64PointerValue(p.InitialLimit),
 		LimitFloorPercent:       types.Int64PointerValue(p.LimitFloorPercent),
 		LimitCeilingPercent:     types.Int64PointerValue(p.LimitCeilingPercent),
-		RequestUseRss:           types.BoolPointerValue(p.RequestUseRss),
-		LimitUseRss:             types.BoolPointerValue(p.LimitUseRss),
+		RequestUseRss:           types.BoolValue(p.RequestUseRss != nil && *p.RequestUseRss),
+		LimitUseRss:             types.BoolValue(p.LimitUseRss != nil && *p.LimitUseRss),
 	}
 	if p.MinRequest != nil {
 		m.MinRequest = types.Int64Value(*p.MinRequest)
@@ -1230,6 +1477,156 @@ func emergencyResponseFromProto(p *apiv1.EmergencyResponseConfig) *EmergencyResp
 	}
 }
 
+// ---------- JVMHeapRule ----------
+
+func (m *JVMHeapRuleModel) toProto() *apiv1.JVMHeapRuleConfig {
+	if m == nil {
+		return nil
+	}
+	return &apiv1.JVMHeapRuleConfig{
+		Enabled:                m.Enabled.ValueBool(),
+		TargetPercentile:       m.TargetPercentile.ValueFloat32Pointer(),
+		HeadroomMultiplier:     m.HeadroomMultiplier.ValueFloat32Pointer(),
+		NonHeapOverheadPercent: m.NonHeapOverheadPercent.ValueFloat32Pointer(),
+		NonHeapOverheadBytes:   m.NonHeapOverheadBytes.ValueInt64Pointer(),
+		MinHeapBytes:           m.MinHeapBytes.ValueInt64Pointer(),
+		MaxHeapBytes:           m.MaxHeapBytes.ValueInt64Pointer(),
+		PreferContainerSupport: m.PreferContainerSupport.ValueBool(),
+	}
+}
+
+func jvmHeapRuleFromProto(p *apiv1.JVMHeapRuleConfig) *JVMHeapRuleModel {
+	if p == nil {
+		return nil
+	}
+	return &JVMHeapRuleModel{
+		Enabled:                types.BoolValue(p.Enabled),
+		TargetPercentile:       types.Float32PointerValue(p.TargetPercentile),
+		HeadroomMultiplier:     types.Float32PointerValue(p.HeadroomMultiplier),
+		NonHeapOverheadPercent: types.Float32PointerValue(p.NonHeapOverheadPercent),
+		NonHeapOverheadBytes:   types.Int64PointerValue(p.NonHeapOverheadBytes),
+		MinHeapBytes:           types.Int64PointerValue(p.MinHeapBytes),
+		MaxHeapBytes:           types.Int64PointerValue(p.MaxHeapBytes),
+		PreferContainerSupport: types.BoolValue(p.PreferContainerSupport),
+	}
+}
+
+// ---------- KEDAScaledObject ----------
+
+func (m *KEDAScaledObjectModel) toProto() *apiv1.KEDAScaledObjectTemplate {
+	if m == nil {
+		return nil
+	}
+	p := &apiv1.KEDAScaledObjectTemplate{
+		Triggers:              kedaTriggersToProto(m.Triggers),
+		MinReplicaCount:       m.MinReplicaCount.ValueInt32Pointer(),
+		MaxReplicaCount:       m.MaxReplicaCount.ValueInt32Pointer(),
+		IdleReplicaCount:      m.IdleReplicaCount.ValueInt32Pointer(),
+		PollingInterval:       m.PollingInterval.ValueInt32Pointer(),
+		CooldownPeriod:        m.CooldownPeriod.ValueInt32Pointer(),
+		InitialCooldownPeriod: m.InitialCooldownPeriod.ValueInt32Pointer(),
+	}
+	if m.Fallback != nil {
+		p.Fallback = &apiv1.KEDAFallback{
+			FailureThreshold: m.Fallback.FailureThreshold.ValueInt32(),
+			Replicas:         m.Fallback.Replicas.ValueInt32(),
+			Behavior:         m.Fallback.Behavior.ValueString(),
+		}
+	}
+	if m.Advanced != nil {
+		p.Advanced = &apiv1.KEDAAdvanced{
+			RestoreToOriginalReplicaCount: m.Advanced.RestoreToOriginalReplicaCount.ValueBool(),
+			AdvancedBehaviorJson:          m.Advanced.AdvancedBehaviorJson.ValueString(),
+		}
+	}
+	return p
+}
+
+func kedaScaledObjectFromProto(p *apiv1.KEDAScaledObjectTemplate) *KEDAScaledObjectModel {
+	if p == nil {
+		return nil
+	}
+	m := &KEDAScaledObjectModel{
+		Triggers:              kedaTriggersFromProto(p.Triggers),
+		MinReplicaCount:       types.Int32PointerValue(p.MinReplicaCount),
+		MaxReplicaCount:       types.Int32PointerValue(p.MaxReplicaCount),
+		IdleReplicaCount:      types.Int32PointerValue(p.IdleReplicaCount),
+		PollingInterval:       types.Int32PointerValue(p.PollingInterval),
+		CooldownPeriod:        types.Int32PointerValue(p.CooldownPeriod),
+		InitialCooldownPeriod: types.Int32PointerValue(p.InitialCooldownPeriod),
+	}
+	if p.Fallback != nil {
+		m.Fallback = &KEDAFallbackModel{
+			FailureThreshold: int32OrNull(p.Fallback.FailureThreshold),
+			Replicas:         int32OrNull(p.Fallback.Replicas),
+			Behavior:         stringValue(p.Fallback.Behavior),
+		}
+	}
+	if p.Advanced != nil {
+		m.Advanced = &KEDAAdvancedModel{
+			RestoreToOriginalReplicaCount: types.BoolValue(p.Advanced.RestoreToOriginalReplicaCount),
+			AdvancedBehaviorJson:          stringValue(p.Advanced.AdvancedBehaviorJson),
+		}
+	}
+	return m
+}
+
+func kedaTriggersToProto(ts []KEDATriggerModel) []*apiv1.KEDATrigger {
+	if len(ts) == 0 {
+		return nil
+	}
+	result := make([]*apiv1.KEDATrigger, len(ts))
+	for i, t := range ts {
+		kt := &apiv1.KEDATrigger{
+			Type:             t.Type.ValueString(),
+			Name:             t.Name.ValueString(),
+			MetricType:       t.MetricType.ValueString(),
+			UseCachedMetrics: t.UseCachedMetrics.ValueBool(),
+		}
+		if !t.Metadata.IsNull() && !t.Metadata.IsUnknown() {
+			meta := make(map[string]string, len(t.Metadata.Elements()))
+			for k, v := range t.Metadata.Elements() {
+				if sv, ok := v.(types.String); ok {
+					meta[k] = sv.ValueString()
+				}
+			}
+			kt.Metadata = meta
+		}
+		if t.AuthenticationRef != nil {
+			kt.AuthenticationRef = &apiv1.KEDAAuthenticationRef{
+				Name: t.AuthenticationRef.Name.ValueString(),
+				Kind: t.AuthenticationRef.Kind.ValueString(),
+			}
+		}
+		result[i] = kt
+	}
+	return result
+}
+
+func kedaTriggersFromProto(ps []*apiv1.KEDATrigger) []KEDATriggerModel {
+	result := make([]KEDATriggerModel, 0, len(ps))
+	for _, p := range ps {
+		if p == nil {
+			continue
+		}
+		m := KEDATriggerModel{
+			Type:             types.StringValue(p.Type),
+			Name:             stringValue(p.Name),
+			Metadata:         stringMapOrNull(p.Metadata),
+			MetricType:       stringValue(p.MetricType),
+			UseCachedMetrics: types.BoolValue(p.UseCachedMetrics),
+		}
+		if p.AuthenticationRef != nil {
+			m.AuthenticationRef = &KEDAAuthenticationRefModel{
+				Name: types.StringValue(p.AuthenticationRef.Name),
+				Kind: stringValue(p.AuthenticationRef.Kind),
+			}
+		}
+		result = append(result, m)
+	}
+	return result
+}
+
 // ---------- Containers ----------
 
 func containerRuleModelsToProto(cs []ContainerRuleModel) []*apiv1.ContainerResourceRuleConfig {
@@ -1306,8 +1703,8 @@ func containerResourceConfigFromProto(p *apiv1.ContainerResourceConfig) *Contain
 		MaxRequest:              types.Int64Null(),
 		LimitMultiplier:         types.Float32Null(),
 		TargetPercentile:        types.Float32Null(),
-		RequestUseRss:           types.BoolPointerValue(p.RequestUseRss),
-		LimitUseRss:             types.BoolPointerValue(p.LimitUseRss),
+		RequestUseRss:           types.BoolValue(p.RequestUseRss != nil && *p.RequestUseRss),
+		LimitUseRss:             types.BoolValue(p.LimitUseRss != nil && *p.LimitUseRss),
 	}
 	if p.MinRequest != nil {
 		m.MinRequest = types.Int64Value(*p.MinRequest)
