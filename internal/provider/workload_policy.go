@@ -210,11 +210,15 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Description:         "Memory only: size the request from RSS instead of working set",
 				MarkdownDescription: "Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.",
 				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
 			},
 			"limit_use_rss": schema.BoolAttribute{
 				Description:         "Memory only: derive the limit from an RSS-based recommendation",
 				MarkdownDescription: "Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.",
 				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
 			},
 		}
 	}
@@ -636,7 +640,9 @@ func (r *WorkloadPolicyResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	plan := data
 	data.fromProto(createWorkloadPolicyResp.Msg.Policy)
+	data.preserveNullsFrom(&plan)
 
 	// Write logs using the tflog package
 	tflog.Trace(ctx, "created a resource")
@@ -675,7 +681,14 @@ func (r *WorkloadPolicyResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	prior := data
 	data.fromProto(getWorkloadPolicyResp.Msg.Policy)
+	if !prior.Name.IsNull() {
+		// prior.Name is only null right after import (ImportStatePassthroughID
+		// only sets id), where there is no real prior config to preserve nulls
+		// from and fromProto's result should be trusted as-is.
+		data.preserveNullsFrom(&prior)
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -712,7 +725,9 @@ func (r *WorkloadPolicyResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	plan := data
 	data.fromProto(updateWorkloadPolicyResp.Msg.Policy)
+	data.preserveNullsFrom(&plan)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -842,6 +857,37 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		JvmMaxHeapBytes:              m.JvmMaxHeapBytes.ValueInt64Pointer(),
 		JvmPreferContainerSupport:    m.JvmPreferContainerSupport.ValueBool(),
 		JvmCpuStartupFloorMillicores: m.JvmCpuStartupFloorMillicores.ValueInt64Pointer(),
+	}
+}
+
+// preserveNullsFrom nils out fields that were null in plan (i.e. never
+// configured by the user), undoing any non-null value fromProto assigned to
+// them. This is necessary because the backend echoes back non-nil messages
+// with baseline defaults (e.g. min_data_points=15, enabled=false) for axes
+// the user never configured, and isVerticalScalingEmpty/isHorizontalScalingEmpty
+// key emptiness off Enabled alone — which means a deliberately-configured
+// block with enabled=false (or an axis whose enabled defaults to false, like
+// gpu_vertical_scaling and horizontal_scaling) would otherwise be collapsed
+// to null even though it's present in the plan. See preserveNullsFrom on
+// WorkloadRuleResourceModel for the same pattern.
+func (m *WorkloadPolicyResourceModel) preserveNullsFrom(plan *WorkloadPolicyResourceModel) {
+	if plan.CPUVerticalScaling == nil {
+		m.CPUVerticalScaling = nil
+	}
+	if plan.MemoryVerticalScaling == nil {
+		m.MemoryVerticalScaling = nil
+	}
+	if plan.GPUVerticalScaling == nil {
+		m.GPUVerticalScaling = nil
+	}
+	if plan.GPUVRAMVerticalScaling == nil {
+		m.GPUVRAMVerticalScaling = nil
+	}
+	if plan.HorizontalScaling == nil {
+		m.HorizontalScaling = nil
+	}
+	if plan.EmergencyResponse == nil {
+		m.EmergencyResponse = nil
 	}
 }
 
@@ -1025,8 +1071,8 @@ func verticalScalingOptionsFromProto(target *apiv1.VerticalScalingOptimizationTa
 	}
 	o.AdjustReqEvenIfNotSet = types.BoolValue(target.AdjustReqEvenIfNotSet)
 	o.LimitsRemovalEnabled = types.BoolValue(target.LimitsRemovalEnabled)
-	o.RequestUseRss = types.BoolPointerValue(target.RequestUseRss)
-	o.LimitUseRss = types.BoolPointerValue(target.LimitUseRss)
+	o.RequestUseRss = types.BoolValue(target.RequestUseRss != nil && *target.RequestUseRss)
+	o.LimitUseRss = types.BoolValue(target.LimitUseRss != nil && *target.LimitUseRss)
 	return o
 }
 

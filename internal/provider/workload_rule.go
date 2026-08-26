@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -722,10 +723,14 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 							"failure_threshold": schema.Int32Attribute{
 								Description: "Number of consecutive metric failures before activating fallback",
 								Optional:    true,
+								Computed:    true,
+								Default:     int32default.StaticInt32(0),
 							},
 							"replicas": schema.Int32Attribute{
 								Description: "Number of replicas to fall back to when metrics are unavailable",
 								Optional:    true,
+								Computed:    true,
+								Default:     int32default.StaticInt32(0),
 							},
 							"behavior": schema.StringAttribute{
 								Description: "Fallback strategy",
@@ -936,7 +941,12 @@ func (r *WorkloadRuleResource) Read(ctx context.Context, req resource.ReadReques
 
 	prior := data
 	data.fromProto(getRuleResp.Msg.Rule)
-	data.preserveNullsFrom(&prior)
+	if !prior.Name.IsNull() {
+		// prior.Name is only null right after import (ImportStatePassthroughID
+		// only sets id), where there is no real prior config to preserve nulls
+		// from and fromProto's result should be trusted as-is.
+		data.preserveNullsFrom(&prior)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -1557,8 +1567,8 @@ func kedaScaledObjectFromProto(p *apiv1.KEDAScaledObjectTemplate) *KEDAScaledObj
 	}
 	if p.Fallback != nil {
 		m.Fallback = &KEDAFallbackModel{
-			FailureThreshold: int32OrNull(p.Fallback.FailureThreshold),
-			Replicas:         int32OrNull(p.Fallback.Replicas),
+			FailureThreshold: types.Int32Value(p.Fallback.FailureThreshold),
+			Replicas:         types.Int32Value(p.Fallback.Replicas),
 			Behavior:         stringValue(p.Fallback.Behavior),
 		}
 	}
@@ -1604,6 +1614,9 @@ func kedaTriggersToProto(ts []KEDATriggerModel) []*apiv1.KEDATrigger {
 }
 
 func kedaTriggersFromProto(ps []*apiv1.KEDATrigger) []KEDATriggerModel {
+	if len(ps) == 0 {
+		return nil
+	}
 	result := make([]KEDATriggerModel, 0, len(ps))
 	for _, p := range ps {
 		if p == nil {

@@ -1840,6 +1840,8 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	// Disruption policy
 	if policy.Disruption != nil && !isDisruptionEmpty(policy.Disruption) {
 		m.Disruption = disruptionPolicyFromProto(policy.Disruption)
+	} else {
+		m.Disruption = nil
 	}
 
 	// Limits
@@ -1848,6 +1850,8 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 			Cpu:    types.StringValue(policy.Limits.Cpu),
 			Memory: types.StringValue(policy.Limits.Memory),
 		}
+	} else {
+		m.Limits = nil
 	}
 
 	// Tooltip fields for node config
@@ -1888,21 +1892,29 @@ func (m *NodePolicyResourceModel) fromProto(policy *apiv1.NodePolicy) {
 	// AWS configuration
 	if policy.Aws != nil && !isAWSSpecEmpty(policy.Aws) {
 		m.Aws = awsNodeClassFromProto(policy.Aws)
+	} else {
+		m.Aws = nil
 	}
 
 	// Azure configuration
 	if policy.Azure != nil && !isAzureSpecEmpty(policy.Azure) {
 		m.Azure = azureNodeClassFromProto(policy.Azure)
+	} else {
+		m.Azure = nil
 	}
 
 	// GCP configuration
 	if policy.Gcp != nil && !isGCPSpecEmpty(policy.Gcp) {
 		m.Gcp = gcpNodeClassFromProto(policy.Gcp)
+	} else {
+		m.Gcp = nil
 	}
 
 	// OCI configuration
 	if policy.Oci != nil && !isOCISpecEmpty(policy.Oci) {
 		m.Oci = ociNodeClassFromProto(policy.Oci)
+	} else {
+		m.Oci = nil
 	}
 
 	// Raw specs
@@ -2726,31 +2738,31 @@ func awsNodeClassFromProto(spec *apiv1.AWSNodeClassSpec) *AWSNodeClass {
 		aws.AssociatePublicIpAddress = types.BoolNull()
 	}
 
-	// Metadata options
+	// Metadata options. This attribute is Computed with a static object
+	// Default, so it must never resolve to null — fall back to the schema's
+	// default values (matching the Default in the schema) at every level
+	// when the backend omits the block or an individual field.
+	metadataOpts := &MetadataOptions{
+		HttpEndpoint:            types.StringValue("enabled"),
+		HttpProtocolIpv6:        types.StringValue("disabled"),
+		HttpPutResponseHopLimit: types.Int64Value(2),
+		HttpTokens:              types.StringValue("required"),
+	}
 	if spec.MetadataOptions != nil {
-		metadataOpts := &MetadataOptions{}
 		if spec.MetadataOptions.HttpEndpoint != nil {
 			metadataOpts.HttpEndpoint = types.StringValue(*spec.MetadataOptions.HttpEndpoint)
-		} else {
-			metadataOpts.HttpEndpoint = types.StringNull()
 		}
 		if spec.MetadataOptions.HttpProtocolIpv6 != nil {
 			metadataOpts.HttpProtocolIpv6 = types.StringValue(*spec.MetadataOptions.HttpProtocolIpv6)
-		} else {
-			metadataOpts.HttpProtocolIpv6 = types.StringNull()
 		}
 		if spec.MetadataOptions.HttpPutResponseHopLimit != nil {
 			metadataOpts.HttpPutResponseHopLimit = types.Int64Value(*spec.MetadataOptions.HttpPutResponseHopLimit)
-		} else {
-			metadataOpts.HttpPutResponseHopLimit = types.Int64Null()
 		}
 		if spec.MetadataOptions.HttpTokens != nil {
 			metadataOpts.HttpTokens = types.StringValue(*spec.MetadataOptions.HttpTokens)
-		} else {
-			metadataOpts.HttpTokens = types.StringNull()
 		}
-		aws.MetadataOptions = metadataOpts
 	}
+	aws.MetadataOptions = metadataOpts
 
 	// Capacity reservation selector terms
 	if len(spec.CapacityReservationSelectorTerms) > 0 {
