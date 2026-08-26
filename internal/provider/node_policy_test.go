@@ -1012,6 +1012,497 @@ func TestNodePolicyResourceModel(t *testing.T) {
 			t.Errorf("Expected 1 label, got %d", len(elems))
 		}
 	})
+
+	// Test AmiSelectorTerms ssm_parameter field
+	t.Run("AmiSelectorTerms_SsmParameter_ToProto", func(t *testing.T) {
+		attrTypes := map[string]attr.Type{
+			"tags":          types.MapType{ElemType: types.StringType},
+			"id":            types.StringType,
+			"name":          types.StringType,
+			"owner":         types.StringType,
+			"alias":         types.StringType,
+			"ssm_parameter": types.StringType,
+		}
+		awsConfig := &AWSNodeClass{
+			AmiSelectorTerms: types.ListValueMust(
+				types.ObjectType{AttrTypes: attrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(attrTypes, map[string]attr.Value{
+						"tags":          types.MapNull(types.StringType),
+						"id":            types.StringNull(),
+						"name":          types.StringNull(),
+						"owner":         types.StringNull(),
+						"alias":         types.StringNull(),
+						"ssm_parameter": types.StringValue("/aws/service/eks/optimized-ami/1.29/amazon-linux-2/recommended/image_id"),
+					}),
+				},
+			),
+			SubnetSelectorTerms:        types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			SecurityGroupSelectorTerms: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			BlockDeviceMappings:        types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := awsConfig.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if len(proto.AmiSelectorTerms) != 1 {
+			t.Fatalf("Expected 1 AMI selector term, got %d", len(proto.AmiSelectorTerms))
+		}
+		if proto.AmiSelectorTerms[0].SsmParameter != "/aws/service/eks/optimized-ami/1.29/amazon-linux-2/recommended/image_id" {
+			t.Errorf("Expected ssm_parameter to be set, got %q", proto.AmiSelectorTerms[0].SsmParameter)
+		}
+	})
+
+	t.Run("AmiSelectorTerms_SsmParameter_FromProto", func(t *testing.T) {
+		proto := &apiv1.AWSNodeClassSpec{
+			AmiSelectorTerms: []*apiv1.AMISelectorTerm{
+				{SsmParameter: "/aws/service/eks/optimized-ami/1.29/amazon-linux-2/recommended/image_id"},
+			},
+		}
+		aws := awsNodeClassFromProto(proto)
+		elems := aws.AmiSelectorTerms.Elements()
+		if len(elems) != 1 {
+			t.Fatalf("Expected 1 AMI selector term, got %d", len(elems))
+		}
+		obj, ok := elems[0].(types.Object)
+		if !ok {
+			t.Fatal("Expected object element")
+		}
+		ssmParam, ok := obj.Attributes()["ssm_parameter"].(types.String)
+		if !ok || ssmParam.ValueString() != "/aws/service/eks/optimized-ami/1.29/amazon-linux-2/recommended/image_id" {
+			t.Errorf("Expected ssm_parameter to round-trip, got %v", obj.Attributes()["ssm_parameter"])
+		}
+	})
+
+	// Test BlockDeviceMappings root_volume and Ebs volume_initialization_rate
+	t.Run("BlockDeviceMappings_RootVolumeAndInitRate_ToProto", func(t *testing.T) {
+		ebsAttrTypes := map[string]attr.Type{
+			"volume_size":                types.StringType,
+			"volume_type":                types.StringType,
+			"iops":                       types.Int64Type,
+			"throughput":                 types.Int64Type,
+			"kms_key_id":                 types.StringType,
+			"delete_on_termination":      types.BoolType,
+			"encrypted":                  types.BoolType,
+			"snapshot_id":                types.StringType,
+			"volume_initialization_rate": types.Int32Type,
+		}
+		mappingAttrTypes := map[string]attr.Type{
+			"device_name": types.StringType,
+			"root_volume": types.BoolType,
+			"ebs":         types.ObjectType{AttrTypes: ebsAttrTypes},
+		}
+		awsConfig := &AWSNodeClass{
+			BlockDeviceMappings: types.ListValueMust(
+				types.ObjectType{AttrTypes: mappingAttrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(mappingAttrTypes, map[string]attr.Value{
+						"device_name": types.StringValue("/dev/xvda"),
+						"root_volume": types.BoolValue(true),
+						"ebs": types.ObjectValueMust(ebsAttrTypes, map[string]attr.Value{
+							"volume_size":                types.StringValue("100Gi"),
+							"volume_type":                types.StringValue("gp3"),
+							"iops":                       types.Int64Null(),
+							"throughput":                 types.Int64Null(),
+							"kms_key_id":                 types.StringNull(),
+							"delete_on_termination":      types.BoolNull(),
+							"encrypted":                  types.BoolNull(),
+							"snapshot_id":                types.StringNull(),
+							"volume_initialization_rate": types.Int32Value(50),
+						}),
+					}),
+				},
+			),
+			AmiFamily:                  types.StringValue("AL2"),
+			SubnetSelectorTerms:        types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			SecurityGroupSelectorTerms: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+			AmiSelectorTerms:           types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{}}),
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := awsConfig.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if len(proto.BlockDeviceMappings) != 1 {
+			t.Fatalf("Expected 1 block device mapping, got %d", len(proto.BlockDeviceMappings))
+		}
+		bdm := proto.BlockDeviceMappings[0]
+		if bdm.RootVolume == nil || !*bdm.RootVolume {
+			t.Error("Expected root_volume to be true")
+		}
+		if bdm.Ebs == nil || bdm.Ebs.VolumeInitializationRate == nil || *bdm.Ebs.VolumeInitializationRate != 50 {
+			t.Errorf("Expected volume_initialization_rate=50, got %v", bdm.Ebs.VolumeInitializationRate)
+		}
+	})
+
+	t.Run("BlockDeviceMappings_RootVolumeAndInitRate_FromProto", func(t *testing.T) {
+		rootVolume := true
+		initRate := int32(50)
+		proto := &apiv1.AWSNodeClassSpec{
+			BlockDeviceMappings: []*apiv1.BlockDeviceMapping{
+				{
+					RootVolume: &rootVolume,
+					Ebs: &apiv1.BlockDevice{
+						VolumeInitializationRate: &initRate,
+					},
+				},
+			},
+		}
+		aws := awsNodeClassFromProto(proto)
+		elems := aws.BlockDeviceMappings.Elements()
+		if len(elems) != 1 {
+			t.Fatalf("Expected 1 block device mapping, got %d", len(elems))
+		}
+		obj, ok := elems[0].(types.Object)
+		if !ok {
+			t.Fatal("Expected object element")
+		}
+		rootVol, ok := obj.Attributes()["root_volume"].(types.Bool)
+		if !ok || !rootVol.ValueBool() {
+			t.Errorf("Expected root_volume=true, got %v", obj.Attributes()["root_volume"])
+		}
+		ebsObj, ok := obj.Attributes()["ebs"].(types.Object)
+		if !ok {
+			t.Fatal("Expected ebs object")
+		}
+		rate, ok := ebsObj.Attributes()["volume_initialization_rate"].(types.Int32)
+		if !ok || rate.ValueInt32() != 50 {
+			t.Errorf("Expected volume_initialization_rate=50, got %v", ebsObj.Attributes()["volume_initialization_rate"])
+		}
+	})
+
+	// Test top-level InstanceShapes, InstanceShapesTip, InstanceLocalNvmeTip, StartupTaintsTip
+	t.Run("NodePolicy_NewTopLevelFields_ToProto", func(t *testing.T) {
+		model := &NodePolicyResourceModel{
+			Name: types.StringValue("test-policy"),
+			InstanceShapes: &LabelSelector{
+				MatchLabels: types.MapValueMust(types.StringType, map[string]attr.Value{
+					"karpenter.k8s.aws/instance-shape": types.StringValue("standard"),
+				}),
+				MatchExpressions: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{
+					"key": types.StringType, "operator": types.StringType, "values": types.ListType{ElemType: types.StringType},
+				}}),
+			},
+			InstanceShapesTip:    types.StringValue("Select instance shapes"),
+			InstanceLocalNvmeTip: types.StringValue("Local NVMe tip"),
+			StartupTaintsTip:     types.StringValue("Startup taints tip"),
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := model.toProto(ctx, &diags, "test-team-id")
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.InstanceShapes == nil {
+			t.Fatal("Expected non-nil InstanceShapes")
+		}
+		if proto.InstanceShapes.MatchLabels["karpenter.k8s.aws/instance-shape"] != "standard" {
+			t.Errorf("Expected instance shape label, got %v", proto.InstanceShapes.MatchLabels)
+		}
+		if proto.InstanceShapesTip == nil || *proto.InstanceShapesTip != "Select instance shapes" {
+			t.Errorf("Expected InstanceShapesTip, got %v", proto.InstanceShapesTip)
+		}
+		if proto.InstanceLocalNvmeTip == nil || *proto.InstanceLocalNvmeTip != "Local NVMe tip" {
+			t.Errorf("Expected InstanceLocalNvmeTip, got %v", proto.InstanceLocalNvmeTip)
+		}
+		if proto.StartupTaintsTip == nil || *proto.StartupTaintsTip != "Startup taints tip" {
+			t.Errorf("Expected StartupTaintsTip, got %v", proto.StartupTaintsTip)
+		}
+	})
+
+	// Test GCP node class conversion
+	t.Run("GCPNodeClass_ToProto", func(t *testing.T) {
+		imageSelectorAttrTypes := map[string]attr.Type{"alias": types.StringType, "id": types.StringType}
+		diskAttrTypes := map[string]attr.Type{
+			"size_gib":             types.Int32Type,
+			"category":             types.StringType,
+			"boot":                 types.BoolType,
+			"secondary_boot_image": types.StringType,
+			"secondary_boot_mode":  types.StringType,
+		}
+		gcp := &GCPNodeClass{
+			ServiceAccount: types.StringValue("my-service-account@project.iam.gserviceaccount.com"),
+			ImageSelectorTerms: types.ListValueMust(
+				types.ObjectType{AttrTypes: imageSelectorAttrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(imageSelectorAttrTypes, map[string]attr.Value{
+						"alias": types.StringValue("ubuntu"),
+						"id":    types.StringNull(),
+					}),
+				},
+			),
+			ImageFamily: types.StringValue("ubuntu-2204-lts"),
+			Kubelet: &KubeletConfiguration{
+				MaxPods:                     types.Int32Value(110),
+				PodsPerCore:                 types.Int32Null(),
+				CpuCfsQuota:                 types.BoolNull(),
+				ClusterDns:                  types.ListNull(types.StringType),
+				SystemReserved:              types.MapNull(types.StringType),
+				KubeReserved:                types.MapNull(types.StringType),
+				EvictionHard:                types.MapNull(types.StringType),
+				EvictionSoft:                types.MapNull(types.StringType),
+				EvictionSoftGracePeriod:     types.MapNull(types.StringType),
+				EvictionMaxPodGracePeriod:   types.Int32Null(),
+				ImageGcHighThresholdPercent: types.Int32Null(),
+				ImageGcLowThresholdPercent:  types.Int32Null(),
+			},
+			Labels:      types.MapValueMust(types.StringType, map[string]attr.Value{"env": types.StringValue("prod")}),
+			Metadata:    types.MapNull(types.StringType),
+			NetworkTags: types.ListValueMust(types.StringType, []attr.Value{types.StringValue("allow-ssh")}),
+			Disks: types.ListValueMust(
+				types.ObjectType{AttrTypes: diskAttrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(diskAttrTypes, map[string]attr.Value{
+						"size_gib":             types.Int32Value(100),
+						"category":             types.StringValue("pd-ssd"),
+						"boot":                 types.BoolValue(true),
+						"secondary_boot_image": types.StringValue(""),
+						"secondary_boot_mode":  types.StringValue(""),
+					}),
+				},
+			),
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := gcp.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.ServiceAccount != "my-service-account@project.iam.gserviceaccount.com" {
+			t.Errorf("Expected ServiceAccount to match, got %s", proto.ServiceAccount)
+		}
+		if len(proto.ImageSelectorTerms) != 1 || proto.ImageSelectorTerms[0].Alias != "ubuntu" {
+			t.Errorf("Expected 1 image selector term with alias=ubuntu, got %v", proto.ImageSelectorTerms)
+		}
+		if proto.ImageFamily == nil || *proto.ImageFamily != "ubuntu-2204-lts" {
+			t.Errorf("Expected ImageFamily=ubuntu-2204-lts, got %v", proto.ImageFamily)
+		}
+		if proto.KubeletConfiguration == nil || proto.KubeletConfiguration.MaxPods == nil || *proto.KubeletConfiguration.MaxPods != 110 {
+			t.Errorf("Expected KubeletConfiguration.MaxPods=110, got %v", proto.KubeletConfiguration)
+		}
+		if proto.Labels["env"] != "prod" {
+			t.Errorf("Expected Labels[env]=prod, got %v", proto.Labels)
+		}
+		if len(proto.NetworkTags) != 1 || proto.NetworkTags[0] != "allow-ssh" {
+			t.Errorf("Expected NetworkTags=[allow-ssh], got %v", proto.NetworkTags)
+		}
+		if len(proto.Disks) != 1 || proto.Disks[0].SizeGib != 100 || proto.Disks[0].Category != "pd-ssd" || !proto.Disks[0].Boot {
+			t.Errorf("Expected 1 disk with size_gib=100 category=pd-ssd boot=true, got %v", proto.Disks)
+		}
+	})
+
+	t.Run("GCPNodeClass_FromProto", func(t *testing.T) {
+		imageFamily := "ubuntu-2204-lts"
+		maxPods := int32(110)
+		proto := &apiv1.GCPNodeClassSpec{
+			ServiceAccount: "my-service-account@project.iam.gserviceaccount.com",
+			ImageSelectorTerms: []*apiv1.GCPImageSelectorTerm{
+				{Alias: "ubuntu"},
+			},
+			ImageFamily:          &imageFamily,
+			KubeletConfiguration: &apiv1.KubeletConfiguration{MaxPods: &maxPods},
+			Labels:               map[string]string{"env": "prod"},
+			NetworkTags:          []string{"allow-ssh"},
+			Disks: []*apiv1.GCPDisk{
+				{SizeGib: 100, Category: "pd-ssd", Boot: true},
+			},
+		}
+		gcp := gcpNodeClassFromProto(proto)
+		if gcp.ServiceAccount.ValueString() != "my-service-account@project.iam.gserviceaccount.com" {
+			t.Errorf("Expected ServiceAccount to round-trip, got %s", gcp.ServiceAccount.ValueString())
+		}
+		terms := gcp.ImageSelectorTerms.Elements()
+		if len(terms) != 1 {
+			t.Fatalf("Expected 1 image selector term, got %d", len(terms))
+		}
+		if gcp.ImageFamily.ValueString() != "ubuntu-2204-lts" {
+			t.Errorf("Expected ImageFamily to round-trip, got %s", gcp.ImageFamily.ValueString())
+		}
+		if gcp.Kubelet == nil || gcp.Kubelet.MaxPods.ValueInt32() != 110 {
+			t.Errorf("Expected Kubelet.MaxPods=110, got %v", gcp.Kubelet)
+		}
+		if gcp.Labels.IsNull() || len(gcp.Labels.Elements()) != 1 {
+			t.Errorf("Expected 1 label, got %v", gcp.Labels)
+		}
+		disks := gcp.Disks.Elements()
+		if len(disks) != 1 {
+			t.Fatalf("Expected 1 disk, got %d", len(disks))
+		}
+	})
+
+	t.Run("GCPSpecEmpty", func(t *testing.T) {
+		if !isGCPSpecEmpty(nil) {
+			t.Error("Expected nil spec to be empty")
+		}
+		if !isGCPSpecEmpty(&apiv1.GCPNodeClassSpec{}) {
+			t.Error("Expected zero-value spec to be empty")
+		}
+		if isGCPSpecEmpty(&apiv1.GCPNodeClassSpec{ServiceAccount: "sa@project.iam.gserviceaccount.com"}) {
+			t.Error("Expected spec with ServiceAccount to be non-empty")
+		}
+	})
+
+	// Test OCI node class conversion
+	t.Run("OCINodeClass_ToProto", func(t *testing.T) {
+		imageSelectorAttrTypes := map[string]attr.Type{"id": types.StringType, "name": types.StringType, "compartment_id": types.StringType}
+		idNameAttrTypes := map[string]attr.Type{"id": types.StringType, "name": types.StringType}
+		blockDeviceAttrTypes := map[string]attr.Type{"size_in_gbs": types.Int64Type, "vpus_per_gb": types.Int64Type}
+		oci := &OCINodeClass{
+			VcnId: types.StringValue("ocid1.vcn.oc1..aaaa"),
+			ImageSelector: types.ListValueMust(
+				types.ObjectType{AttrTypes: imageSelectorAttrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(imageSelectorAttrTypes, map[string]attr.Value{
+						"id":             types.StringValue("ocid1.image.oc1..bbbb"),
+						"name":           types.StringNull(),
+						"compartment_id": types.StringNull(),
+					}),
+				},
+			),
+			SubnetSelector: types.ListValueMust(
+				types.ObjectType{AttrTypes: idNameAttrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(idNameAttrTypes, map[string]attr.Value{
+						"id": types.StringValue("ocid1.subnet.oc1..cccc"), "name": types.StringNull(),
+					}),
+				},
+			),
+			SecurityGroupSelector: types.ListNull(types.ObjectType{AttrTypes: idNameAttrTypes}),
+			UserData:              types.StringValue("#!/bin/bash\necho hi"),
+			PreInstallScript:      types.StringNull(),
+			MetaData:              types.MapNull(types.StringType),
+			ImageFamily:           types.StringValue("oracle-linux-8"),
+			Tags:                  types.MapNull(types.StringType),
+			FreeFormTags:          types.MapValueMust(types.StringType, map[string]attr.Value{"env": types.StringValue("prod")}),
+			BootConfig: &OCIBootConfig{
+				BootVolumeSizeInGbs: types.Int64Value(100),
+				BootVolumeVpusPerGb: types.Int64Value(10),
+			},
+			LaunchOptions: &OCILaunchOptions{
+				BootVolumeType:                  types.StringValue("PARAVIRTUALIZED"),
+				Firmware:                        types.StringNull(),
+				NetworkType:                     types.StringNull(),
+				RemoteDataVolumeType:            types.StringNull(),
+				IsConsistentVolumeNamingEnabled: types.BoolValue(true),
+			},
+			BlockDevices: types.ListValueMust(
+				types.ObjectType{AttrTypes: blockDeviceAttrTypes},
+				[]attr.Value{
+					types.ObjectValueMust(blockDeviceAttrTypes, map[string]attr.Value{
+						"size_in_gbs": types.Int64Value(50),
+						"vpus_per_gb": types.Int64Value(10),
+					}),
+				},
+			),
+			AgentList: types.ListValueMust(types.StringType, []attr.Value{types.StringValue("bastion")}),
+		}
+		ctx := context.Background()
+		var diags diag.Diagnostics
+		proto := oci.toProto(ctx, &diags)
+		if diags.HasError() {
+			t.Fatalf("Expected no error, got %v", diags)
+		}
+		if proto.VcnId != "ocid1.vcn.oc1..aaaa" {
+			t.Errorf("Expected VcnId to match, got %s", proto.VcnId)
+		}
+		if len(proto.ImageSelector) != 1 || proto.ImageSelector[0].Id != "ocid1.image.oc1..bbbb" {
+			t.Errorf("Expected 1 image selector with id, got %v", proto.ImageSelector)
+		}
+		if len(proto.SubnetSelector) != 1 || proto.SubnetSelector[0].Id != "ocid1.subnet.oc1..cccc" {
+			t.Errorf("Expected 1 subnet selector with id, got %v", proto.SubnetSelector)
+		}
+		if proto.UserData == nil || *proto.UserData != "#!/bin/bash\necho hi" {
+			t.Errorf("Expected UserData to match, got %v", proto.UserData)
+		}
+		if proto.ImageFamily != "oracle-linux-8" {
+			t.Errorf("Expected ImageFamily to match, got %s", proto.ImageFamily)
+		}
+		if proto.FreeFormTags["env"] != "prod" {
+			t.Errorf("Expected FreeFormTags[env]=prod, got %v", proto.FreeFormTags)
+		}
+		if proto.BootConfig == nil || proto.BootConfig.BootVolumeSizeInGbs != 100 || proto.BootConfig.BootVolumeVpusPerGb != 10 {
+			t.Errorf("Expected BootConfig with size=100 vpus=10, got %v", proto.BootConfig)
+		}
+		if proto.LaunchOptions == nil || proto.LaunchOptions.BootVolumeType == nil || *proto.LaunchOptions.BootVolumeType != "PARAVIRTUALIZED" {
+			t.Errorf("Expected LaunchOptions.BootVolumeType=PARAVIRTUALIZED, got %v", proto.LaunchOptions)
+		}
+		if proto.LaunchOptions.IsConsistentVolumeNamingEnabled == nil || !*proto.LaunchOptions.IsConsistentVolumeNamingEnabled {
+			t.Error("Expected IsConsistentVolumeNamingEnabled=true")
+		}
+		if len(proto.BlockDevices) != 1 || proto.BlockDevices[0].SizeInGbs != 50 || proto.BlockDevices[0].VpusPerGb != 10 {
+			t.Errorf("Expected 1 block device with size=50 vpus=10, got %v", proto.BlockDevices)
+		}
+		if len(proto.AgentList) != 1 || proto.AgentList[0] != "bastion" {
+			t.Errorf("Expected AgentList=[bastion], got %v", proto.AgentList)
+		}
+	})
+
+	t.Run("OCINodeClass_FromProto", func(t *testing.T) {
+		userData := "#!/bin/bash\necho hi"
+		bootVolType := "PARAVIRTUALIZED"
+		consistentNaming := true
+		proto := &apiv1.OCINodeClassSpec{
+			VcnId: "ocid1.vcn.oc1..aaaa",
+			ImageSelector: []*apiv1.OCIImageSelectorTerm{
+				{Id: "ocid1.image.oc1..bbbb"},
+			},
+			UserData:     &userData,
+			ImageFamily:  "oracle-linux-8",
+			FreeFormTags: map[string]string{"env": "prod"},
+			BootConfig: &apiv1.OCIBootConfig{
+				BootVolumeSizeInGbs: 100,
+				BootVolumeVpusPerGb: 10,
+			},
+			LaunchOptions: &apiv1.OCILaunchOptions{
+				BootVolumeType:                  &bootVolType,
+				IsConsistentVolumeNamingEnabled: &consistentNaming,
+			},
+			BlockDevices: []*apiv1.OCIVolumeAttributes{
+				{SizeInGbs: 50, VpusPerGb: 10},
+			},
+			AgentList: []string{"bastion"},
+		}
+		oci := ociNodeClassFromProto(proto)
+		if oci.VcnId.ValueString() != "ocid1.vcn.oc1..aaaa" {
+			t.Errorf("Expected VcnId to round-trip, got %s", oci.VcnId.ValueString())
+		}
+		if len(oci.ImageSelector.Elements()) != 1 {
+			t.Errorf("Expected 1 image selector, got %d", len(oci.ImageSelector.Elements()))
+		}
+		if oci.UserData.ValueString() != userData {
+			t.Errorf("Expected UserData to round-trip, got %s", oci.UserData.ValueString())
+		}
+		if oci.BootConfig == nil || oci.BootConfig.BootVolumeSizeInGbs.ValueInt64() != 100 {
+			t.Errorf("Expected BootConfig to round-trip, got %v", oci.BootConfig)
+		}
+		if oci.LaunchOptions == nil || oci.LaunchOptions.BootVolumeType.ValueString() != "PARAVIRTUALIZED" {
+			t.Errorf("Expected LaunchOptions to round-trip, got %v", oci.LaunchOptions)
+		}
+		if !oci.LaunchOptions.IsConsistentVolumeNamingEnabled.ValueBool() {
+			t.Error("Expected IsConsistentVolumeNamingEnabled=true")
+		}
+		if len(oci.BlockDevices.Elements()) != 1 {
+			t.Errorf("Expected 1 block device, got %d", len(oci.BlockDevices.Elements()))
+		}
+		if len(oci.AgentList.Elements()) != 1 {
+			t.Errorf("Expected 1 agent, got %d", len(oci.AgentList.Elements()))
+		}
+	})
+
+	t.Run("OCISpecEmpty", func(t *testing.T) {
+		if !isOCISpecEmpty(nil) {
+			t.Error("Expected nil spec to be empty")
+		}
+		if !isOCISpecEmpty(&apiv1.OCINodeClassSpec{}) {
+			t.Error("Expected zero-value spec to be empty")
+		}
+		if isOCISpecEmpty(&apiv1.OCINodeClassSpec{VcnId: "ocid1.vcn.oc1..aaaa"}) {
+			t.Error("Expected spec with VcnId to be non-empty")
+		}
+	})
 }
 
 func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
@@ -1038,11 +1529,11 @@ func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
 		"description", "weight",
 		"instance_categories", "instance_families", "instance_cpus",
 		"instance_hypervisors", "instance_generations", "instance_sizes",
-		"instance_types",
+		"instance_types", "instance_shapes",
 		"zones", "architectures", "capacity_types", "operating_systems",
 		"labels", "taints", "disruption", "limits",
 		"node_pool_name", "node_class_name",
-		"aws", "azure", "raw",
+		"aws", "azure", "gcp", "oci", "raw",
 	}
 	for _, attr := range optionalAttrs {
 		if _, exists := schema.Attributes[attr]; !exists {
@@ -1053,6 +1544,7 @@ func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
 	// Validate tooltip fields exist
 	tooltipAttrs := []string{
 		"instance_categories_tip", "instance_families_tip", "instance_cpus_tip",
+		"instance_shapes_tip", "instance_local_nvme_tip", "startup_taints_tip",
 		"zones_tip", "architectures_tip", "capacity_type_tip", "operating_systems_tip",
 		"taints_tip", "disruptions_tip", "limits_tip",
 	}
@@ -1069,5 +1561,13 @@ func validateNodePolicySchema(t *testing.T, schema schema.Schema) {
 
 	if _, exists := schema.Attributes["azure"]; !exists {
 		t.Error("Azure configuration not found in schema")
+	}
+
+	if _, exists := schema.Attributes["gcp"]; !exists {
+		t.Error("GCP configuration not found in schema")
+	}
+
+	if _, exists := schema.Attributes["oci"]; !exists {
+		t.Error("OCI configuration not found in schema")
 	}
 }

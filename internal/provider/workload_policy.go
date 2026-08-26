@@ -69,9 +69,10 @@ type WorkloadPolicyResourceModel struct {
 	EnablePmaxProtection    types.Bool                `tfsdk:"enable_pmax_protection"`
 	PmaxRatioThreshold      types.Float32             `tfsdk:"pmax_ratio_threshold"`
 
-	EnableInPlaceVerticalScaling    types.Bool `tfsdk:"enable_in_place_vertical_scaling"`
-	AllowInPlaceMemoryLimitDecrease types.Bool `tfsdk:"allow_in_place_memory_limit_decrease"`
-	PdbEnabled                      types.Bool `tfsdk:"pdb_enabled"`
+	EnableInPlaceVerticalScaling    types.Bool              `tfsdk:"enable_in_place_vertical_scaling"`
+	AllowInPlaceMemoryLimitDecrease types.Bool              `tfsdk:"allow_in_place_memory_limit_decrease"`
+	PdbEnabled                      types.Bool              `tfsdk:"pdb_enabled"`
+	EmergencyResponse               *EmergencyResponseModel `tfsdk:"emergency_response"`
 
 	CpuFloorPercent           types.Int64 `tfsdk:"cpu_floor_percent"`
 	CpuCeilingPercent         types.Int64 `tfsdk:"cpu_ceiling_percent"`
@@ -209,11 +210,15 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Description:         "Memory only: size the request from RSS instead of working set",
 				MarkdownDescription: "Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.",
 				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
 			},
 			"limit_use_rss": schema.BoolAttribute{
 				Description:         "Memory only: derive the limit from an RSS-based recommendation",
 				MarkdownDescription: "Memory only: when true, the limit is derived from an RSS-based recommendation instead of the working-set one (the limit multiplier still applies). Ignored for CPU/GPU.",
 				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
 			},
 		}
 	}
@@ -495,6 +500,11 @@ func (r *WorkloadPolicyResource) Schema(ctx context.Context, req resource.Schema
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 			},
+			"emergency_response": schema.SingleNestedAttribute{
+				Description: "Emergency response configuration for OOM and CPU throttle events",
+				Optional:    true,
+				Attributes:  emergencyResponseAttributes(),
+			},
 			"cpu_floor_percent": schema.Int64Attribute{
 				Description: "Floor for CPU requests as a percent of the initial request (1-100)",
 				Optional:    true,
@@ -630,7 +640,9 @@ func (r *WorkloadPolicyResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	plan := data
 	data.fromProto(createWorkloadPolicyResp.Msg.Policy)
+	data.preserveNullsFrom(&plan)
 
 	// Write logs using the tflog package
 	tflog.Trace(ctx, "created a resource")
@@ -669,7 +681,14 @@ func (r *WorkloadPolicyResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	prior := data
 	data.fromProto(getWorkloadPolicyResp.Msg.Policy)
+	if !prior.Name.IsNull() {
+		// prior.Name is only null right after import (ImportStatePassthroughID
+		// only sets id), where there is no real prior config to preserve nulls
+		// from and fromProto's result should be trusted as-is.
+		data.preserveNullsFrom(&prior)
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -706,7 +725,9 @@ func (r *WorkloadPolicyResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	plan := data
 	data.fromProto(updateWorkloadPolicyResp.Msg.Policy)
+	data.preserveNullsFrom(&plan)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -816,6 +837,7 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		EnableInPlaceVerticalScaling:    m.EnableInPlaceVerticalScaling.ValueBool(),
 		AllowInPlaceMemoryLimitDecrease: m.AllowInPlaceMemoryLimitDecrease.ValueBool(),
 		PdbEnabled:                      m.PdbEnabled.ValueBool(),
+		EmergencyResponse:               m.EmergencyResponse.toProto(),
 
 		CpuFloorPercent:           m.CpuFloorPercent.ValueInt64Pointer(),
 		CpuCeilingPercent:         m.CpuCeilingPercent.ValueInt64Pointer(),
@@ -835,6 +857,37 @@ func (m *WorkloadPolicyResourceModel) toProto(ctx context.Context, diags *diag.D
 		JvmMaxHeapBytes:              m.JvmMaxHeapBytes.ValueInt64Pointer(),
 		JvmPreferContainerSupport:    m.JvmPreferContainerSupport.ValueBool(),
 		JvmCpuStartupFloorMillicores: m.JvmCpuStartupFloorMillicores.ValueInt64Pointer(),
+	}
+}
+
+// preserveNullsFrom nils out fields that were null in plan (i.e. never
+// configured by the user), undoing any non-null value fromProto assigned to
+// them. This is necessary because the backend echoes back non-nil messages
+// with baseline defaults (e.g. min_data_points=15, enabled=false) for axes
+// the user never configured, and isVerticalScalingEmpty/isHorizontalScalingEmpty
+// key emptiness off Enabled alone — which means a deliberately-configured
+// block with enabled=false (or an axis whose enabled defaults to false, like
+// gpu_vertical_scaling and horizontal_scaling) would otherwise be collapsed
+// to null even though it's present in the plan. See preserveNullsFrom on
+// WorkloadRuleResourceModel for the same pattern.
+func (m *WorkloadPolicyResourceModel) preserveNullsFrom(plan *WorkloadPolicyResourceModel) {
+	if plan.CPUVerticalScaling == nil {
+		m.CPUVerticalScaling = nil
+	}
+	if plan.MemoryVerticalScaling == nil {
+		m.MemoryVerticalScaling = nil
+	}
+	if plan.GPUVerticalScaling == nil {
+		m.GPUVerticalScaling = nil
+	}
+	if plan.GPUVRAMVerticalScaling == nil {
+		m.GPUVRAMVerticalScaling = nil
+	}
+	if plan.HorizontalScaling == nil {
+		m.HorizontalScaling = nil
+	}
+	if plan.EmergencyResponse == nil {
+		m.EmergencyResponse = nil
 	}
 }
 
@@ -928,6 +981,7 @@ func (m *WorkloadPolicyResourceModel) fromProto(policy *apiv1.WorkloadRecommenda
 	m.EnableInPlaceVerticalScaling = types.BoolValue(policy.EnableInPlaceVerticalScaling)
 	m.AllowInPlaceMemoryLimitDecrease = types.BoolValue(policy.AllowInPlaceMemoryLimitDecrease)
 	m.PdbEnabled = types.BoolValue(policy.PdbEnabled)
+	m.EmergencyResponse = emergencyResponseFromProto(policy.EmergencyResponse)
 
 	m.CpuFloorPercent = types.Int64PointerValue(policy.CpuFloorPercent)
 	m.CpuCeilingPercent = types.Int64PointerValue(policy.CpuCeilingPercent)
@@ -971,8 +1025,18 @@ func (o *VerticalScalingOptions) toProto() *apiv1.VerticalScalingOptimizationTar
 	}
 }
 
+// isVerticalScalingEmpty reports whether the API returned an unset scaling
+// block. The backend echoes back a non-nil message with baseline defaults
+// (e.g. min_data_points=15) on every axis regardless of whether it was
+// configured, so field-by-field zero checks are unreliable — Enabled is the
+// only field the backend faithfully reports as unset for an axis the user
+// never configured.
+func isVerticalScalingEmpty(target *apiv1.VerticalScalingOptimizationTarget) bool {
+	return target == nil || !target.Enabled
+}
+
 func verticalScalingOptionsFromProto(target *apiv1.VerticalScalingOptimizationTarget) *VerticalScalingOptions {
-	if target == nil {
+	if isVerticalScalingEmpty(target) {
 		return nil
 	}
 	o := &VerticalScalingOptions{}
@@ -1007,8 +1071,8 @@ func verticalScalingOptionsFromProto(target *apiv1.VerticalScalingOptimizationTa
 	}
 	o.AdjustReqEvenIfNotSet = types.BoolValue(target.AdjustReqEvenIfNotSet)
 	o.LimitsRemovalEnabled = types.BoolValue(target.LimitsRemovalEnabled)
-	o.RequestUseRss = types.BoolPointerValue(target.RequestUseRss)
-	o.LimitUseRss = types.BoolPointerValue(target.LimitUseRss)
+	o.RequestUseRss = types.BoolValue(target.RequestUseRss != nil && *target.RequestUseRss)
+	o.LimitUseRss = types.BoolValue(target.LimitUseRss != nil && *target.LimitUseRss)
 	return o
 }
 
@@ -1032,8 +1096,15 @@ func (o *HorizontalScalingOptions) toProto() *apiv1.HorizontalScalingOptimizatio
 	}
 }
 
+// isHorizontalScalingEmpty reports whether the API returned an unset
+// horizontal scaling block (see isVerticalScalingEmpty for why this check
+// is necessary).
+func isHorizontalScalingEmpty(target *apiv1.HorizontalScalingOptimizationTarget) bool {
+	return target == nil || !target.Enabled
+}
+
 func horizontalScalingOptionsFromProto(target *apiv1.HorizontalScalingOptimizationTarget) *HorizontalScalingOptions {
-	if target == nil {
+	if isHorizontalScalingEmpty(target) {
 		return nil
 	}
 	o := &HorizontalScalingOptions{}
