@@ -1146,23 +1146,21 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 		}
 	})
 
-	// ---------- preserveNullsFrom ----------
+	// ---------- fromProto hydration (cpu_rule/memory_rule/gpu_rule/hpa_rule/
+	// emergency_response/cooldown_minutes/startup_period_seconds/
+	// cron_schedule/defragmentation_schedule/containers are all
+	// Optional+Computed with no Default: fromProto must always mirror the
+	// real backend value, regardless of what a prior plan or state held.
+	// These fields used to be gated by a preserveNullsFrom() step that
+	// nulled them out whenever a *reference* model (the plan on
+	// Create/Update, the prior state on Read) had them null — which
+	// silently dropped real backend data on the very first Read after
+	// `terraform import`, since an import-shaped prior state has
+	// everything but `id` null. Making the fields Computed lets
+	// Terraform's own Optional+Computed carry-forward semantics keep
+	// later plans stable instead. ----------
 
-	t.Run("PreserveNullsFrom_RestoresNullOptionals", func(t *testing.T) {
-		// Simulate plan: only hpa_rule set, everything else null/nil
-		plan := WorkloadRuleResourceModel{
-			CpuRule:              nil,
-			MemoryRule:           nil,
-			GpuRule:              nil,
-			EmergencyResponse:    nil,
-			ActionTriggers:       types.ListNull(types.StringType),
-			DetectionTriggers:    types.ListNull(types.StringType),
-			SchedulerPlugins:     types.ListNull(types.StringType),
-			CooldownMinutes:      types.Int32Null(),
-			StartupPeriodSeconds: types.Int64Null(),
-		}
-
-		// Simulate API response filling in server-side defaults
+	t.Run("FromProto_HydratesRealBackendValuesEvenWhenPreviouslyUnset", func(t *testing.T) {
 		cooldown := int32(15)
 		startupPeriod := int64(300)
 		apiRule := &apiv1.WorkloadRule{
@@ -1191,121 +1189,33 @@ func TestWorkloadRuleResourceModel(t *testing.T) {
 
 		var data WorkloadRuleResourceModel
 		data.fromProto(apiRule)
-		data.preserveNullsFrom(&plan)
 
-		// All fields that were null in the plan must remain null/nil after preserveNullsFrom
-		if data.CpuRule != nil {
-			t.Error("Expected CpuRule to be nil after preserveNullsFrom")
-		}
-		if data.MemoryRule != nil {
-			t.Error("Expected MemoryRule to be nil after preserveNullsFrom")
-		}
-		if data.GpuRule != nil {
-			t.Error("Expected GpuRule to be nil after preserveNullsFrom")
-		}
-		if data.EmergencyResponse != nil {
-			t.Error("Expected EmergencyResponse to be nil after preserveNullsFrom")
-		}
-		if !data.ActionTriggers.IsNull() {
-			t.Error("Expected ActionTriggers to be null after preserveNullsFrom")
-		}
-		if !data.DetectionTriggers.IsNull() {
-			t.Error("Expected DetectionTriggers to be null after preserveNullsFrom")
-		}
-		if !data.SchedulerPlugins.IsNull() {
-			t.Error("Expected SchedulerPlugins to be null after preserveNullsFrom")
-		}
-		if !data.CooldownMinutes.IsNull() {
-			t.Error("Expected CooldownMinutes to be null after preserveNullsFrom")
-		}
-		if !data.StartupPeriodSeconds.IsNull() {
-			t.Error("Expected StartupPeriodSeconds to be null after preserveNullsFrom")
-		}
-	})
-
-	t.Run("PreserveNullsFrom_KeepsSetFields", func(t *testing.T) {
-		// Plan has all optional fields explicitly set
-		plan := WorkloadRuleResourceModel{
-			CpuRule: &ResourceRuleConfigModel{
-				Enabled:                 types.BoolValue(true),
-				MinRequest:              types.Int64Value(100),
-				MaxRequest:              types.Int64Null(),
-				LimitMultiplier:         types.Float32Null(),
-				LimitsAdjustmentEnabled: types.BoolValue(false),
-				TargetPercentile:        types.Float32Null(),
-				MaxScaleUpPercent:       types.Float32Null(),
-				MaxScaleDownPercent:     types.Float32Null(),
-				LimitsRemovalEnabled:    types.BoolValue(false),
-			},
-			EmergencyResponse: &EmergencyResponseModel{
-				OomEnabled:              types.BoolValue(true),
-				OomMemoryMultiplier:     types.Float32Value(1.5),
-				OomMaxReactions:         types.Int32Value(5),
-				OomCooldownSeconds:      types.Int32Value(10),
-				CpuThrottlingEnabled:    types.BoolValue(true),
-				CpuThrottlingThreshold:  types.Float32Value(0.2),
-				CpuThrottlingMultiplier: types.Float32Value(1.25),
-			},
-			ActionTriggers: types.ListValueMust(types.StringType, []attr.Value{
-				types.StringValue("on_detection"),
-			}),
-			DetectionTriggers:    types.ListValueMust(types.StringType, []attr.Value{}),
-			SchedulerPlugins:     types.ListValueMust(types.StringType, []attr.Value{}),
-			CooldownMinutes:      types.Int32Value(30),
-			StartupPeriodSeconds: types.Int64Value(120),
-		}
-
-		cooldown := int32(30)
-		startupPeriod := int64(120)
-		apiRule := &apiv1.WorkloadRule{
-			RuleId:               "rule-full",
-			ClusterId:            "cluster-1",
-			Namespace:            "default",
-			Kind:                 "Deployment",
-			Name:                 "my-app",
-			CurrentSource:        "manual",
-			CooldownMinutes:      &cooldown,
-			StartupPeriodSeconds: &startupPeriod,
-			CpuRule:              &apiv1.ResourceRuleConfig{Enabled: true},
-			EmergencyResponse: &apiv1.EmergencyResponseConfig{
-				OomEnabled:           true,
-				OomMemoryMultiplier:  1.5,
-				OomMaxReactions:      5,
-				OomCooldownSeconds:   10,
-				CpuThrottlingEnabled: true,
-			},
-			ActionTriggers: []apiv1.ActionTrigger{
-				apiv1.ActionTrigger_ACTION_TRIGGER_ON_DETECTION,
-			},
-			DetectionTriggers: []apiv1.WorkloadDetectionTrigger{},
-			SchedulerPlugins:  []string{},
-		}
-
-		var data WorkloadRuleResourceModel
-		data.fromProto(apiRule)
-		data.preserveNullsFrom(&plan)
-
-		// Fields set in the plan must NOT be wiped
 		if data.CpuRule == nil {
-			t.Error("Expected CpuRule to remain non-nil")
+			t.Error("Expected CpuRule to be hydrated from the real API value")
+		}
+		if data.MemoryRule == nil {
+			t.Error("Expected MemoryRule to be hydrated from the real API value")
+		}
+		if data.GpuRule == nil {
+			t.Error("Expected GpuRule to be hydrated from the real API value")
 		}
 		if data.EmergencyResponse == nil {
-			t.Error("Expected EmergencyResponse to remain non-nil")
+			t.Error("Expected EmergencyResponse to be hydrated from the real API value")
 		}
 		if data.ActionTriggers.IsNull() {
-			t.Error("Expected ActionTriggers to remain non-null")
+			t.Error("Expected ActionTriggers to be hydrated (non-null)")
 		}
-		if data.CooldownMinutes.IsNull() {
-			t.Error("Expected CooldownMinutes to remain non-null")
+		if data.DetectionTriggers.IsNull() {
+			t.Error("Expected DetectionTriggers to be hydrated (non-null)")
 		}
-		if data.CooldownMinutes.ValueInt32() != 30 {
-			t.Errorf("Expected CooldownMinutes=30, got %d", data.CooldownMinutes.ValueInt32())
+		if data.SchedulerPlugins.IsNull() {
+			t.Error("Expected SchedulerPlugins to be hydrated (non-null)")
 		}
-		if data.StartupPeriodSeconds.IsNull() {
-			t.Error("Expected StartupPeriodSeconds to remain non-null")
+		if data.CooldownMinutes.IsNull() || data.CooldownMinutes.ValueInt32() != 15 {
+			t.Errorf("Expected CooldownMinutes=15, got %v", data.CooldownMinutes)
 		}
-		if data.StartupPeriodSeconds.ValueInt64() != 120 {
-			t.Errorf("Expected StartupPeriodSeconds=120, got %d", data.StartupPeriodSeconds.ValueInt64())
+		if data.StartupPeriodSeconds.IsNull() || data.StartupPeriodSeconds.ValueInt64() != 300 {
+			t.Errorf("Expected StartupPeriodSeconds=300, got %v", data.StartupPeriodSeconds)
 		}
 	})
 

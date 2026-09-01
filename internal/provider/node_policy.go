@@ -226,6 +226,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
+				PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 			},
 			"weight": schema.Int32Attribute{
 				Description:         "Priority weight for this node policy",
@@ -233,6 +234,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Optional:            true,
 				Computed:            true,
 				Default:             int32default.StaticInt32(10),
+				PlanModifiers:       []planmodifier.Int32{preserveInt32StateOverDefault()},
 			},
 			// Instance selector fields with LabelSelector
 			"instance_categories":  labelSelectorAttribute("Instance categories selector (e.g., D for Azure, m for AWS)"),
@@ -316,22 +318,25 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
 					"respect_zonal_shift": schema.BoolAttribute{
-						Description: "Master opt-in. When false the other fields are ignored",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "Master opt-in. When false the other fields are ignored",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"evict_impacted_nodes": schema.BoolAttribute{
-						Description: "Also terminate existing nodes in the impacted zone (respects PDBs)",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "Also terminate existing nodes in the impacted zone (respects PDBs)",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"allow_zone_fallback": schema.BoolAttribute{
-						Description: "Expand a single-zone policy to other zones when its zone is impacted",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "Expand a single-zone policy to other zones when its zone is impacted",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 				},
 			},
@@ -352,6 +357,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString("15m"),
+						PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 					},
 					"consolidation_policy": schema.StringAttribute{
 						Description:         "Consolidation policy (WhenEmpty, WhenEmptyOrUnderutilized)",
@@ -359,6 +365,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString("WhenEmptyOrUnderutilized"),
+						PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 					},
 					"expire_after": schema.StringAttribute{
 						Description:         "Duration after which nodes expire",
@@ -366,18 +373,21 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString("720h"),
+						PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 					},
 					"ttl_seconds_after_empty": schema.Int32Attribute{
-						Description: "Seconds to wait before terminating empty nodes",
-						Optional:    true,
-						Computed:    true,
-						Default:     int32default.StaticInt32(0),
+						Description:   "Seconds to wait before terminating empty nodes",
+						Optional:      true,
+						Computed:      true,
+						Default:       int32default.StaticInt32(0),
+						PlanModifiers: []planmodifier.Int32{preserveInt32StateOverDefault()},
 					},
 					"termination_grace_period_seconds": schema.Int32Attribute{
-						Description: "Grace period for node termination",
-						Optional:    true,
-						Computed:    true,
-						Default:     int32default.StaticInt32(0),
+						Description:   "Grace period for node termination",
+						Optional:      true,
+						Computed:      true,
+						Default:       int32default.StaticInt32(0),
+						PlanModifiers: []planmodifier.Int32{preserveInt32StateOverDefault()},
 					},
 					"budgets": schema.ListNestedAttribute{
 						Description: "Disruption budgets",
@@ -432,22 +442,25 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"limits_tip":      tooltipAttribute("Tooltip for limits"),
 			// Karpenter naming
 			"master_override_role_name": schema.StringAttribute{
-				Description: "Master override role name for Karpenter",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString(""),
+				Description:   "Master override role name for Karpenter",
+				Optional:      true,
+				Computed:      true,
+				Default:       stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{preserveStringStateOverDefault()},
 			},
 			"node_pool_name": schema.StringAttribute{
-				Description: "Node pool name",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString(""),
+				Description:   "Node pool name",
+				Optional:      true,
+				Computed:      true,
+				Default:       stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{preserveStringStateOverDefault()},
 			},
 			"node_class_name": schema.StringAttribute{
-				Description: "Node class name",
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString(""),
+				Description:   "Node class name",
+				Optional:      true,
+				Computed:      true,
+				Default:       stringdefault.StaticString(""),
+				PlanModifiers: []planmodifier.String{preserveStringStateOverDefault()},
 			},
 			// AWS provider configuration
 			"aws": schema.SingleNestedAttribute{
@@ -599,16 +612,18 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 						Optional:            true,
 					},
 					"detailed_monitoring": schema.BoolAttribute{
-						Description: "Enable detailed CloudWatch monitoring",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "Enable detailed CloudWatch monitoring",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"associate_public_ip_address": schema.BoolAttribute{
-						Description: "Associate public IP address with instances",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "Associate public IP address with instances",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"metadata_options": schema.SingleNestedAttribute{
 						Description:         "EC2 instance metadata service (IMDS) options",
@@ -622,6 +637,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 								Optional:            true,
 								Computed:            true,
 								Default:             stringdefault.StaticString("enabled"),
+								PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 							},
 							"http_protocol_ipv6": schema.StringAttribute{
 								Description:         "Enable or disable IPv6 endpoint",
@@ -629,6 +645,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 								Optional:            true,
 								Computed:            true,
 								Default:             stringdefault.StaticString("disabled"),
+								PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 							},
 							"http_put_response_hop_limit": schema.Int64Attribute{
 								Description:         "Desired HTTP PUT response hop limit for instance metadata requests",
@@ -636,6 +653,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 								Optional:            true,
 								Computed:            true,
 								Default:             int64default.StaticInt64(2),
+								PlanModifiers:       []planmodifier.Int64{preserveInt64StateOverDefault()},
 							},
 							"http_tokens": schema.StringAttribute{
 								Description:         "Whether or not the metadata service requires session tokens (IMDSv2)",
@@ -643,6 +661,7 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 								Optional:            true,
 								Computed:            true,
 								Default:             stringdefault.StaticString("required"),
+								PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 							},
 						},
 					},
@@ -834,16 +853,18 @@ func (r *NodePolicyResource) Schema(ctx context.Context, req resource.SchemaRequ
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"nodepool_yaml": schema.StringAttribute{
-							Description: "Raw NodePool YAML",
-							Optional:    true,
-							Computed:    true,
-							Default:     stringdefault.StaticString(""),
+							Description:   "Raw NodePool YAML",
+							Optional:      true,
+							Computed:      true,
+							Default:       stringdefault.StaticString(""),
+							PlanModifiers: []planmodifier.String{preserveStringStateOverDefault()},
 						},
 						"nodeclass_yaml": schema.StringAttribute{
-							Description: "Raw NodeClass YAML",
-							Optional:    true,
-							Computed:    true,
-							Default:     stringdefault.StaticString(""),
+							Description:   "Raw NodeClass YAML",
+							Optional:      true,
+							Computed:      true,
+							Default:       stringdefault.StaticString(""),
+							PlanModifiers: []planmodifier.String{preserveStringStateOverDefault()},
 						},
 					},
 				},
@@ -2568,7 +2589,8 @@ func isAzureSpecEmpty(spec *apiv1.AzureNodeClassSpec) bool {
 		spec.FipsMode == nil &&
 		spec.Tags == nil &&
 		spec.Kubelet == nil &&
-		spec.MaxPods == nil
+		spec.MaxPods == nil &&
+		spec.ImageVersion == nil
 }
 
 func azureNodeClassFromProto(spec *apiv1.AzureNodeClassSpec) *AzureNodeClass {

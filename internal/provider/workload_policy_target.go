@@ -164,6 +164,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
+				PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 			},
 			"priority": schema.Int32Attribute{
 				Description:         "Evaluation priority among multiple targets",
@@ -171,6 +172,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Optional:            true,
 				Computed:            true,
 				Default:             int32default.StaticInt32(0),
+				PlanModifiers:       []planmodifier.Int32{preserveInt32StateOverDefault()},
 			},
 			"enabled": schema.BoolAttribute{
 				Description:         "Enable or disable this target",
@@ -178,6 +180,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(true),
+				PlanModifiers:       []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"namespace_selector": schema.SingleNestedAttribute{
 				Description:         "Select namespaces by labels",
@@ -198,6 +201,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				PlanModifiers:       []planmodifier.List{preserveListStateOverDefault()},
 			},
 			"name_pattern": schema.SingleNestedAttribute{
 				Description:         "Regex to match workload names",
@@ -218,6 +222,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				PlanModifiers:       []planmodifier.List{preserveListStateOverDefault()},
 			},
 			"workload_names_not_in": schema.ListAttribute{
 				Description:         "Explicit list of workload names to exclude",
@@ -226,6 +231,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				PlanModifiers:       []planmodifier.List{preserveListStateOverDefault()},
 			},
 			"kind_filter_not_in": schema.ListAttribute{
 				Description:         "Kubernetes kinds to exclude from matching",
@@ -234,6 +240,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				PlanModifiers:       []planmodifier.List{preserveListStateOverDefault()},
 			},
 			"annotation_selector": schema.SingleNestedAttribute{
 				Description:         "Select workloads by annotations",
@@ -248,6 +255,7 @@ func (r *WorkloadPolicyTargetResource) Schema(ctx context.Context, req resource.
 				ElementType:         types.StringType,
 				Computed:            true,
 				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				PlanModifiers:       []planmodifier.List{preserveListStateOverDefault()},
 				DeprecationMessage:  "node_group_names is deprecated by the DevZero API and no longer evaluated.",
 			},
 			"cluster_ids": schema.ListAttribute{
