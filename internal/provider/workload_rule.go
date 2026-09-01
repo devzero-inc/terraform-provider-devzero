@@ -15,6 +15,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -204,10 +209,11 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 	resourceRuleConfigAttributes := func() map[string]schema.Attribute {
 		return map[string]schema.Attribute{
 			"enabled": schema.BoolAttribute{
-				Description: "Enable this resource axis rule",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Enable this resource axis rule",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"min_request": schema.Int64Attribute{
 				Description: "Minimum resource request (millicores for CPU, bytes for memory/GPU)",
@@ -222,10 +228,11 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 			},
 			"limits_adjustment_enabled": schema.BoolAttribute{
-				Description: "Whether to also adjust resource limits alongside requests",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Whether to also adjust resource limits alongside requests",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"target_percentile": schema.Float32Attribute{
 				Description: "Percentile of usage data used as the recommendation target (0-1)",
@@ -240,10 +247,11 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 			},
 			"limits_removal_enabled": schema.BoolAttribute{
-				Description: "Actively remove limits from workloads",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Actively remove limits from workloads",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"initial_request": schema.Int64Attribute{
 				Description: "Baseline request the floor/ceiling percents are computed against",
@@ -287,10 +295,11 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 	containerResourceConfigAttributes := func() map[string]schema.Attribute {
 		return map[string]schema.Attribute{
 			"enabled": schema.BoolAttribute{
-				Description: "Enable this resource axis rule",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Enable this resource axis rule",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"min_request": schema.Int64Attribute{
 				Description: "Minimum resource request",
@@ -305,20 +314,22 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 			},
 			"limits_adjustment_enabled": schema.BoolAttribute{
-				Description: "Whether to also adjust resource limits alongside requests",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Whether to also adjust resource limits alongside requests",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"target_percentile": schema.Float32Attribute{
 				Description: "Percentile of usage data used as the recommendation target (0-1)",
 				Optional:    true,
 			},
 			"limits_removal_enabled": schema.BoolAttribute{
-				Description: "Actively remove limits from workloads",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Actively remove limits from workloads",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"request_use_rss": schema.BoolAttribute{
 				Description: "Memory only: size the request from RSS instead of working set",
@@ -362,35 +373,45 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Required:    true,
 			},
 			"auto_generate": schema.BoolAttribute{
-				Description: "When true the engine generates all rule fields automatically; manual field overrides are ignored",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "When true the engine generates all rule fields automatically; manual field overrides are ignored",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"cpu_rule": schema.SingleNestedAttribute{
-				Description: "CPU vertical scaling rule configuration",
-				Optional:    true,
-				Attributes:  resourceRuleConfigAttributes(),
+				Description:   "CPU vertical scaling rule configuration",
+				Optional:      true,
+				Computed:      true,
+				Attributes:    resourceRuleConfigAttributes(),
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 			},
 			"memory_rule": schema.SingleNestedAttribute{
-				Description: "Memory vertical scaling rule configuration",
-				Optional:    true,
-				Attributes:  resourceRuleConfigAttributes(),
+				Description:   "Memory vertical scaling rule configuration",
+				Optional:      true,
+				Computed:      true,
+				Attributes:    resourceRuleConfigAttributes(),
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 			},
 			"gpu_rule": schema.SingleNestedAttribute{
-				Description: "GPU vertical scaling rule configuration",
-				Optional:    true,
-				Attributes:  resourceRuleConfigAttributes(),
+				Description:   "GPU vertical scaling rule configuration",
+				Optional:      true,
+				Computed:      true,
+				Attributes:    resourceRuleConfigAttributes(),
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 			},
 			"hpa_rule": schema.SingleNestedAttribute{
-				Description: "Horizontal (replica) scaling rule configuration",
-				Optional:    true,
+				Description:   "Horizontal (replica) scaling rule configuration",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"enabled": schema.BoolAttribute{
-						Description: "Enable horizontal (replica) scaling",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "Enable horizontal (replica) scaling",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"min_replicas": schema.Int32Attribute{
 						Description: "Minimum number of replicas",
@@ -490,14 +511,17 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"emergency_response": schema.SingleNestedAttribute{
-				Description: "Emergency response configuration for OOM and CPU throttle events",
-				Optional:    true,
+				Description:   "Emergency response configuration for OOM and CPU throttle events",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"oom_enabled": schema.BoolAttribute{
-						Description: "React to OOM kills by increasing memory",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "React to OOM kills by increasing memory",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"oom_memory_multiplier": schema.Float32Attribute{
 						Description: "Multiplier applied to memory on OOM",
@@ -514,10 +538,11 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 						Computed:    true,
 					},
 					"cpu_throttling_enabled": schema.BoolAttribute{
-						Description: "React to CPU throttling by increasing CPU request",
-						Optional:    true,
-						Computed:    true,
-						Default:     booldefault.StaticBool(false),
+						Description:   "React to CPU throttling by increasing CPU request",
+						Optional:      true,
+						Computed:      true,
+						Default:       booldefault.StaticBool(false),
+						PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 					},
 					"cpu_throttling_threshold": schema.Float32Attribute{
 						Description: "Throttle ratio threshold that triggers a reaction (0-1)",
@@ -532,7 +557,12 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"action_triggers": schema.ListAttribute{
 				Description: "When to apply recommendations. Valid values: 'on_detection', 'on_schedule'",
 				Optional:    true,
+				Computed:    true,
 				ElementType: types.StringType,
+				Default: listdefault.StaticValue(
+					types.ListValueMust(types.StringType, []attr.Value{}),
+				),
+				PlanModifiers: []planmodifier.List{preserveListStateOverDefault()},
 				Validators: []validator.List{
 					listvalidator.NoNullValues(),
 					listvalidator.UniqueValues(),
@@ -540,21 +570,32 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"startup_period_seconds": schema.Int64Attribute{
-				Description: "Seconds after workload start to exclude from usage data",
-				Optional:    true,
+				Description:   "Seconds after workload start to exclude from usage data",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"cron_schedule": schema.StringAttribute{
-				Description: "Cron expression for scheduled application (5-field UTC)",
-				Optional:    true,
+				Description:   "Cron expression for scheduled application (5-field UTC)",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"cooldown_minutes": schema.Int32Attribute{
-				Description: "Minimum minutes between consecutive recommendation applications",
-				Optional:    true,
+				Description:   "Minimum minutes between consecutive recommendation applications",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Int32{int32planmodifier.UseStateForUnknown()},
 			},
 			"detection_triggers": schema.ListAttribute{
 				Description: "Events that trigger a recommendation. Valid values: 'pod_creation', 'pod_update'",
 				Optional:    true,
+				Computed:    true,
 				ElementType: types.StringType,
+				Default: listdefault.StaticValue(
+					types.ListValueMust(types.StringType, []attr.Value{}),
+				),
+				PlanModifiers: []planmodifier.List{preserveListStateOverDefault()},
 				Validators: []validator.List{
 					listvalidator.NoNullValues(),
 					listvalidator.UniqueValues(),
@@ -564,27 +605,36 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 			"scheduler_plugins": schema.ListAttribute{
 				Description: "Kubernetes scheduler plugins to activate",
 				Optional:    true,
+				Computed:    true,
 				ElementType: types.StringType,
+				Default: listdefault.StaticValue(
+					types.ListValueMust(types.StringType, []attr.Value{}),
+				),
+				PlanModifiers: []planmodifier.List{preserveListStateOverDefault()},
 				Validators: []validator.List{
 					listvalidator.NoNullValues(),
 					listvalidator.UniqueValues(),
 				},
 			},
 			"defragmentation_schedule": schema.StringAttribute{
-				Description: "Cron expression for node defragmentation",
-				Optional:    true,
+				Description:   "Cron expression for node defragmentation",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"live_migration_enabled": schema.BoolAttribute{
-				Description: "Allow live pod migration when applying recommendations",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Allow live pod migration when applying recommendations",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"use_in_place_vertical_scaling": schema.BoolAttribute{
-				Description: "Use in-place pod vertical scaling instead of pod restarts",
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
+				Description:   "Use in-place pod vertical scaling instead of pod restarts",
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"disabled": schema.BoolAttribute{
 				Description:         "Create the rule in a disabled state",
@@ -592,6 +642,7 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+				PlanModifiers:       []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"lookback_period_seconds": schema.Int32Attribute{
 				Description:         "Per-rule override of the metrics lookback window (seconds)",
@@ -600,8 +651,10 @@ func (r *WorkloadRuleResource) Schema(ctx context.Context, req resource.SchemaRe
 				Validators:          []validator.Int32{int32validator.Between(3600, 2592000)},
 			},
 			"containers": schema.ListNestedAttribute{
-				Description: "Per-container resource rule configurations. When empty, workload-level rules apply to all containers.",
-				Optional:    true,
+				Description:   "Per-container resource rule configurations. When empty, workload-level rules apply to all containers.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"container_name": schema.StringAttribute{
@@ -670,9 +723,7 @@ func (r *WorkloadRuleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	plan := data
 	data.fromProto(upsertResp.Msg.Rule)
-	data.preserveNullsFrom(&plan)
 
 	tflog.Trace(ctx, "created a workload rule resource")
 
@@ -704,9 +755,7 @@ func (r *WorkloadRuleResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	prior := data
 	data.fromProto(getRuleResp.Msg.Rule)
-	data.preserveNullsFrom(&prior)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -758,9 +807,7 @@ func (r *WorkloadRuleResource) Update(ctx context.Context, req resource.UpdateRe
 		}
 	}
 
-	plan := data
 	data.fromProto(upsertResp.Msg.Rule)
-	data.preserveNullsFrom(&plan)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -891,48 +938,6 @@ func (m *WorkloadRuleResourceModel) toProto(ctx context.Context, diags *diag.Dia
 
 	req.Fields = fields
 	return req
-}
-
-func (m *WorkloadRuleResourceModel) preserveNullsFrom(plan *WorkloadRuleResourceModel) {
-	if plan.CpuRule == nil {
-		m.CpuRule = nil
-	}
-	if plan.MemoryRule == nil {
-		m.MemoryRule = nil
-	}
-	if plan.GpuRule == nil {
-		m.GpuRule = nil
-	}
-	if plan.HpaRule == nil {
-		m.HpaRule = nil
-	}
-	if plan.EmergencyResponse == nil {
-		m.EmergencyResponse = nil
-	}
-	if plan.ActionTriggers.IsNull() {
-		m.ActionTriggers = types.ListNull(types.StringType)
-	}
-	if plan.DetectionTriggers.IsNull() {
-		m.DetectionTriggers = types.ListNull(types.StringType)
-	}
-	if plan.SchedulerPlugins.IsNull() {
-		m.SchedulerPlugins = types.ListNull(types.StringType)
-	}
-	if plan.CooldownMinutes.IsNull() {
-		m.CooldownMinutes = types.Int32Null()
-	}
-	if plan.StartupPeriodSeconds.IsNull() {
-		m.StartupPeriodSeconds = types.Int64Null()
-	}
-	if plan.CronSchedule.IsNull() {
-		m.CronSchedule = types.StringNull()
-	}
-	if plan.DefragmentationSchedule.IsNull() {
-		m.DefragmentationSchedule = types.StringNull()
-	}
-	if plan.Containers == nil {
-		m.Containers = nil
-	}
 }
 
 func (m *WorkloadRuleResourceModel) fromProto(r *apiv1.WorkloadRule) {
