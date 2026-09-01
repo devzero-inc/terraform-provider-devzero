@@ -78,6 +78,7 @@ func (r *NodePolicyTargetResource) Schema(ctx context.Context, req resource.Sche
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString(""),
+				PlanModifiers:       []planmodifier.String{preserveStringStateOverDefault()},
 			},
 			"enabled": schema.BoolAttribute{
 				Description:         "Whether this target is active",
@@ -85,6 +86,7 @@ func (r *NodePolicyTargetResource) Schema(ctx context.Context, req resource.Sche
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(true),
+				PlanModifiers:       []planmodifier.Bool{preserveBoolStateOverDefault()},
 			},
 			"cluster_ids": schema.ListAttribute{
 				Description:         "Cluster ID to apply the node policy to (at most one)",
