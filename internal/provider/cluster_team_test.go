@@ -23,8 +23,8 @@ import (
 // runs them, so the schema's plan modifiers and ModifyPlan both apply.
 // ---------------------------------------------------------------------------
 
-// clusterValue builds a devzero_cluster object; an empty string is null.
-func clusterValue(t *testing.T, id, name, token, team string) tftypes.Value {
+// clusterValue builds the devzero_cluster object cl-1; an empty string is null.
+func clusterValue(t *testing.T, name, token, team string) tftypes.Value {
 	t.Helper()
 	s := func(v string) tftypes.Value {
 		if v == "" {
@@ -33,7 +33,7 @@ func clusterValue(t *testing.T, id, name, token, team string) tftypes.Value {
 		return tftypes.NewValue(tftypes.String, v)
 	}
 	return tftypes.NewValue(clusterObjectType(t), map[string]tftypes.Value{
-		"id": s(id), "name": s(name), "token": s(token), "team_id": s(team),
+		"id": s("cl-1"), "name": s(name), "token": s(token), "team_id": s(team),
 	})
 }
 
@@ -162,33 +162,33 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 		{
 			// Fails if the plan defaults team_id from the provider's team.
 			name: "state from today's release, not yet refreshed, plans no diff", providerTeam: "team-2",
-			prior: clusterValue(t, "cl-1", "prod", "tok", ""), configName: "prod", wantNoDiff: true,
+			prior: clusterValue(t, "prod", "tok", ""), configName: "prod", wantNoDiff: true,
 		},
 		{
 			// Fails if the plan defaults team_id from the provider's team.
 			name: "unset team after the provider's team changed plans no diff", providerTeam: "team-2",
-			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod", wantNoDiff: true,
+			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod", wantNoDiff: true,
 		},
 		{
 			// Fails if team_id loses UseStateForUnknown: a rename would plan it unknown.
 			name: "a rename keeps the stored team", providerTeam: "team-2",
-			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod-renamed", wantTeam: "team-1",
+			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod-renamed", wantTeam: "team-1",
 		},
 		{
 			// Fails if ModifyPlan refuses a team_id equal to the stored one.
 			name: "the stored team set explicitly plans no diff", providerTeam: "team-2",
-			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod", configTeam: "team-1", wantNoDiff: true,
+			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod", configTeam: "team-1", wantNoDiff: true,
 		},
 		{
 			// Fails if ModifyPlan drops the team_id check.
 			name: "a change of a known team is refused", providerTeam: "team-1",
-			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod", configTeam: "team-2", wantErr: true,
+			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod", configTeam: "team-2", wantErr: true,
 		},
 		{
 			// Fails if ModifyPlan lets an unknown team through: the apply would
 			// start the team it depends on before refusing the cluster's change.
 			name: "a team unknown until apply is refused on an existing cluster", providerTeam: "team-1",
-			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod", configTeam: unknownTeam, wantErr: true,
+			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod", configTeam: unknownTeam, wantErr: true,
 		},
 	}
 	for _, tc := range cases {
