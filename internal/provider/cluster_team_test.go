@@ -304,8 +304,8 @@ func TestCluster_EveryCallGoesToTheClustersTeam(t *testing.T) {
 
 	createResp := resource.CreateResponse{State: emptyState(t, r)}
 	r.Create(ctx, resource.CreateRequest{Plan: buildPlan[ClusterResourceModel](t, r, func(m *ClusterResourceModel) {
-		m.Name = stringVal("mnc2-prod")
-		m.TeamId = stringVal("team-mnc2")
+		m.Name = stringVal("acme-prod")
+		m.TeamId = stringVal("team-acme")
 	})}, &createResp)
 	mustNoDiags(t, "Create", createResp.Diagnostics)
 	var created ClusterResourceModel
@@ -313,8 +313,8 @@ func TestCluster_EveryCallGoesToTheClustersTeam(t *testing.T) {
 	h.backend.mu.Lock()
 	team := h.backend.clusterTeam[created.Id.ValueString()]
 	h.backend.mu.Unlock()
-	if team != "team-mnc2" || created.TeamId.ValueString() != "team-mnc2" {
-		t.Fatalf("cluster registered in %q with team_id %q, want team-mnc2", team, created.TeamId.ValueString())
+	if team != "team-acme" || created.TeamId.ValueString() != "team-acme" {
+		t.Fatalf("cluster registered in %q with team_id %q, want team-acme", team, created.TeamId.ValueString())
 	}
 
 	readResp := resource.ReadResponse{State: createResp.State}
@@ -325,9 +325,9 @@ func TestCluster_EveryCallGoesToTheClustersTeam(t *testing.T) {
 	r.Update(ctx, resource.UpdateRequest{
 		Plan: buildPlan[ClusterResourceModel](t, r, func(m *ClusterResourceModel) {
 			m.Id = created.Id
-			m.Name = stringVal("mnc2-prod-renamed")
+			m.Name = stringVal("acme-prod-renamed")
 			m.Token = created.Token
-			m.TeamId = stringVal("team-mnc2")
+			m.TeamId = stringVal("team-acme")
 		}),
 		State: readResp.State,
 	}, &updResp)

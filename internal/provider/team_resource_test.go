@@ -80,18 +80,18 @@ func teamState(t *testing.T, r *TeamResource, mutate func(*TeamResourceModel)) t
 	return tfsdk.State{Schema: p.Schema, Raw: p.Raw}
 }
 
-func startMNC2(m *TeamResourceModel) {
-	m.Name = stringVal("MNC2")
-	m.MemberEmails = stringSet("chaitanya@openobserve.ai", "admin@openobserve.ai")
-	m.AdminInviteEmails = stringSet("platform-admin@mnc2.example")
+func startAcme(m *TeamResourceModel) {
+	m.Name = stringVal("Acme")
+	m.MemberEmails = stringSet("alice@partner.example", "bob@partner.example")
+	m.AdminInviteEmails = stringSet("admin@acme.example")
 }
 
-// startTeam creates MNC2 through the resource and returns its state.
+// startTeam creates Acme through the resource and returns its state.
 func startTeam(t *testing.T, r *TeamResource) (tfsdk.State, TeamResourceModel) {
 	t.Helper()
 	ctx := context.Background()
 	resp := resource.CreateResponse{State: emptyState(t, r)}
-	r.Create(ctx, resource.CreateRequest{Plan: buildPlan[TeamResourceModel](t, r, startMNC2)}, &resp)
+	r.Create(ctx, resource.CreateRequest{Plan: buildPlan[TeamResourceModel](t, r, startAcme)}, &resp)
 	mustNoDiags(t, "Create", resp.Diagnostics)
 	var created TeamResourceModel
 	mustNoDiags(t, "State.Get", resp.State.Get(ctx, &created))
@@ -136,7 +136,7 @@ func TestTeamCreate_StartsTheTeamFromTheProvidersTeam(t *testing.T) {
 		// Fails if Create drops the provider's team_id or a field from the request.
 		{name: "every invite emailed"},
 		// Fails if Create ignores invites_not_sent or raises no warning for it.
-		{name: "an invite email refused", notSent: []string{"platform-admin@mnc2.example"}},
+		{name: "an invite email refused", notSent: []string{"admin@acme.example"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestTeamCreate_StartsTheTeamFromTheProvidersTeam(t *testing.T) {
 
 			ctx := context.Background()
 			resp := resource.CreateResponse{State: emptyState(t, r)}
-			r.Create(ctx, resource.CreateRequest{Plan: buildPlan[TeamResourceModel](t, r, startMNC2)}, &resp)
+			r.Create(ctx, resource.CreateRequest{Plan: buildPlan[TeamResourceModel](t, r, startAcme)}, &resp)
 			mustNoDiags(t, "Create", resp.Diagnostics)
 
 			h.backend.mu.Lock()
@@ -156,9 +156,9 @@ func TestTeamCreate_StartsTheTeamFromTheProvidersTeam(t *testing.T) {
 				t.Fatalf("CreateTeam calls: %d, want 1", len(reqs))
 			}
 			got := reqs[0]
-			if got.TeamId != "team-1" || got.Name != "MNC2" ||
-				!slices.Equal(got.MemberEmails, []string{"admin@openobserve.ai", "chaitanya@openobserve.ai"}) ||
-				!slices.Equal(got.AdminInviteEmails, []string{"platform-admin@mnc2.example"}) {
+			if got.TeamId != "team-1" || got.Name != "Acme" ||
+				!slices.Equal(got.MemberEmails, []string{"alice@partner.example", "bob@partner.example"}) ||
+				!slices.Equal(got.AdminInviteEmails, []string{"admin@acme.example"}) {
 				t.Fatalf("CreateTeam request: team_id=%q name=%q member_emails=%v admin_invite_emails=%v",
 					got.TeamId, got.Name, got.MemberEmails, got.AdminInviteEmails)
 			}
@@ -174,7 +174,7 @@ func TestTeamCreate_StartsTheTeamFromTheProvidersTeam(t *testing.T) {
 			if notSent := setStrings(t, created.InvitesNotSent); !slices.Equal(notSent, tc.notSent) {
 				t.Fatalf("invites_not_sent: %v, want %v", notSent, tc.notSent)
 			}
-			warned := hasDiag(resp.Diagnostics, diag.SeverityWarning, "platform-admin@mnc2.example")
+			warned := hasDiag(resp.Diagnostics, diag.SeverityWarning, "admin@acme.example")
 			if warned != (len(tc.notSent) > 0) {
 				t.Fatalf("warning naming the unsent invite: %v, want %v (%+v)", warned, len(tc.notSent) > 0, resp.Diagnostics)
 			}
@@ -197,9 +197,9 @@ func TestTeamCreate_RefusalSurfacesAsAnErrorAndWritesNoState(t *testing.T) {
 		{name: "service account starts from a team not its own", code: connect.CodePermissionDenied,
 			text: "a service account can start teams only from its own team"},
 		{name: "member email is not an Admin or Developer there", code: connect.CodeInvalidArgument,
-			text: "chaitanya@openobserve.ai is not a person with the Admin or Developer role in the team this one is started from"},
+			text: "alice@partner.example is not a person with the Admin or Developer role in the team this one is started from"},
 		{name: "admin invite to a person of the starting team", code: connect.CodeInvalidArgument,
-			text: "platform-admin@mnc2.example is in the team this one is started from and cannot be invited to it as Admin"},
+			text: "admin@acme.example is in the team this one is started from and cannot be invited to it as Admin"},
 		{name: "no person joins as Admin", code: connect.CodeInvalidArgument,
 			text: "a person must join the new team as Admin"},
 		{name: "blank name", code: connect.CodeInvalidArgument,
@@ -214,7 +214,7 @@ func TestTeamCreate_RefusalSurfacesAsAnErrorAndWritesNoState(t *testing.T) {
 			r := &TeamResource{client: h.cs}
 
 			resp := resource.CreateResponse{State: emptyState(t, r)}
-			r.Create(context.Background(), resource.CreateRequest{Plan: buildPlan[TeamResourceModel](t, r, startMNC2)}, &resp)
+			r.Create(context.Background(), resource.CreateRequest{Plan: buildPlan[TeamResourceModel](t, r, startAcme)}, &resp)
 			if !hasDiag(resp.Diagnostics, diag.SeverityError, tc.text) {
 				t.Fatalf("diagnostics %+v, want an error carrying %q", resp.Diagnostics, tc.text)
 			}
@@ -232,8 +232,8 @@ func TestTeamCreate_RefusalSurfacesAsAnErrorAndWritesNoState(t *testing.T) {
 func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 	started := func(m *TeamResourceModel) {
 		m.Id = stringVal("started-0001")
-		m.Name = stringVal("MNC2")
-		m.MemberEmails = stringSet("chaitanya@openobserve.ai")
+		m.Name = stringVal("Acme")
+		m.MemberEmails = stringSet("alice@partner.example")
 		m.InvitesNotSent = stringSet()
 	}
 	cases := []struct {
@@ -247,23 +247,23 @@ func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 		// Fails if ModifyPlan drops the name check.
 		{name: "renamed", prior: started, wantErrAt: "name", planned: func(m *TeamResourceModel) {
 			started(m)
-			m.Name = stringVal("MNC2 Production")
+			m.Name = stringVal("Acme Production")
 		}},
 		// Fails if ModifyPlan drops the member_emails check.
 		{name: "a member added", prior: started, wantErrAt: "member_emails", planned: func(m *TeamResourceModel) {
 			started(m)
-			m.MemberEmails = stringSet("chaitanya@openobserve.ai", "admin@openobserve.ai")
+			m.MemberEmails = stringSet("alice@partner.example", "bob@partner.example")
 		}},
 		// Fails if a null prior value alone lets a change through: this team was started without admin invites.
 		{name: "an admin invite added after a start without one", prior: started, wantErrAt: "admin_invite_emails", planned: func(m *TeamResourceModel) {
 			started(m)
-			m.AdminInviteEmails = stringSet("platform-admin@mnc2.example")
+			m.AdminInviteEmails = stringSet("admin@acme.example")
 		}},
 		// Fails if ModifyPlan refuses the configured values of an imported team.
 		{name: "an imported team takes the configured values", prior: func(m *TeamResourceModel) {
 			m.Id = stringVal("started-0001")
 		}, planned: func(m *TeamResourceModel) {
-			startMNC2(m)
+			startAcme(m)
 			m.Id = stringVal("started-0001")
 		}},
 	}
@@ -289,7 +289,7 @@ func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 func TestTeamImport_ThenApplyRecordsTheConfigurationWithoutACall(t *testing.T) {
 	ctx := context.Background()
 	h := newFakeClientSetT(t)
-	h.backend.teams["started-0042"] = &apiv1.Team{Id: "started-0042", Name: "MNC2 Inc"}
+	h.backend.teams["started-0042"] = &apiv1.Team{Id: "started-0042", Name: "Acme Inc"}
 	r := &TeamResource{client: h.cs}
 
 	importResp := resource.ImportStateResponse{State: emptyState(t, r)}
@@ -302,7 +302,7 @@ func TestTeamImport_ThenApplyRecordsTheConfigurationWithoutACall(t *testing.T) {
 	updResp := resource.UpdateResponse{State: readResp.State}
 	r.Update(ctx, resource.UpdateRequest{
 		Plan: buildPlan[TeamResourceModel](t, r, func(m *TeamResourceModel) {
-			startMNC2(m)
+			startAcme(m)
 			m.Id = stringVal("started-0042")
 		}),
 		State: readResp.State,
@@ -311,8 +311,8 @@ func TestTeamImport_ThenApplyRecordsTheConfigurationWithoutACall(t *testing.T) {
 
 	var got TeamResourceModel
 	mustNoDiags(t, "State.Get", updResp.State.Get(ctx, &got))
-	if got.Id.ValueString() != "started-0042" || got.Name.ValueString() != "MNC2" ||
-		!slices.Equal(setStrings(t, got.MemberEmails), []string{"admin@openobserve.ai", "chaitanya@openobserve.ai"}) {
+	if got.Id.ValueString() != "started-0042" || got.Name.ValueString() != "Acme" ||
+		!slices.Equal(setStrings(t, got.MemberEmails), []string{"alice@partner.example", "bob@partner.example"}) {
 		t.Fatalf("state after the import's apply: %+v", got)
 	}
 	h.backend.mu.Lock()
@@ -335,7 +335,7 @@ func TestTeamRead_KeepsStateAndNeverDropsTheTeam(t *testing.T) {
 	}{
 		// Fails if Read writes the team's current name over the one it was started with.
 		{name: "renamed by its Admins", arrange: func(h fakeHarness, id string) {
-			h.backend.teams[id].Name = "MNC2 Inc"
+			h.backend.teams[id].Name = "Acme Inc"
 		}},
 		// Fails if Read drops the team from state on NotFound, which would start a new team on the next apply.
 		{name: "gone", wantDetail: "removed blocks", arrange: func(h fakeHarness, id string) {
