@@ -1,0 +1,336 @@
+syntax = "proto3";
+
+package api.v1;
+
+option go_package = "github.com/devzero-inc/services/dakr/proto/api/v1;gen";
+
+import "google/protobuf/timestamp.proto";
+import "api/v1/user.proto";
+import "api/v1/common.proto";
+
+
+// Team service definition
+service TeamService {
+  // Team operations
+  rpc CreateTeam(CreateTeamRequest) returns (CreateTeamResponse);
+  rpc GetTeam(GetTeamRequest) returns (GetTeamResponse);
+  rpc UpdateTeam(UpdateTeamRequest) returns (UpdateTeamResponse);
+  rpc GetAllTeams(GetAllTeamsRequest) returns (GetAllTeamsResponse); // Global admin only
+  
+  // Team user management operations
+  rpc GetUsersInTeam(GetUsersInTeamRequest) returns (GetUsersInTeamResponse);
+  rpc UpdateUserInTeam(UpdateUserInTeamRequest) returns (UpdateUserInTeamResponse);
+  rpc MoveUserToTeam(MoveUserToTeamRequest) returns (MoveUserToTeamResponse); // Global admin only
+  rpc RemoveUserFromTeam(RemoveUserFromTeamRequest) returns (RemoveUserFromTeamResponse);
+  rpc LeaveTeam(LeaveTeamRequest) returns (LeaveTeamResponse);
+  rpc InviteUsersToTeam(InviteUsersToTeamRequest) returns (InviteUsersToTeamResponse);
+  rpc DeleteInvite(DeleteInviteRequest) returns (DeleteInviteResponse);
+  rpc GetTeamRoles(GetTeamRolesRequest) returns (GetTeamRolesResponse);
+
+  // Onboarding operations
+  rpc GetTeamOnboardingStatus(GetTeamOnboardingStatusRequest) returns (GetTeamOnboardingStatusResponse);
+
+  // Feature flags (Global admin only)
+  rpc SetTeamFeatureFlags(SetTeamFeatureFlagsRequest) returns (SetTeamFeatureFlagsResponse);
+}
+
+// Core Team message
+message Team {
+  string id = 1;
+  string name = 2;
+  int32 connected_clusters_count = 3;
+  int32 disconnected_clusters_count = 4;
+  int32 pods_count = 5;
+  int32 members_count = 6;
+  repeated User users = 14;
+  bool workspaces_are_private = 15;
+  bool enable_scheduler_simulations = 16;
+  repeated FeatureFlag feature_flags = 17;
+  // Priority pins the team for every admin: the admin Teams page star and the
+  // Observer dashboard read and write this one flag. Shared and global, not a
+  // per-viewer bookmark.
+  bool priority = 18;
+  google.protobuf.Timestamp created_at = 20;
+  // The team's own DevZero price per core-month, as a decimal string. Absent
+  // means the team has not set one and the default applies.
+  optional string devzero_price_per_core_month = 21;
+  // The price in force: devzero_price_per_core_month when set, otherwise the
+  // default. Carried so clients never hard-code the default themselves.
+  string effective_devzero_price_per_core_month = 22;
+}
+
+// Supporting message types for team user management
+message TeamMember {
+  string user_id = 1;
+  string email = 2;
+  string given_name = 3;
+  string role = 4;
+  string permissions = 5;
+  string team_id = 6;
+  bool is_owner = 7;
+  string status = 8;
+  string invite_id = 9;
+}
+
+message InviteUserItem {
+  string email = 1;
+  string role = 2;
+  string permissions = 3;
+}
+
+message TeamInvite {
+  string id = 1;
+  string email = 2;
+  string team_id = 3;
+  string role = 4;
+  string permissions = 5;
+  string status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+message TeamRole {
+  string role_id = 1;
+  string role_name = 2;
+}
+
+// Request/Response message types
+
+// Create team operations
+message CreateTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string name = 2;
+  // The team the new one is started from, a partner team. The caller holds
+  // Admin or Developer there and joins the new team in that role, a service
+  // account as Developer. A service account names its own team. Empty only
+  // for a caller who belongs to no team.
+  string team_id = 3;
+  // People of team_id, by address, who join the new team besides the caller,
+  // each in the role they hold in team_id, Admin or Developer. At least one
+  // person, the caller or one named here, must join as Admin.
+  repeated string member_emails = 4;
+  // Addresses invited as Admin of the new team in the same write, such as
+  // the customer's admin. The invite limits of InviteUsersToTeam apply.
+  repeated string admin_invite_emails = 5;
+}
+
+message CreateTeamResponse {
+  Team team = 1;
+  // Addresses whose invite was saved but whose email the mail service refused.
+  repeated string invites_not_sent = 2;
+}
+
+// Get team operations
+message GetTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+}
+
+message GetTeamResponse {
+  Team team = 1;
+}
+
+// Get all teams operations (Global admin only)
+message GetAllTeamsRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  optional string search = 2;
+  Pagination pagination = 11;
+}
+
+message GetAllTeamsResponse {
+  repeated Team teams = 1;
+  Pagination pagination = 11;
+}
+
+// Update team operations
+message UpdateTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+  // Absent leaves the name unchanged, so a request that updates only another
+  // field -- the DevZero price, say -- cannot blank it.
+  optional string team_name = 5;
+  bool workspaces_are_private = 7;
+  optional bool enable_scheduler_simulations = 8;
+  reserved 11;
+  reserved "reset_invite_token";
+  // Sets the team's DevZero price per core-month, as a decimal string. Absent
+  // leaves it unchanged; an empty string clears it back to the default. Team
+  // admins may set it.
+  optional string devzero_price_per_core_month = 12;
+}
+
+message UpdateTeamResponse {
+  Team team = 1;
+}
+
+// Team user management operations
+
+// Get users in team operations
+message GetUsersInTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+}
+
+message GetUsersInTeamResponse {
+  repeated TeamMember members = 1;
+}
+
+// Update user in team operations
+message UpdateUserInTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+  string user_id = 3;
+  string role = 4;
+  string permissions = 5;
+}
+
+message UpdateUserInTeamResponse {
+  TeamMember member = 1;
+}
+
+// Moves an active member from one team to another (Global admin only).
+// Source-team issued keys are disabled before the membership is moved; the two
+// steps are not a single cross-repository transaction, so a mid-operation
+// failure can leave the keys disabled with the member still on the source team
+// (safe and retryable).
+message MoveUserToTeamRequest {
+  string user_id = 1;
+  string source_team_id = 2;
+  string destination_team_id = 3;
+}
+
+message MoveUserToTeamResponse {
+  TeamMember member = 1;
+}
+
+// Remove user from team operations
+message RemoveUserFromTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+  string user_id = 3;
+}
+
+message RemoveUserFromTeamResponse {
+  bool success = 1;
+}
+
+message LeaveTeamRequest {
+  string team_id = 1;
+  // Nothing is written; the response, or the refusal, says what a real leave would do.
+  bool dry_run = 2;
+}
+
+message LeaveTeamResponse {
+  // The caller was the last member and the team was deleted (or would be, under dry_run).
+  bool team_deleted = 1;
+}
+
+// Invite users to team operations
+message InviteUsersToTeamRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+  repeated InviteUserItem invites = 3;
+}
+
+message InviteUsersToTeamResponse {
+  repeated TeamInvite invites = 1;
+}
+
+// Delete invite operations
+message DeleteInviteRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+  string invite_id = 3;
+}
+
+message DeleteInviteResponse {
+  bool success = 1;
+}
+
+// Get team roles operations
+message GetTeamRolesRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string team_id = 2;
+}
+
+message GetTeamRolesResponse {
+  repeated TeamRole roles = 1;
+}
+
+// Onboarding operations
+
+enum OnboardingCheck {
+  ONBOARDING_CHECK_UNSPECIFIED = 0;
+  ONBOARDING_CHECK_DID_CONNECT_FIRST_CLUSTER = 1;
+  ONBOARDING_CHECK_DID_CONNECT_FIRST_SECURITY_CLUSTER = 2;
+}
+
+message GetTeamOnboardingStatusRequest {
+  string team_id = 1;
+  repeated OnboardingCheck checks = 2;
+}
+
+message GetTeamOnboardingStatusResponse {
+  bool did_connect_first_cluster = 1;
+  bool did_connect_first_security_cluster = 2;
+}
+
+// Feature flags operations
+
+// FeatureFlagType identifies a known feature flag. Keep in sync with the
+// backend registry in dakr/services/team.go and the frontend labels in
+// web/hooks/useFeatureFlags.ts.
+enum FeatureFlagType {
+  FEATURE_FLAG_TYPE_UNSPECIFIED = 0;
+  reserved 1;
+  reserved "FEATURE_FLAG_TYPE_CLUSTER_OVERVIEW_REDESIGN";
+  FEATURE_FLAG_TYPE_MPA_V2 = 2;
+  FEATURE_FLAG_TYPE_OPTIMIZATION_V2 = 3;
+  // Gates bridging the LLM prompt-automation merger's output
+  // (llm_user_automation_cluster_merged) into llm_recommendations. Default
+  // off: absent from a team's stored feature_flags -> is_active=false.
+  FEATURE_FLAG_TYPE_LLM_PROMPT_AUTOMATION = 4;
+  // Gates team-wide visibility of individual AI-usage ratings on the People
+  // page (efficiency tier, AI Usage Quality score, coaching note, automation
+  // opportunities). Default off: absent from a team's stored feature_flags ->
+  // is_active=false, meaning a person sees only their own rating.
+  FEATURE_FLAG_TYPE_LLM_PEOPLE_RATINGS = 5;
+  // Dark-mode dogfood cohort (dark-activation S5, ruling D): while active,
+  // the web app defaults new sessions to the dark theme and shows the Sidenav
+  // three-way theme control. GA keeps the light default; this flag scopes the
+  // dark default to opted-in teams until the dark palette ships fully.
+  // Default off: absent from stored feature_flags -> is_active=false.
+  FEATURE_FLAG_TYPE_DARK_MODE = 6;
+  // Gates the AI chatbot sidebar in the web app. Default off: absent from a
+  // team's stored feature_flags -> is_active=false.
+  FEATURE_FLAG_TYPE_AI_CHAT = 7;
+  // Gates the Potential savings tab on each cluster. Default off: absent from
+  // a team's stored feature_flags -> is_active=false.
+  FEATURE_FLAG_TYPE_POTENTIAL_SAVINGS = 8;
+  // Marks a partner: its people and service accounts may start teams for
+  // its customers. Set only by global admins; a team never manages it.
+  FEATURE_FLAG_TYPE_PARTNER = 9;
+}
+
+// FeatureFlag is the per-team state of a single feature flag.
+message FeatureFlag {
+  FeatureFlagType type = 1;
+  // Human-readable name, server-authoritative (clients cannot override).
+  string name = 2;
+  // is_enabled gates whether the team is allowed to activate the flag.
+  // Only global admins may change this.
+  bool is_enabled = 3;
+  // is_active means the feature actually renders for the team. Any team
+  // member may toggle this, but only when the flag is enabled.
+  bool is_active = 4;
+}
+
+message SetTeamFeatureFlagsRequest {
+  string team_id = 1;
+  repeated FeatureFlag feature_flags = 2;
+}
+
+message SetTeamFeatureFlagsResponse {
+  string team_id = 1;
+  repeated FeatureFlag feature_flags = 2;
+}
