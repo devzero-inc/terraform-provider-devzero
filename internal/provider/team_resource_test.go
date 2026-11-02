@@ -271,6 +271,13 @@ func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 				types.StringValue("alice@partner.example"), types.StringUnknown(),
 			})
 		}},
+		// Fails if ModifyPlan skips a set for holding an unknown element although a known element is missing from the start.
+		{name: "a known new member beside an unknown one is refused at plan", prior: started, wantErrAt: "member_emails", planned: func(m *TeamResourceModel) {
+			started(m)
+			m.MemberEmails = types.SetValueMust(types.StringType, []attr.Value{
+				types.StringValue("bob@partner.example"), types.StringUnknown(),
+			})
+		}},
 		// Fails if ModifyPlan refuses the configured values of an imported team.
 		{name: "an imported team takes the configured values", prior: func(m *TeamResourceModel) {
 			m.Id = stringVal("started-0001")

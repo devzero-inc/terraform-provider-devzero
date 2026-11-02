@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -158,6 +159,8 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 		wantNoDiff bool
 		wantTeam   string
 		wantErr    bool
+		// wantDetail: text the refusal at team_id must contain.
+		wantDetail string
 	}{
 		{
 			// Fails if the plan defaults team_id from the provider's team.
@@ -187,8 +190,10 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 		{
 			// Fails if ModifyPlan lets an unknown team through: the apply would
 			// start the team it depends on before refusing the cluster's change.
+			// Also fails if the unknown-team branch is deleted: the known-change
+			// branch would still refuse, without the moved-block advice.
 			name: "a team unknown until apply is refused on an existing cluster", providerTeam: "team-1",
-			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod", configTeam: unknownTeam, wantErr: true,
+			prior: clusterValue(t, "prod", "tok", "team-1"), configName: "prod", configTeam: unknownTeam, wantErr: true, wantDetail: "moved block",
 		},
 	}
 	for _, tc := range cases {
@@ -202,6 +207,9 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 				}
 				if d.Attribute != nil && d.Attribute.Equal(teamIDPath) {
 					errAtTeam = true
+					if !strings.Contains(d.Detail, tc.wantDetail) {
+						t.Fatalf("refusal detail %q, want it to contain %q", d.Detail, tc.wantDetail)
+					}
 				} else {
 					otherErr = true
 				}

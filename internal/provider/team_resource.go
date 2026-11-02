@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -46,11 +47,12 @@ const teamResourceDescription = "A team started from the provider's team, such a
 	"Creating it starts the team in DevZero with the provider's `team_id` as the starting team, which must be a DevZero partner team.\n\n" +
 	"Drive this resource with a service account's token (`dzs-`), not a person's. Destroying it is the token owner's leave of the team: " +
 	"with a service account's token the team and its people stay. With a person's token the destroy is that person's leave, " +
-	"and when they are the team's last member it deletes the team. DevZero may refuse a person's leave: " +
-	"the last member cannot leave a team that has had clusters connected, and the only Admin cannot leave while others stay.\n\n" +
+	"and when they are the team's last member it deletes the team. DevZero may refuse a person's leave, for example when they are the last member of a team that has had clusters connected or whose tier DevZero set, " +
+	"or the only Admin while others stay.\n\n" +
 	"Destroying a `devzero_cluster` deletes that cluster in DevZero, so destroying a configuration like the example below deletes the customer's cluster. " +
-	"To offboard a customer without deleting anything, replace the `devzero_team` and its `devzero_cluster` resources with `removed` blocks " +
-	"that set `lifecycle { destroy = false }`.\n\n" +
+	"To offboard a customer without deleting anything, replace its `devzero_cluster` resources with `removed` blocks " +
+	"that set `lifecycle { destroy = false }`, and delete the `devzero_team` block: with a service account's token its destroy only leaves the team. " +
+	"To stop managing the customer and keep the partner in the team, give the `devzero_team` a `removed` block too.\n\n" +
 	"The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, " +
 	"and a changed `name`, `member_emails` or `admin_invite_emails` is refused. " +
 	"If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team."
@@ -134,7 +136,7 @@ func (r *TeamResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 	}
 
 	refuse := func(attribute string, was, now attr.Value, where string) {
-		if !fullyKnown(now) || now.Equal(was) || (noEmails(was) && noEmails(now)) {
+		if unsettled(was, now) || now.Equal(was) || (noEmails(was) && noEmails(now)) {
 			return
 		}
 		resp.Diagnostics.AddAttributeError(
@@ -152,20 +154,31 @@ func (r *TeamResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 		"The team's Admins send invites from its Settings > Members.")
 }
 
-// fullyKnown reports a value with no unknown part; the apply re-plans the
-// rest with known values.
-func fullyKnown(v attr.Value) bool {
-	if v.IsUnknown() {
+// unsettled reports a planned value whose difference from the start cannot be
+// told until apply: an unknown value, or a set with an unknown element and no
+// known element missing from the start. A known element the start lacks is a
+// change whatever the unknown resolves to.
+func unsettled(was, now attr.Value) bool {
+	if now.IsUnknown() {
+		return true
+	}
+	set, ok := now.(types.Set)
+	if !ok {
 		return false
 	}
-	if set, ok := v.(types.Set); ok {
-		for _, e := range set.Elements() {
-			if e.IsUnknown() {
-				return false
-			}
+	var started []attr.Value
+	if wasSet, ok := was.(types.Set); ok {
+		started = wasSet.Elements()
+	}
+	hasUnknown := false
+	for _, e := range set.Elements() {
+		if e.IsUnknown() {
+			hasUnknown = true
+		} else if !slices.ContainsFunc(started, e.Equal) {
+			return false
 		}
 	}
-	return true
+	return hasUnknown
 }
 
 // noEmails reports a set that is null or empty: either starts a team with

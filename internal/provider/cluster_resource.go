@@ -122,8 +122,8 @@ func (r *ClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 		return
 	}
 
-	// On an existing cluster an unknown team_id can only resolve to another
-	// team: a devzero_team's id is unknown only while that team is being created.
+	// An existing cluster refuses an unknown team_id: it resolves at apply,
+	// after what produces it has run.
 	if !data.TeamId.IsNull() && !data.TeamId.IsUnknown() {
 		if planned.TeamId.IsUnknown() {
 			resp.Diagnostics.AddAttributeError(
