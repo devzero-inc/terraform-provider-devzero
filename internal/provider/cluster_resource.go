@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -33,9 +34,10 @@ type ClusterResource struct {
 
 // ExampleResourceModel describes the resource data model.
 type ClusterResourceModel struct {
-	Id    types.String `tfsdk:"id"`
-	Name  types.String `tfsdk:"name"`
-	Token types.String `tfsdk:"token"`
+	Id     types.String `tfsdk:"id"`
+	Name   types.String `tfsdk:"name"`
+	Token  types.String `tfsdk:"token"`
+	TeamId types.String `tfsdk:"team_id"`
 }
 
 func (r *ClusterResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -67,6 +69,16 @@ func (r *ClusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"team_id": schema.StringAttribute{
+				MarkdownDescription: "ID of the team the cluster is registered in, such as a `devzero_team`'s `id`. " +
+					"Defaults to the provider's `team_id`. It is set when the cluster is registered and never changes: " +
+					"a plan that changes it is refused, and Terraform never moves the cluster or re-creates it in another team.",
+				Optional: true,
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -92,30 +104,49 @@ func (r *ClusterResource) Configure(ctx context.Context, req resource.ConfigureR
 }
 
 func (r *ClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	// If the resource is being created, skip forcing a rotation during plan
-	if req.State.Raw.IsNull() {
+	// Nothing to check on a create or a destroy.
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
 		return
 	}
 
 	var data ClusterResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	var planned ClusterResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planned)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// An unknown team is decided again when the apply re-plans with known values.
+	if !data.TeamId.IsNull() && !data.TeamId.IsUnknown() && !planned.TeamId.IsUnknown() && !planned.TeamId.Equal(data.TeamId) {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("team_id"),
+			"A cluster's team cannot change",
+			fmt.Sprintf("Cluster %s is registered in team %s. Terraform never moves a cluster to another team or re-creates it there. "+
+				"Set team_id back to %q, or remove team_id to keep the cluster's team. To register a cluster in team %s, add a new devzero_cluster.",
+				data.Id.ValueString(), data.TeamId.ValueString(), data.TeamId.ValueString(), planned.TeamId.ValueString()),
+		)
 		return
 	}
 
 	// If the prior token is empty, mark the planned token as unknown so that
 	// Terraform plans an apply which will rotate the token during Update.
 	if data.Token.IsNull() || data.Token.ValueString() == "" {
-		// Only attempt to set if plan is available
-		if !req.Plan.Raw.IsNull() {
-			// Set token to unknown in plan
-			err := resp.Plan.SetAttribute(ctx, path.Root("token"), types.StringUnknown())
-			if err != nil {
-				resp.Diagnostics.AddError("Plan Error", fmt.Sprintf("Unable to mark token unknown in plan: %s", err))
-				return
-			}
+		err := resp.Plan.SetAttribute(ctx, path.Root("token"), types.StringUnknown())
+		if err != nil {
+			resp.Diagnostics.AddError("Plan Error", fmt.Sprintf("Unable to mark token unknown in plan: %s", err))
+			return
 		}
 	}
+}
+
+// teamOf is the team every call for a cluster goes to: its own team_id, or
+// the provider's while that is null or unknown.
+func (r *ClusterResource) teamOf(teamID types.String) string {
+	if teamID.IsNull() || teamID.IsUnknown() || teamID.ValueString() == "" {
+		return r.client.TeamId
+	}
+	return teamID.ValueString()
 }
 
 func (r *ClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -127,8 +158,9 @@ func (r *ClusterResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	teamID := r.teamOf(data.TeamId)
 	createClusterReq := &apiv1.CreateClusterRequest{
-		TeamId:      r.client.TeamId,
+		TeamId:      teamID,
 		ClusterName: data.Name.ValueString(),
 	}
 
@@ -145,6 +177,7 @@ func (r *ClusterResource) Create(ctx context.Context, req resource.CreateRequest
 	// Set the state
 	data.Id = types.StringValue(createClusterResp.Msg.Cluster.Id)
 	data.Token = types.StringValue(createClusterResp.Msg.Token)
+	data.TeamId = types.StringValue(teamID)
 
 	// Write logs using the tflog package
 	tflog.Trace(ctx, "created a resource")
@@ -163,15 +196,16 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	teamID := r.teamOf(data.TeamId)
 	getClusterReq := &apiv1.GetClusterRequest{
-		TeamId:    r.client.TeamId,
+		TeamId:    teamID,
 		ClusterId: data.Id.ValueString(),
 	}
 
 	getClusterResp, err := r.client.K8SServiceClient.GetCluster(ctx, connect.NewRequest(getClusterReq))
 	if err != nil {
 		if connect.CodeOf(err) == connect.CodeNotFound {
-			resp.State.RemoveResource(ctx)
+			r.clusterGone(ctx, resp, data.Id.ValueString(), teamID)
 			return
 		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get cluster, got error: %s", err))
@@ -179,7 +213,7 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	if getClusterResp.Msg.Cluster == nil {
-		resp.State.RemoveResource(ctx)
+		r.clusterGone(ctx, resp, data.Id.ValueString(), teamID)
 		return
 	}
 
@@ -189,9 +223,29 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	data.Name = types.StringValue(name)
+	data.TeamId = types.StringValue(teamID)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// clusterGone drops a cluster of the provider's own team from state, as
+// before team_id existed. A cluster of any other team stays: dropping it
+// would make the next apply register the customer's cluster anew.
+func (r *ClusterResource) clusterGone(ctx context.Context, resp *resource.ReadResponse, clusterID, teamID string) {
+	if teamID == r.client.TeamId {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	resp.Diagnostics.AddError(
+		"Cluster not found in its team",
+		fmt.Sprintf("Cluster %s is not in team %s, or this provider's token no longer reaches that team. "+
+			"Terraform keeps it in state rather than registering a new cluster in its place. "+
+			"If the cluster or its team is gone, remove this devzero_cluster, and the team's devzero_team if this configuration started the team, "+
+			"from configuration as well as from state (terraform state rm), or replace them with removed blocks. "+
+			"Removed from state but kept in configuration, they start a new team and register the customer's cluster into it on the next apply.",
+			clusterID, teamID),
+	)
 }
 
 func (r *ClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -204,8 +258,9 @@ func (r *ClusterResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	teamID := r.teamOf(data.TeamId)
 	updateClusterReq := &apiv1.UpdateClusterRequest{
-		TeamId:      r.client.TeamId,
+		TeamId:      teamID,
 		ClusterId:   data.Id.ValueString(),
 		ClusterName: data.Name.ValueString(),
 	}
@@ -226,11 +281,12 @@ func (r *ClusterResource) Update(ctx context.Context, req resource.UpdateRequest
 		updatedName = updateClusterResp.Msg.Cluster.Name
 	}
 	data.Name = types.StringValue(updatedName)
+	data.TeamId = types.StringValue(teamID)
 
 	// If prior token was empty, rotate it now and persist the new token in state
 	if data.Token.IsNull() || data.Token.IsUnknown() || data.Token.ValueString() == "" {
 		resetReq := &apiv1.ResetClusterTokenRequest{
-			TeamId:    r.client.TeamId,
+			TeamId:    teamID,
 			ClusterId: data.Id.ValueString(),
 		}
 		resetResp, err := r.client.ClusterMutationClient.ResetClusterToken(ctx, connect.NewRequest(resetReq))
@@ -260,7 +316,7 @@ func (r *ClusterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 
 	deleteClusterReq := &apiv1.DeleteClusterRequest{
-		TeamId:    r.client.TeamId,
+		TeamId:    r.teamOf(data.TeamId),
 		ClusterId: data.Id.ValueString(),
 	}
 
@@ -271,6 +327,21 @@ func (r *ClusterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
+// ImportState takes `<cluster_id>`, for a cluster of the provider's team, or
+// `<team_id>/<cluster_id>`.
 func (r *ClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	teamID, clusterID, found := strings.Cut(req.ID, "/")
+	if !found {
+		resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+		return
+	}
+	if teamID == "" || clusterID == "" || strings.Contains(clusterID, "/") {
+		resp.Diagnostics.AddError(
+			"Unexpected import ID",
+			fmt.Sprintf("Expected <cluster_id> or <team_id>/<cluster_id>, got %q.", req.ID),
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), clusterID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("team_id"), teamID)...)
 }

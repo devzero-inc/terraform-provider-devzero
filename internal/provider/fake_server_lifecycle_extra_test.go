@@ -25,14 +25,18 @@ func (f *fakeBackend) CreateCluster(_ context.Context, req *connect.Request[apiv
 	}
 	c := &apiv1.Cluster{Id: f.id("cl"), Name: req.Msg.ClusterName, CustomName: req.Msg.ClusterName}
 	f.clusters[c.Id] = c
+	f.clusterTeam[c.Id] = req.Msg.TeamId
 	return connect.NewResponse(&apiv1.CreateClusterResponse{Cluster: c, Token: "tok-" + c.Id}), nil
 }
 
 func (f *fakeBackend) GetCluster(_ context.Context, req *connect.Request[apiv1.GetClusterRequest]) (*connect.Response[apiv1.GetClusterResponse], error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.getClusterErr != nil {
+		return nil, f.getClusterErr
+	}
 	c, ok := f.clusters[req.Msg.ClusterId]
-	if !ok {
+	if !ok || f.clusterTeam[c.Id] != req.Msg.TeamId {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("cluster not found"))
 	}
 	return connect.NewResponse(&apiv1.GetClusterResponse{Cluster: c}), nil
@@ -42,7 +46,7 @@ func (f *fakeBackend) UpdateCluster(_ context.Context, req *connect.Request[apiv
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	c, ok := f.clusters[req.Msg.ClusterId]
-	if !ok {
+	if !ok || f.clusterTeam[c.Id] != req.Msg.TeamId {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("cluster not found"))
 	}
 	c.CustomName = req.Msg.ClusterName
@@ -52,7 +56,7 @@ func (f *fakeBackend) UpdateCluster(_ context.Context, req *connect.Request[apiv
 func (f *fakeBackend) DeleteCluster(_ context.Context, req *connect.Request[apiv1.DeleteClusterRequest]) (*connect.Response[apiv1.DeleteClusterResponse], error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if _, ok := f.clusters[req.Msg.ClusterId]; !ok {
+	if _, ok := f.clusters[req.Msg.ClusterId]; !ok || f.clusterTeam[req.Msg.ClusterId] != req.Msg.TeamId {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("cluster not found"))
 	}
 	delete(f.clusters, req.Msg.ClusterId)
@@ -83,6 +87,9 @@ func TestLifecycle_Cluster(t *testing.T) {
 	mustNoDiags(t, "State.Get", createResp.State.Get(ctx, &created))
 	if created.Id.ValueString() == "" || created.Token.ValueString() == "" {
 		t.Fatalf("expected id and token after create, got %+v", created)
+	}
+	if created.TeamId.ValueString() != fake.cs.TeamId {
+		t.Fatalf("team_id after a create without one: got %q, want the provider's %q", created.TeamId.ValueString(), fake.cs.TeamId)
 	}
 
 	// Update (rename) — token must be preserved, name read back with fallback.
