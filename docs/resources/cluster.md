@@ -27,7 +27,7 @@ resource "devzero_cluster" "cluster" {
 
 ### Optional
 
-- `team_id` (String) ID of the team the cluster is registered in, such as a `devzero_team`'s `id`. Defaults to the provider's `team_id`. It is set when the cluster is registered and never changes: a plan that changes it is refused, and Terraform never moves the cluster or re-creates it in another team.
+- `team_id` (String) ID of the team the cluster is registered in, such as a `devzero_team`'s `id`. Defaults to the provider's `team_id`. It is set when the cluster is registered: on an existing cluster, a plan that changes a known `team_id`, or leaves it unknown until apply, is refused.
 
 ### Read-Only
 
@@ -41,6 +41,9 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
+# The first apply after an import issues a new cluster token, which the
+# cluster's agents need: they stop reporting until they run with it.
+
 # A cluster of the provider's team
 terraform import devzero_cluster.cluster <cluster_id>
 

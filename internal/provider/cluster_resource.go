@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -71,12 +73,15 @@ func (r *ClusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 			"team_id": schema.StringAttribute{
 				MarkdownDescription: "ID of the team the cluster is registered in, such as a `devzero_team`'s `id`. " +
-					"Defaults to the provider's `team_id`. It is set when the cluster is registered and never changes: " +
-					"a plan that changes it is refused, and Terraform never moves the cluster or re-creates it in another team.",
+					"Defaults to the provider's `team_id`. It is set when the cluster is registered: " +
+					"on an existing cluster, a plan that changes a known `team_id`, or leaves it unknown until apply, is refused.",
 				Optional: true,
 				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
 				},
 			},
 		},
@@ -117,16 +122,31 @@ func (r *ClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 		return
 	}
 
-	// An unknown team is decided again when the apply re-plans with known values.
-	if !data.TeamId.IsNull() && !data.TeamId.IsUnknown() && !planned.TeamId.IsUnknown() && !planned.TeamId.Equal(data.TeamId) {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("team_id"),
-			"A cluster's team cannot change",
-			fmt.Sprintf("Cluster %s is registered in team %s. Terraform never moves a cluster to another team or re-creates it there. "+
-				"Set team_id back to %q, or remove team_id to keep the cluster's team. To register a cluster in team %s, add a new devzero_cluster.",
-				data.Id.ValueString(), data.TeamId.ValueString(), data.TeamId.ValueString(), planned.TeamId.ValueString()),
-		)
-		return
+	// On an existing cluster an unknown team_id can only resolve to another
+	// team: a devzero_team's id is unknown only while that team is being created.
+	if !data.TeamId.IsNull() && !data.TeamId.IsUnknown() {
+		if planned.TeamId.IsUnknown() {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("team_id"),
+				"A cluster's team cannot change",
+				fmt.Sprintf("Cluster %s is registered in team %s and stays there, but this plan leaves its team_id unknown until apply, "+
+					"as when the devzero_team it names is about to be created. "+
+					"A devzero_team whose address was renamed or replaced needs a moved block from its old address, so Terraform keeps the team rather than starting a new one. "+
+					"Otherwise set team_id to %q, or remove team_id to keep the cluster's team.",
+					data.Id.ValueString(), data.TeamId.ValueString(), data.TeamId.ValueString()),
+			)
+			return
+		}
+		if !planned.TeamId.Equal(data.TeamId) {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("team_id"),
+				"A cluster's team cannot change",
+				fmt.Sprintf("Cluster %s is registered in team %s. Terraform never moves a cluster to another team or re-creates it there. "+
+					"Set team_id back to %q, or remove team_id to keep the cluster's team. To register a cluster in team %s, add a new devzero_cluster.",
+					data.Id.ValueString(), data.TeamId.ValueString(), data.TeamId.ValueString(), planned.TeamId.ValueString()),
+			)
+			return
+		}
 	}
 
 	// If the prior token is empty, mark the planned token as unknown so that
@@ -229,9 +249,8 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// clusterGone drops a cluster of the provider's own team from state, as
-// before team_id existed. A cluster of any other team stays: dropping it
-// would make the next apply register the customer's cluster anew.
+// clusterGone drops a missing cluster of the provider's team from state; any
+// other team's fails.
 func (r *ClusterResource) clusterGone(ctx context.Context, resp *resource.ReadResponse, clusterID, teamID string) {
 	if teamID == r.client.TeamId {
 		resp.State.RemoveResource(ctx)

@@ -45,8 +45,12 @@ type TeamResourceModel struct {
 const teamResourceDescription = "A team started from the provider's team, such as a partner's team for one of its customers. " +
 	"Creating it starts the team in DevZero with the provider's `team_id` as the starting team, which must be a DevZero partner team.\n\n" +
 	"Drive this resource with a service account's token (`dzs-`), not a person's. Destroying it is the token owner's leave of the team: " +
-	"with a service account's token the team, its people and its clusters stay. With a person's token the destroy is that person's leave, " +
-	"and when they are the team's last member it deletes the team.\n\n" +
+	"with a service account's token the team and its people stay. With a person's token the destroy is that person's leave, " +
+	"and when they are the team's last member it deletes the team. DevZero may refuse a person's leave: " +
+	"the last member cannot leave a team that has had clusters connected, and the only Admin cannot leave while others stay.\n\n" +
+	"Destroying a `devzero_cluster` deletes that cluster in DevZero, so destroying a configuration like the example below deletes the customer's cluster. " +
+	"To offboard a customer without deleting anything, replace the `devzero_team` and its `devzero_cluster` resources with `removed` blocks " +
+	"that set `lifecycle { destroy = false }`.\n\n" +
 	"The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, " +
 	"and a changed `name`, `member_emails` or `admin_invite_emails` is refused. " +
 	"If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team."
@@ -130,7 +134,7 @@ func (r *TeamResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 	}
 
 	refuse := func(attribute string, was, now attr.Value, where string) {
-		if now.IsUnknown() || now.Equal(was) {
+		if !fullyKnown(now) || now.Equal(was) || (noEmails(was) && noEmails(now)) {
 			return
 		}
 		resp.Diagnostics.AddAttributeError(
@@ -146,6 +150,29 @@ func (r *TeamResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 		"The team's Admins add and remove people in its Settings > Members.")
 	refuse("admin_invite_emails", prior.AdminInviteEmails, planned.AdminInviteEmails,
 		"The team's Admins send invites from its Settings > Members.")
+}
+
+// fullyKnown reports a value with no unknown part; the apply re-plans the
+// rest with known values.
+func fullyKnown(v attr.Value) bool {
+	if v.IsUnknown() {
+		return false
+	}
+	if set, ok := v.(types.Set); ok {
+		for _, e := range set.Elements() {
+			if e.IsUnknown() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// noEmails reports a set that is null or empty: either starts a team with
+// no emails.
+func noEmails(v attr.Value) bool {
+	set, ok := v.(types.Set)
+	return ok && !set.IsUnknown() && len(set.Elements()) == 0
 }
 
 func (r *TeamResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -207,7 +234,10 @@ func (r *TeamResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	// the response is written back.
 	getResp, err := r.client.TeamClient.GetTeam(ctx, connect.NewRequest(&apiv1.GetTeamRequest{TeamId: data.Id.ValueString()}))
 	if err != nil && connect.CodeOf(err) != connect.CodeNotFound {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read team %s, got error: %s", data.Id.ValueString(), err))
+		resp.Diagnostics.AddError(
+			"Team could not be read",
+			fmt.Sprintf("Team %s could not be read, got error: %s. Retry the refresh; Terraform keeps the team in state.", data.Id.ValueString(), err),
+		)
 		return
 	}
 	if err != nil || getResp.Msg.Team == nil {
@@ -247,6 +277,14 @@ func (r *TeamResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
+	if data.Id.ValueString() == r.client.TeamId {
+		resp.Diagnostics.AddWarning(
+			"Removed from state without leaving",
+			fmt.Sprintf("Team %s is this provider's own team, so the destroy removed it from state without leaving it.", data.Id.ValueString()),
+		)
+		return
+	}
+
 	leaveResp, err := r.client.TeamClient.LeaveTeam(ctx, connect.NewRequest(&apiv1.LeaveTeamRequest{TeamId: data.Id.ValueString()}))
 	if err != nil {
 		if connect.CodeOf(err) == connect.CodeNotFound {
@@ -265,11 +303,19 @@ func (r *TeamResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	}
 	resp.Diagnostics.AddWarning(
 		"Left the team; the team stays",
-		fmt.Sprintf("This provider's token left team %s. The team, its people and its clusters stay in DevZero, where its Admins manage or delete them.", data.Id.ValueString()),
+		fmt.Sprintf("This provider's token left team %s. The team and its people stay in DevZero, where the team's Admins manage it.", data.Id.ValueString()),
 	)
 }
 
 func (r *TeamResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	if r.client != nil && req.ID == r.client.TeamId {
+		resp.Diagnostics.AddError(
+			"Cannot import the provider's own team",
+			fmt.Sprintf("Team %s is this provider's team_id. A devzero_team is a team started from the provider's team, "+
+				"and destroying one is the token owner's leave of it. Import a team started from team %s instead.", req.ID, req.ID),
+		)
+		return
+	}
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 

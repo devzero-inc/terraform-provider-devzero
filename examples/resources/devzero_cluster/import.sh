@@ -1,3 +1,6 @@
+# The first apply after an import issues a new cluster token, which the
+# cluster's agents need: they stop reporting until they run with it.
+
 # A cluster of the provider's team
 terraform import devzero_cluster.cluster <cluster_id>
 

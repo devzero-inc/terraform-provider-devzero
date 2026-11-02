@@ -55,10 +55,13 @@ func dynamicValue(t *testing.T, typ tftypes.Type, v tftypes.Value) *tfprotov6.Dy
 	return &dv
 }
 
-// planCluster plans an update of prior against a configuration holding
-// configName and configTeam ("" leaves team_id unset), with the provider
-// configured for providerTeam.
-func planCluster(t *testing.T, providerTeam string, prior tftypes.Value, configName, configTeam string) (tftypes.Value, []*tfprotov6.Diagnostic) {
+// unknownTeam, as planCluster's configTeam, is a team_id known only at apply,
+// such as the id of a devzero_team about to be created.
+const unknownTeam = "(known after apply)"
+
+// clusterProviderServer is the provider server Terraform talks to, configured
+// for providerTeam.
+func clusterProviderServer(t *testing.T, providerTeam string) tfprotov6.ProviderServer {
 	t.Helper()
 	ctx := context.Background()
 	server := providerserver.NewProtocol6(New("test")())()
@@ -82,8 +85,26 @@ func planCluster(t *testing.T, providerTeam string, prior tftypes.Value, configN
 			t.Fatalf("ConfigureProvider: %s: %s", d.Summary, d.Detail)
 		}
 	}
+	return server
+}
+
+// planCluster plans an update of prior against a configuration holding
+// configName and configTeam ("" leaves team_id unset; unknownTeam makes it
+// unknown), with the provider configured for providerTeam.
+func planCluster(t *testing.T, providerTeam string, prior tftypes.Value, configName, configTeam string) (tftypes.Value, []*tfprotov6.Diagnostic) {
+	t.Helper()
+	ctx := context.Background()
+	server := clusterProviderServer(t, providerTeam)
 
 	obj := clusterObjectType(t)
+	configTeamValue := tftypes.NewValue(tftypes.String, nil)
+	switch configTeam {
+	case "":
+	case unknownTeam:
+		configTeamValue = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
+	default:
+		configTeamValue = tftypes.NewValue(tftypes.String, configTeam)
+	}
 	var priorAttrs map[string]tftypes.Value
 	if err := prior.As(&priorAttrs); err != nil {
 		t.Fatalf("prior: %v", err)
@@ -97,14 +118,20 @@ func planCluster(t *testing.T, providerTeam string, prior tftypes.Value, configN
 		"team_id": priorAttrs["team_id"],
 	}
 	if configTeam != "" {
-		proposed["team_id"] = tftypes.NewValue(tftypes.String, configTeam)
+		proposed["team_id"] = configTeamValue
 	}
+	config := tftypes.NewValue(obj, map[string]tftypes.Value{
+		"id":      tftypes.NewValue(tftypes.String, nil),
+		"name":    tftypes.NewValue(tftypes.String, configName),
+		"token":   tftypes.NewValue(tftypes.String, nil),
+		"team_id": configTeamValue,
+	})
 
 	planResp, err := server.PlanResourceChange(ctx, &tfprotov6.PlanResourceChangeRequest{
 		TypeName:         "devzero_cluster",
 		PriorState:       dynamicValue(t, obj, prior),
 		ProposedNewState: dynamicValue(t, obj, tftypes.NewValue(obj, proposed)),
-		Config:           dynamicValue(t, obj, clusterValue(t, "", configName, "", configTeam)),
+		Config:           dynamicValue(t, obj, config),
 	})
 	if err != nil {
 		t.Fatalf("PlanResourceChange: %v", err)
@@ -157,6 +184,12 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 			name: "a change of a known team is refused", providerTeam: "team-1",
 			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod", configTeam: "team-2", wantErr: true,
 		},
+		{
+			// Fails if ModifyPlan lets an unknown team through: the apply would
+			// start the team it depends on before refusing the cluster's change.
+			name: "a team unknown until apply is refused on an existing cluster", providerTeam: "team-1",
+			prior: clusterValue(t, "cl-1", "prod", "tok", "team-1"), configName: "prod", configTeam: unknownTeam, wantErr: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -190,6 +223,53 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 				if !attrs["team_id"].Equal(tftypes.NewValue(tftypes.String, tc.wantTeam)) {
 					t.Fatalf("planned team_id %v, want %q", attrs["team_id"], tc.wantTeam)
 				}
+			}
+		})
+	}
+}
+
+// Fails if team_id loses its length validator: an empty team_id would register
+// the cluster in the provider's team while the plan said "", and Terraform
+// would taint it as an inconsistent result.
+func TestClusterValidate_RefusesAnEmptyTeamId(t *testing.T) {
+	teamIDPath := tftypes.NewAttributePath().WithAttributeName("team_id")
+	cases := []struct {
+		name    string
+		team    string
+		wantErr bool
+	}{
+		{name: "an empty team_id is refused", team: "", wantErr: true},
+		{name: "a team id is accepted", team: "team-acme"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := clusterProviderServer(t, "team-1")
+			obj := clusterObjectType(t)
+			resp, err := server.ValidateResourceConfig(context.Background(), &tfprotov6.ValidateResourceConfigRequest{
+				TypeName: "devzero_cluster",
+				Config: dynamicValue(t, obj, tftypes.NewValue(obj, map[string]tftypes.Value{
+					"id":      tftypes.NewValue(tftypes.String, nil),
+					"name":    tftypes.NewValue(tftypes.String, "acme-prod"),
+					"token":   tftypes.NewValue(tftypes.String, nil),
+					"team_id": tftypes.NewValue(tftypes.String, tc.team),
+				})),
+			})
+			if err != nil {
+				t.Fatalf("ValidateResourceConfig: %v", err)
+			}
+			var errAtTeam, otherErr bool
+			for _, d := range resp.Diagnostics {
+				if d.Severity != tfprotov6.DiagnosticSeverityError {
+					continue
+				}
+				if d.Attribute != nil && d.Attribute.Equal(teamIDPath) {
+					errAtTeam = true
+				} else {
+					otherErr = true
+				}
+			}
+			if otherErr || errAtTeam != tc.wantErr {
+				t.Fatalf("diagnostics: %+v, want an error at team_id: %v", resp.Diagnostics, tc.wantErr)
 			}
 		})
 	}

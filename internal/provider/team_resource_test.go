@@ -259,6 +259,18 @@ func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 			started(m)
 			m.AdminInviteEmails = stringSet("admin@acme.example")
 		}},
+		// Fails if ModifyPlan compares a null set with an empty one: neither sends an email.
+		{name: "an empty admin_invite_emails on a team started without one is no change", prior: started, planned: func(m *TeamResourceModel) {
+			started(m)
+			m.AdminInviteEmails = stringSet()
+		}},
+		// Fails if ModifyPlan compares a set before all its elements are known.
+		{name: "a member email unknown until apply is not refused at plan", prior: started, planned: func(m *TeamResourceModel) {
+			started(m)
+			m.MemberEmails = types.SetValueMust(types.StringType, []attr.Value{
+				types.StringValue("alice@partner.example"), types.StringUnknown(),
+			})
+		}},
 		// Fails if ModifyPlan refuses the configured values of an imported team.
 		{name: "an imported team takes the configured values", prior: func(m *TeamResourceModel) {
 			m.Id = stringVal("started-0001")
@@ -320,6 +332,33 @@ func TestTeamImport_ThenApplyRecordsTheConfigurationWithoutACall(t *testing.T) {
 	h.backend.mu.Unlock()
 	if creates != 0 || leaves != 0 {
 		t.Fatalf("the import's apply called CreateTeam %d and LeaveTeam %d times, want none", creates, leaves)
+	}
+}
+
+// Fails if ImportState accepts the provider's own team, or if Delete sends
+// LeaveTeam for it: with a person's token that person would leave the
+// partner's own team, or delete it as its last member.
+func TestTeam_NeitherImportsNorLeavesTheProvidersOwnTeam(t *testing.T) {
+	ctx := context.Background()
+	h := newFakeClientSetT(t)
+	h.backend.teams[h.cs.TeamId] = &apiv1.Team{Id: h.cs.TeamId, Name: "Partner"}
+	r := &TeamResource{client: h.cs}
+
+	importResp := resource.ImportStateResponse{State: emptyState(t, r)}
+	r.ImportState(ctx, resource.ImportStateRequest{ID: h.cs.TeamId}, &importResp)
+	if !importResp.Diagnostics.HasError() {
+		t.Errorf("import of the provider's own team %s was accepted", h.cs.TeamId)
+	}
+
+	state := teamState(t, r, func(m *TeamResourceModel) { m.Id = stringVal(h.cs.TeamId) })
+	delResp := resource.DeleteResponse{State: state}
+	r.Delete(ctx, resource.DeleteRequest{State: state}, &delResp)
+	mustNoDiags(t, "Delete", delResp.Diagnostics)
+	h.backend.mu.Lock()
+	leaves := len(h.backend.leaveTeamReqs)
+	h.backend.mu.Unlock()
+	if leaves != 0 {
+		t.Errorf("Delete sent LeaveTeam for the provider's own team %s", h.cs.TeamId)
 	}
 }
 
