@@ -236,6 +236,17 @@ func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 		m.MemberEmails = stringSet("alice@partner.example")
 		m.InvitesNotSent = stringSet()
 	}
+	startedTwo := func(m *TeamResourceModel) {
+		started(m)
+		m.MemberEmails = stringSet("alice@partner.example", "bob@partner.example")
+	}
+	unknownBeside := func(known ...string) types.Set {
+		elems := []attr.Value{types.StringUnknown()}
+		for _, k := range known {
+			elems = append(elems, types.StringValue(k))
+		}
+		return types.SetValueMust(types.StringType, elems)
+	}
 	cases := []struct {
 		name      string
 		prior     func(*TeamResourceModel)
@@ -277,6 +288,26 @@ func TestTeamPlan_RefusesAChangeToWhatTheTeamWasStartedWith(t *testing.T) {
 			m.MemberEmails = types.SetValueMust(types.StringType, []attr.Value{
 				types.StringValue("bob@partner.example"), types.StringUnknown(),
 			})
+		}},
+		// Fails if unsettled lets through a non-empty set of unknowns against a start with no emails.
+		{name: "an unknown admin invite on a team started without one is refused at plan", prior: started, wantErrAt: "admin_invite_emails", planned: func(m *TeamResourceModel) {
+			started(m)
+			m.AdminInviteEmails = unknownBeside()
+		}},
+		// Fails if unsettled lets through a set with fewer elements than the start holds.
+		{name: "one unknown member where two started is refused at plan", prior: startedTwo, wantErrAt: "member_emails", planned: func(m *TeamResourceModel) {
+			startedTwo(m)
+			m.MemberEmails = unknownBeside()
+		}},
+		// Fails if unsettled refuses a set that could still resolve to the start.
+		{name: "a started member beside an unknown one, where two started, is not refused at plan", prior: startedTwo, planned: func(m *TeamResourceModel) {
+			startedTwo(m)
+			m.MemberEmails = unknownBeside("alice@partner.example")
+		}},
+		// Fails if unsettled refuses a set that could still resolve to the start.
+		{name: "two started members beside an unknown one are not refused at plan", prior: startedTwo, planned: func(m *TeamResourceModel) {
+			startedTwo(m)
+			m.MemberEmails = unknownBeside("alice@partner.example", "bob@partner.example")
 		}},
 		// Fails if ModifyPlan refuses the configured values of an imported team.
 		{name: "an imported team takes the configured values", prior: func(m *TeamResourceModel) {

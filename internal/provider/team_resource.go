@@ -52,6 +52,7 @@ const teamResourceDescription = "A team started from the provider's team, such a
 	"Destroying a `devzero_cluster` deletes that cluster in DevZero, so destroying a configuration like the example below deletes the customer's cluster. " +
 	"To offboard a customer without deleting anything, replace its `devzero_cluster` resources with `removed` blocks " +
 	"that set `lifecycle { destroy = false }`, and delete the `devzero_team` block: with a service account's token its destroy only leaves the team. " +
+	"The people named in `member_emails` stay until they leave the team in DevZero or its Admins remove them. " +
 	"To stop managing the customer and keep the partner in the team, give the `devzero_team` a `removed` block too.\n\n" +
 	"The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, " +
 	"and a changed `name`, `member_emails` or `admin_invite_emails` is refused. " +
@@ -155,9 +156,11 @@ func (r *TeamResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 }
 
 // unsettled reports a planned value whose difference from the start cannot be
-// told until apply: an unknown value, or a set with an unknown element and no
-// known element missing from the start. A known element the start lacks is a
-// change whatever the unknown resolves to.
+// told until apply: an unknown value, or a set with an unknown element, no
+// known element missing from the start, and enough elements to make the start.
+// A known element the start lacks, a non-empty set against an empty start, or
+// fewer elements than the start holds is a change whatever the unknown
+// resolves to.
 func unsettled(was, now attr.Value) bool {
 	if now.IsUnknown() {
 		return true
@@ -178,7 +181,7 @@ func unsettled(was, now attr.Value) bool {
 			return false
 		}
 	}
-	return hasUnknown
+	return hasUnknown && len(started) > 0 && len(set.Elements()) >= len(started)
 }
 
 // noEmails reports a set that is null or empty: either starts a team with
