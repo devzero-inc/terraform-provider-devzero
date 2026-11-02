@@ -203,7 +203,7 @@ func TestClusterPlan_TeamIdNeverMovesACluster(t *testing.T) {
 func clusterState(t *testing.T, r *ClusterResource, mutate func(*ClusterResourceModel)) tfsdk.State {
 	t.Helper()
 	p := buildPlan[ClusterResourceModel](t, r, mutate)
-	return tfsdk.State{Schema: p.Schema, Raw: p.Raw}
+	return tfsdk.State(p)
 }
 
 // seedCluster stores a cluster in team on the fake and returns its id.

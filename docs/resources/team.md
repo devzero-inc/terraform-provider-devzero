@@ -4,9 +4,7 @@ page_title: "devzero_team Resource - devzero"
 subcategory: ""
 description: |-
   A team started from the provider's team, such as a partner's team for one of its customers. Creating it starts the team in DevZero with the provider's team_id as the starting team, which must be a DevZero partner team.
-  
   Drive this resource with a service account's token (dzs-), not a person's. Destroying it is the token owner's leave of the team: with a service account's token the team, its people and its clusters stay. With a person's token the destroy is that person's leave, and when they are the team's last member it deletes the team.
-  
   The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, and a changed name, member_emails or admin_invite_emails is refused. If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team.
 ---
 

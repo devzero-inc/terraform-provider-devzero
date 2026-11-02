@@ -77,7 +77,7 @@ func stringSet(items ...string) types.Set {
 func teamState(t *testing.T, r *TeamResource, mutate func(*TeamResourceModel)) tfsdk.State {
 	t.Helper()
 	p := buildPlan[TeamResourceModel](t, r, mutate)
-	return tfsdk.State{Schema: p.Schema, Raw: p.Raw}
+	return tfsdk.State(p)
 }
 
 func startAcme(m *TeamResourceModel) {
