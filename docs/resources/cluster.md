@@ -25,6 +25,10 @@ resource "devzero_cluster" "cluster" {
 
 - `name` (String) Name of the cluster
 
+### Optional
+
+- `team_id` (String) ID of the team the cluster is registered in, such as a `devzero_team`'s `id`. Defaults to the provider's `team_id`. It is set when the cluster is registered and never changes: a plan that changes it is refused, and Terraform never moves the cluster or re-creates it in another team.
+
 ### Read-Only
 
 - `id` (String) ID of the cluster
@@ -37,5 +41,9 @@ Import is supported using the following syntax:
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
+# A cluster of the provider's team
 terraform import devzero_cluster.cluster <cluster_id>
+
+# A cluster of another team, such as one a devzero_team started
+terraform import devzero_cluster.cluster <team_id>/<cluster_id>
 ```
