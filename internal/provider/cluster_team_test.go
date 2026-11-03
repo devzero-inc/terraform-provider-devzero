@@ -504,3 +504,36 @@ func TestClusterImport_TakesAPlainIdOrTeamSlashId(t *testing.T) {
 		})
 	}
 }
+
+// Fails if the first apply after a `<team_id>/<cluster_id>` import resets the
+// cluster's token in the provider's team: the fake answers NotFound there.
+func TestClusterUpdate_AfterACrossTeamImportIssuesTheTokenInTheImportedTeam(t *testing.T) {
+	ctx := context.Background()
+	h := newFakeClientSetT(t)
+	r := &ClusterResource{client: h.cs}
+	id := seedCluster(h, "team-acme")
+
+	importResp := resource.ImportStateResponse{State: emptyState(t, r)}
+	r.ImportState(ctx, resource.ImportStateRequest{ID: "team-acme/" + id}, &importResp)
+	mustNoDiags(t, "ImportState", importResp.Diagnostics)
+	readResp := resource.ReadResponse{State: importResp.State}
+	r.Read(ctx, resource.ReadRequest{State: importResp.State}, &readResp)
+	mustNoDiags(t, "Read", readResp.Diagnostics)
+
+	updResp := resource.UpdateResponse{State: readResp.State}
+	r.Update(ctx, resource.UpdateRequest{
+		Plan: buildPlan[ClusterResourceModel](t, r, func(m *ClusterResourceModel) {
+			m.Id = stringVal(id)
+			m.Name = stringVal("prod")
+			m.Token = types.StringUnknown()
+			m.TeamId = stringVal("team-acme")
+		}),
+		State: readResp.State,
+	}, &updResp)
+	mustNoDiags(t, "Update", updResp.Diagnostics)
+	var got ClusterResourceModel
+	mustNoDiags(t, "State.Get", updResp.State.Get(ctx, &got))
+	if got.Token.ValueString() != "rotated-"+id || got.TeamId.ValueString() != "team-acme" {
+		t.Fatalf("after Update: token %q team_id %q, want rotated-%s in team-acme", got.Token.ValueString(), got.TeamId.ValueString(), id)
+	}
+}

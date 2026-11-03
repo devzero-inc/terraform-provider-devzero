@@ -64,6 +64,11 @@ func (f *fakeBackend) DeleteCluster(_ context.Context, req *connect.Request[apiv
 }
 
 func (f *fakeBackend) ResetClusterToken(_ context.Context, req *connect.Request[apiv1.ResetClusterTokenRequest]) (*connect.Response[apiv1.ResetClusterTokenResponse], error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.clusters[req.Msg.ClusterId]; !ok || f.clusterTeam[req.Msg.ClusterId] != req.Msg.TeamId {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("cluster not found"))
+	}
 	return connect.NewResponse(&apiv1.ResetClusterTokenResponse{Token: "rotated-" + req.Msg.ClusterId}), nil
 }
 
