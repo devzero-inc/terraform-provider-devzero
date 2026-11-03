@@ -415,7 +415,7 @@ func TestTeamRead_KeepsStateAndNeverDropsTheTeam(t *testing.T) {
 			h.backend.teams[id].Name = "Acme Inc"
 		}},
 		// Fails if Read drops the team from state on NotFound, which would start a new team on the next apply.
-		{name: "gone", wantDetail: "removed blocks", arrange: func(h fakeHarness, id string) {
+		{name: "gone", wantDetail: "removed blocks that set lifecycle { destroy = false }", arrange: func(h fakeHarness, id string) {
 			delete(h.backend.teams, id)
 		}},
 		// Fails if Read drops the team or swallows an error other than NotFound.

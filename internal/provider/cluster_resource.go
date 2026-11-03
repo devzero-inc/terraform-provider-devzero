@@ -260,9 +260,10 @@ func (r *ClusterResource) clusterGone(ctx context.Context, resp *resource.ReadRe
 			"Cluster not found in the provider's team",
 			fmt.Sprintf("Cluster %s is not in team %s, the provider's team. Its state has no team_id, like every state written by a provider release before team_id, "+
 				"so the team it is registered in is not known, and Terraform keeps it in state rather than registering a new cluster in its place. "+
-				"If it is registered in another team, set the provider's team_id back to that team for one terraform apply -refresh-only, which stores the team in the cluster's state, "+
-				"or remove it from state and import it as <team_id>/<cluster_id>. "+
-				"If the cluster is gone, remove it from state (terraform state rm, or a removed block). "+
+				"If it is registered in another team, set the provider's team_id back to that team for one terraform apply -refresh-only -target=<this devzero_cluster's address>, "+
+				"which stores the team in the cluster's state and keeps its token. "+
+				"Or remove it from state and import it as <team_id>/<cluster_id>: the next apply then issues a new cluster token, and the cluster's agents stop reporting until they run with it. "+
+				"If the cluster is gone, remove it from state with terraform state rm, or on Terraform 1.9.3 or later with a removed block that sets lifecycle { destroy = false }. "+
 				"Setting team_id on this devzero_cluster in configuration does not help: the refresh reads the cluster's team from state.",
 				clusterID, teamID),
 		)
@@ -277,7 +278,7 @@ func (r *ClusterResource) clusterGone(ctx context.Context, resp *resource.ReadRe
 		fmt.Sprintf("Cluster %s is not in team %s, or this provider's token no longer reaches that team. "+
 			"Terraform keeps it in state rather than registering a new cluster in its place. "+
 			"If the cluster or its team is gone, remove this devzero_cluster, and the team's devzero_team if this configuration started the team, "+
-			"from configuration as well as from state (terraform state rm), or replace them with removed blocks. "+
+			"from configuration as well as from state: terraform state rm, or on Terraform 1.9.3 or later removed blocks that set lifecycle { destroy = false }. "+
 			"Removed from state but kept in configuration, they start a new team and register the customer's cluster into it on the next apply.",
 			clusterID, teamID),
 	)
@@ -366,9 +367,10 @@ func (r *ClusterResource) Delete(ctx context.Context, req resource.DeleteRequest
 // `<team_id>/<cluster_id>`.
 func (r *ClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	teamID, clusterID, found := strings.Cut(req.ID, "/")
+	// A plain id stores the provider's team: Read takes a null team_id for a
+	// state from before team_id and refuses to drop it when it misses.
 	if !found {
-		resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-		return
+		teamID, clusterID = r.client.TeamId, req.ID
 	}
 	if teamID == "" || clusterID == "" || strings.Contains(clusterID, "/") {
 		resp.Diagnostics.AddError(

@@ -308,6 +308,7 @@ func TestClusterRead_TeamIdTakesTheProvidersTeamOnlyWhenUnset(t *testing.T) {
 	cases := []struct {
 		name         string
 		clusterTeam  string // "" seeds no cluster
+		nilCluster   bool   // GetCluster answers OK with no cluster
 		stateTeam    types.String
 		providerTeam string
 		wantTeam     string
@@ -319,7 +320,9 @@ func TestClusterRead_TeamIdTakesTheProvidersTeamOnlyWhenUnset(t *testing.T) {
 		// Fails if Read calls with the provider's team instead of the stored one.
 		{name: "a stored team stays when the provider's team changes", clusterTeam: "team-1", stateTeam: stringVal("team-1"), providerTeam: "team-2", wantTeam: "team-1"},
 		// Fails if Read drops a cluster whose team it inferred: the next apply would register a second one in the provider's new team.
-		{name: "state from today's release not found in a changed provider team fails", clusterTeam: "team-1", stateTeam: types.StringNull(), providerTeam: "team-2", wantDetail: "terraform apply -refresh-only"},
+		{name: "state from today's release not found in a changed provider team fails", clusterTeam: "team-1", stateTeam: types.StringNull(), providerTeam: "team-2", wantDetail: "terraform apply -refresh-only -target="},
+		// Fails if the no-cluster answer drops a cluster whose team Read inferred.
+		{name: "state from today's release answered with no cluster fails", clusterTeam: "team-1", nilCluster: true, stateTeam: types.StringNull(), providerTeam: "team-1", wantDetail: "Cluster not found in the provider's team"},
 		// Fails if Read keeps a gone cluster whose stored team is the provider's.
 		{name: "a gone cluster of the provider's stored team is dropped", stateTeam: stringVal("team-1"), providerTeam: "team-1", wantDropped: true},
 	}
@@ -328,6 +331,7 @@ func TestClusterRead_TeamIdTakesTheProvidersTeamOnlyWhenUnset(t *testing.T) {
 			ctx := context.Background()
 			h := newFakeClientSetT(t)
 			h.cs.TeamId = tc.providerTeam
+			h.backend.getClusterNil = tc.nilCluster
 			r := &ClusterResource{client: h.cs}
 			id := "cl-gone"
 			if tc.clusterTeam != "" {
@@ -378,7 +382,7 @@ func TestClusterRead_FailsWithoutTouchingStateOutsideTheProvidersTeam(t *testing
 		wantDetail string
 	}{
 		// Fails if Read drops a cluster of another team from state, as it does in the provider's own team.
-		{name: "a cluster of another team is gone", stateTeam: "team-2", wantDetail: "removed blocks"},
+		{name: "a cluster of another team is gone", stateTeam: "team-2", wantDetail: "removed blocks that set lifecycle { destroy = false }"},
 		// Fails if Read drops the cluster or swallows an error other than NotFound.
 		{name: "an error other than NotFound", stateTeam: "team-1", getErr: connect.NewError(connect.CodeUnavailable, errors.New("dakr is restarting")), wantDetail: "dakr is restarting"},
 	}
@@ -493,7 +497,8 @@ func TestClusterUpdate_UnknownTeamSendsTheProvidersTeam(t *testing.T) {
 	}
 }
 
-// Fails if ImportState passes `<team_id>/<cluster_id>` through as the id.
+// Fails if ImportState passes `<team_id>/<cluster_id>` through as the id, or
+// leaves a plain id's team null.
 func TestClusterImport_TakesAPlainIdOrTeamSlashId(t *testing.T) {
 	cases := []struct {
 		id       string
@@ -502,7 +507,7 @@ func TestClusterImport_TakesAPlainIdOrTeamSlashId(t *testing.T) {
 		wantErr  bool
 	}{
 		{id: "team-2/cl-9", wantID: "cl-9", wantTeam: stringVal("team-2")},
-		{id: "cl-9", wantID: "cl-9", wantTeam: types.StringNull()},
+		{id: "cl-9", wantID: "cl-9", wantTeam: stringVal("team-1")},
 		{id: "team-2/", wantErr: true},
 		{id: "/cl-9", wantErr: true},
 		{id: "team-2/cl-9/x", wantErr: true},
@@ -510,7 +515,7 @@ func TestClusterImport_TakesAPlainIdOrTeamSlashId(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.id, func(t *testing.T) {
 			ctx := context.Background()
-			r := &ClusterResource{}
+			r := &ClusterResource{client: &ClientSet{TeamId: "team-1"}}
 			resp := resource.ImportStateResponse{State: emptyState(t, r)}
 			r.ImportState(ctx, resource.ImportStateRequest{ID: tc.id}, &resp)
 			if resp.Diagnostics.HasError() != tc.wantErr {
@@ -559,5 +564,25 @@ func TestClusterUpdate_AfterACrossTeamImportIssuesTheTokenInTheImportedTeam(t *t
 	mustNoDiags(t, "State.Get", updResp.State.Get(ctx, &got))
 	if got.Token.ValueString() != "rotated-"+id || got.TeamId.ValueString() != "team-acme" {
 		t.Fatalf("after Update: token %q team_id %q, want rotated-%s in team-acme", got.Token.ValueString(), got.TeamId.ValueString(), id)
+	}
+}
+
+// Fails if a plain-id import that misses the provider's team keeps a state
+// for Read to refuse: Terraform then reports the refusal, meant for a state
+// from before team_id, instead of "Cannot import non-existent remote object".
+func TestClusterImport_APlainIdThatMissesIsDroppedForTerraformToReport(t *testing.T) {
+	ctx := context.Background()
+	h := newFakeClientSetT(t)
+	r := &ClusterResource{client: h.cs}
+	id := seedCluster(h, "team-acme")
+
+	importResp := resource.ImportStateResponse{State: emptyState(t, r)}
+	r.ImportState(ctx, resource.ImportStateRequest{ID: id}, &importResp)
+	mustNoDiags(t, "ImportState", importResp.Diagnostics)
+	readResp := resource.ReadResponse{State: importResp.State}
+	r.Read(ctx, resource.ReadRequest{State: importResp.State}, &readResp)
+	mustNoDiags(t, "Read", readResp.Diagnostics)
+	if !readResp.State.Raw.IsNull() {
+		t.Fatal("Read kept a cluster the import did not find in the provider's team")
 	}
 }

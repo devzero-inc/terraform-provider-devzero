@@ -35,6 +35,9 @@ func (f *fakeBackend) GetCluster(_ context.Context, req *connect.Request[apiv1.G
 	if f.getClusterErr != nil {
 		return nil, f.getClusterErr
 	}
+	if f.getClusterNil {
+		return connect.NewResponse(&apiv1.GetClusterResponse{}), nil
+	}
 	c, ok := f.clusters[req.Msg.ClusterId]
 	if !ok || f.clusterTeam[c.Id] != req.Msg.TeamId {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("cluster not found"))

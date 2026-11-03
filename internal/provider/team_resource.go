@@ -265,7 +265,7 @@ func (r *TeamResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			fmt.Sprintf("Team %s could not be read: it is gone, this provider's token is no longer in it, or DevZero failed to read it. "+
 				"Terraform keeps it in state rather than starting a new team. Retry first. If it still fails, "+
 				"remove this devzero_team and the devzero_cluster resources in its team from configuration as well as from state "+
-				"(terraform state rm), or replace them with removed blocks. "+
+				"(terraform state rm), or on Terraform 1.9.3 or later replace them with removed blocks that set lifecycle { destroy = false }. "+
 				"Removed from state but kept in configuration, they start a new team and register the customer's clusters into it on the next apply.",
 				data.Id.ValueString()),
 		)

@@ -45,6 +45,7 @@ type fakeBackend struct {
 	// NotFound, as dakr scopes cluster reads and writes to the team.
 	clusterTeam   map[string]string
 	getClusterErr error
+	getClusterNil bool
 
 	// teams holds the started teams the caller is still in.
 	teams          map[string]*apiv1.Team
