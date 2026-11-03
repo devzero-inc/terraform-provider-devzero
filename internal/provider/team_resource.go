@@ -56,7 +56,10 @@ const teamResourceDescription = "A team started from the provider's team, such a
 	"To stop managing the customer and keep the partner in the team, give the `devzero_team` a `removed` block too.\n\n" +
 	"The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, " +
 	"and a changed `name`, `member_emails` or `admin_invite_emails` is refused. " +
-	"If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team."
+	"If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team.\n\n" +
+	"Renaming this resource's address, or moving it into a module, needs a `moved` block from the old address. " +
+	"Without one, Terraform starts a second team, sends its invites again, and destroys the old address, which is the token owner's leave of the customer's team. " +
+	"The plan is refused only when an existing `devzero_cluster` takes its `team_id` from this resource."
 
 func (r *TeamResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_team"

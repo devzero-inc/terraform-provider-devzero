@@ -7,6 +7,7 @@ description: |-
   Drive this resource with a service account's token (dzs-), not a person's. Destroying it is the token owner's leave of the team: with a service account's token the team and its people stay. With a person's token the destroy is that person's leave, and when they are the team's last member it deletes the team. DevZero may refuse a person's leave, for example when they are the last member of a team that has had clusters connected or whose tier DevZero set, or the only Admin while others stay.
   Destroying a devzero_cluster deletes that cluster in DevZero, so destroying a configuration like the example below deletes the customer's cluster. To offboard a customer without deleting anything, replace its devzero_cluster resources with removed blocks that set lifecycle { destroy = false }, and delete the devzero_team block: with a service account's token its destroy only leaves the team. The people named in member_emails stay until they leave the team in DevZero or its Admins remove them. To stop managing the customer and keep the partner in the team, give the devzero_team a removed block too.
   The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, and a changed name, member_emails or admin_invite_emails is refused. If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team.
+  Renaming this resource's address, or moving it into a module, needs a moved block from the old address. Without one, Terraform starts a second team, sends its invites again, and destroys the old address, which is the token owner's leave of the customer's team. The plan is refused only when an existing devzero_cluster takes its team_id from this resource.
 ---
 
 # devzero_team (Resource)
@@ -18,6 +19,8 @@ Drive this resource with a service account's token (`dzs-`), not a person's. Des
 Destroying a `devzero_cluster` deletes that cluster in DevZero, so destroying a configuration like the example below deletes the customer's cluster. To offboard a customer without deleting anything, replace its `devzero_cluster` resources with `removed` blocks that set `lifecycle { destroy = false }`, and delete the `devzero_team` block: with a service account's token its destroy only leaves the team. The people named in `member_emails` stay until they leave the team in DevZero or its Admins remove them. To stop managing the customer and keep the partner in the team, give the `devzero_team` a `removed` block too.
 
 The values the team is started with are not managed afterwards: the team's Admins rename it and manage its people in DevZero, and a changed `name`, `member_emails` or `admin_invite_emails` is refused. If the team can no longer be read (it was deleted, or the token's owner was removed from it), refresh fails rather than starting a new team.
+
+Renaming this resource's address, or moving it into a module, needs a `moved` block from the old address. Without one, Terraform starts a second team, sends its invites again, and destroys the old address, which is the token owner's leave of the customer's team. The plan is refused only when an existing `devzero_cluster` takes its `team_id` from this resource.
 
 ## Example Usage
 
