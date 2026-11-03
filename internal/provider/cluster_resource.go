@@ -216,6 +216,7 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	teamInferred := data.TeamId.ValueString() == ""
 	teamID := r.teamOf(data.TeamId)
 	getClusterReq := &apiv1.GetClusterRequest{
 		TeamId:    teamID,
@@ -225,7 +226,7 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	getClusterResp, err := r.client.K8SServiceClient.GetCluster(ctx, connect.NewRequest(getClusterReq))
 	if err != nil {
 		if connect.CodeOf(err) == connect.CodeNotFound {
-			r.clusterGone(ctx, resp, data.Id.ValueString(), teamID)
+			r.clusterGone(ctx, resp, data.Id.ValueString(), teamID, teamInferred)
 			return
 		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get cluster, got error: %s", err))
@@ -233,7 +234,7 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	if getClusterResp.Msg.Cluster == nil {
-		r.clusterGone(ctx, resp, data.Id.ValueString(), teamID)
+		r.clusterGone(ctx, resp, data.Id.ValueString(), teamID, teamInferred)
 		return
 	}
 
@@ -249,9 +250,24 @@ func (r *ClusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// clusterGone drops a missing cluster of the provider's team from state; any
-// other team's fails.
-func (r *ClusterResource) clusterGone(ctx context.Context, resp *resource.ReadResponse, clusterID, teamID string) {
+// clusterGone drops a missing cluster from state only when its stored team is
+// the provider's. One whose team was inferred from the provider's may be
+// registered in the team the provider had before, so it fails, as does any
+// other team's.
+func (r *ClusterResource) clusterGone(ctx context.Context, resp *resource.ReadResponse, clusterID, teamID string, teamInferred bool) {
+	if teamInferred {
+		resp.Diagnostics.AddError(
+			"Cluster not found in the provider's team",
+			fmt.Sprintf("Cluster %s is not in team %s, the provider's team. Its state has no team_id, like every state written by a provider release before team_id, "+
+				"so the team it is registered in is not known, and Terraform keeps it in state rather than registering a new cluster in its place. "+
+				"If it is registered in another team, set the provider's team_id back to that team for one terraform apply -refresh-only, which stores the team in the cluster's state, "+
+				"or remove it from state and import it as <team_id>/<cluster_id>. "+
+				"If the cluster is gone, remove it from state (terraform state rm, or a removed block). "+
+				"Setting team_id on this devzero_cluster in configuration does not help: the refresh reads the cluster's team from state.",
+				clusterID, teamID),
+		)
+		return
+	}
 	if teamID == r.client.TeamId {
 		resp.State.RemoveResource(ctx)
 		return

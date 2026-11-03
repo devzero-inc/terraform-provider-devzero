@@ -307,15 +307,21 @@ func seedCluster(h fakeHarness, team string) string {
 func TestClusterRead_TeamIdTakesTheProvidersTeamOnlyWhenUnset(t *testing.T) {
 	cases := []struct {
 		name         string
-		clusterTeam  string
+		clusterTeam  string // "" seeds no cluster
 		stateTeam    types.String
-		wantTeam     string
 		providerTeam string
+		wantTeam     string
+		wantDetail   string // an error containing it, and the state unchanged
+		wantDropped  bool
 	}{
 		// Fails if Read leaves a null team_id unset.
 		{name: "state from today's release takes the provider's team", clusterTeam: "team-1", stateTeam: types.StringNull(), providerTeam: "team-1", wantTeam: "team-1"},
 		// Fails if Read calls with the provider's team instead of the stored one.
 		{name: "a stored team stays when the provider's team changes", clusterTeam: "team-1", stateTeam: stringVal("team-1"), providerTeam: "team-2", wantTeam: "team-1"},
+		// Fails if Read drops a cluster whose team it inferred: the next apply would register a second one in the provider's new team.
+		{name: "state from today's release not found in a changed provider team fails", clusterTeam: "team-1", stateTeam: types.StringNull(), providerTeam: "team-2", wantDetail: "terraform apply -refresh-only"},
+		// Fails if Read keeps a gone cluster whose stored team is the provider's.
+		{name: "a gone cluster of the provider's stored team is dropped", stateTeam: stringVal("team-1"), providerTeam: "team-1", wantDropped: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -323,7 +329,10 @@ func TestClusterRead_TeamIdTakesTheProvidersTeamOnlyWhenUnset(t *testing.T) {
 			h := newFakeClientSetT(t)
 			h.cs.TeamId = tc.providerTeam
 			r := &ClusterResource{client: h.cs}
-			id := seedCluster(h, tc.clusterTeam)
+			id := "cl-gone"
+			if tc.clusterTeam != "" {
+				id = seedCluster(h, tc.clusterTeam)
+			}
 			state := clusterState(t, r, func(m *ClusterResourceModel) {
 				m.Id = stringVal(id)
 				m.Name = stringVal("prod")
@@ -333,7 +342,22 @@ func TestClusterRead_TeamIdTakesTheProvidersTeamOnlyWhenUnset(t *testing.T) {
 
 			readResp := resource.ReadResponse{State: state}
 			r.Read(ctx, resource.ReadRequest{State: state}, &readResp)
+			if tc.wantDetail != "" {
+				if !hasDiag(readResp.Diagnostics, diag.SeverityError, tc.wantDetail) {
+					t.Fatalf("diagnostics %+v, want an error containing %q", readResp.Diagnostics, tc.wantDetail)
+				}
+				if !readResp.State.Raw.Equal(state.Raw) {
+					t.Fatal("Read changed the state on a failed refresh")
+				}
+				return
+			}
 			mustNoDiags(t, "Read", readResp.Diagnostics)
+			if tc.wantDropped {
+				if !readResp.State.Raw.IsNull() {
+					t.Fatal("Read kept a gone cluster of the provider's team")
+				}
+				return
+			}
 			if readResp.State.Raw.IsNull() {
 				t.Fatal("Read dropped the cluster from state")
 			}
