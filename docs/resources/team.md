@@ -67,13 +67,13 @@ resource "devzero_cluster" "acme_prod" {
 
 ### Optional
 
-- `admin_invite_emails` (Set of String) Addresses invited as Admin of the new team when it is started, such as the customer's admin. A person already in the provider's team is named in `member_emails` instead. Used only when the team is started: a change is refused; send further invites from the team's Settings > Members.
-- `member_emails` (Set of String) People of the provider's team, by email, who join the new team, each in the role they hold in the provider's team (Admin or Developer). At least one person must join as Admin, so with a service account's token name an Admin here. Used only when the team is started: a change is refused; manage the team's people in its Settings > Members.
+- `admin_invite_emails` (Set of String) Addresses invited as Admin of the new team when it is started, such as the customer's admin. A person already in the provider's team is named in `member_emails` instead. Used only when the team is started: a change is refused; send further invites from the team's Settings > Organization Settings > User and Role Management.
+- `member_emails` (Set of String) People of the provider's team, by email, who join the new team, each in the role they hold in the provider's team (Admin or Developer). At least one person must join as Admin, so with a service account's token name an Admin here. Used only when the team is started: a change is refused; manage the team's people in its Settings > Organization Settings > User and Role Management.
 
 ### Read-Only
 
 - `id` (String) ID of the team
-- `invites_not_sent` (Set of String) Addresses from `admin_invite_emails` whose invite was saved but whose email DevZero could not send. Re-send them from the team's Settings > Members.
+- `invites_not_sent` (Set of String) Addresses from `admin_invite_emails` whose invite was saved but whose email DevZero could not send. Re-send them from the team's Settings > Organization Settings > User and Role Management.
 
 ## Import
 

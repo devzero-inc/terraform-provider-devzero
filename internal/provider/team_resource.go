@@ -81,19 +81,19 @@ func (r *TeamResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"member_emails": schema.SetAttribute{
 				MarkdownDescription: "People of the provider's team, by email, who join the new team, each in the role they hold in the provider's team (Admin or Developer). " +
 					"At least one person must join as Admin, so with a service account's token name an Admin here. " +
-					"Used only when the team is started: a change is refused; manage the team's people in its Settings > Members.",
+					"Used only when the team is started: a change is refused; manage the team's people in its Settings > Organization Settings > User and Role Management.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
 			"admin_invite_emails": schema.SetAttribute{
 				MarkdownDescription: "Addresses invited as Admin of the new team when it is started, such as the customer's admin. " +
 					"A person already in the provider's team is named in `member_emails` instead. " +
-					"Used only when the team is started: a change is refused; send further invites from the team's Settings > Members.",
+					"Used only when the team is started: a change is refused; send further invites from the team's Settings > Organization Settings > User and Role Management.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
 			"invites_not_sent": schema.SetAttribute{
-				MarkdownDescription: "Addresses from `admin_invite_emails` whose invite was saved but whose email DevZero could not send. Re-send them from the team's Settings > Members.",
+				MarkdownDescription: "Addresses from `admin_invite_emails` whose invite was saved but whose email DevZero could not send. Re-send them from the team's Settings > Organization Settings > User and Role Management.",
 				ElementType:         types.StringType,
 				Computed:            true,
 				PlanModifiers: []planmodifier.Set{
@@ -150,9 +150,9 @@ func (r *TeamResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 	refuse("name", prior.Name, planned.Name,
 		"The team's Admins rename it in DevZero; a Developer, as a service account is, cannot.")
 	refuse("member_emails", prior.MemberEmails, planned.MemberEmails,
-		"The team's Admins add and remove people in its Settings > Members.")
+		"The team's Admins add and remove people in its Settings > Organization Settings > User and Role Management.")
 	refuse("admin_invite_emails", prior.AdminInviteEmails, planned.AdminInviteEmails,
-		"The team's Admins send invites from its Settings > Members.")
+		"The team's Admins send invites from its Settings > Organization Settings > User and Role Management.")
 }
 
 // unsettled reports a planned value whose difference from the start cannot be
@@ -233,7 +233,7 @@ func (r *TeamResource) Create(ctx context.Context, req resource.CreateRequest, r
 		resp.Diagnostics.AddAttributeWarning(
 			path.Root("invites_not_sent"),
 			"Invite emails not sent",
-			fmt.Sprintf("Team %s was started and its invites were saved, but DevZero could not email %s. Re-send them from the team's Settings > Members.",
+			fmt.Sprintf("Team %s was started and its invites were saved, but DevZero could not email %s. Re-send them from the team's Settings > Organization Settings > User and Role Management.",
 				createResp.Msg.Team.Id, strings.Join(notSent, ", ")),
 		)
 	}
