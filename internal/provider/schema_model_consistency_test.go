@@ -178,6 +178,11 @@ func allResourcesUnderTest() []resourceUnderTest {
 			resource: NewClusterResource,
 			newModel: func() any { return &ClusterResourceModel{} },
 		},
+		{
+			name:     "devzero_team",
+			resource: NewTeamResource,
+			newModel: func() any { return &TeamResourceModel{} },
+		},
 	}
 }
 

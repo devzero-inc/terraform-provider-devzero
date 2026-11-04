@@ -23,6 +23,7 @@ type ClientSet struct {
 	ClusterServiceClient  apiv1connect.ClusterServiceClient
 	K8SServiceClient      apiv1connect.K8SServiceClient
 	RecommendationClient  apiv1connect.K8SRecommendationServiceClient
+	TeamClient            apiv1connect.TeamServiceClient
 }
 
 // Ensure DevzeroProvider satisfies various provider interfaces.
@@ -194,6 +195,12 @@ func (p *DevzeroProvider) Configure(ctx context.Context, req provider.ConfigureR
 			connect.WithGRPC(),
 			connect.WithInterceptors(authInterceptor),
 		),
+		TeamClient: apiv1connect.NewTeamServiceClient(
+			client,
+			url,
+			connect.WithGRPC(),
+			connect.WithInterceptors(authInterceptor),
+		),
 	}
 
 	// Example client configuration for data sources and resources
@@ -204,6 +211,7 @@ func (p *DevzeroProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *DevzeroProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewClusterResource,
+		NewTeamResource,
 		NewWorkloadPolicyResource,
 		NewWorkloadPolicyTargetResource,
 		NewNodePolicyResource,

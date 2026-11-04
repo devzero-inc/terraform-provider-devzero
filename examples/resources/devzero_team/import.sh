@@ -1,0 +1,1 @@
+terraform import devzero_team.acme <team_id>

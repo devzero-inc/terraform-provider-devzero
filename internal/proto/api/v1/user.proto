@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+package api.v1;
+
+option go_package = "github.com/devzero-inc/services/dakr/proto/api/v1;gen";
+
+import "google/protobuf/timestamp.proto";
+
+// User service definition
+service UserService {
+  // User metadata operations
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetOrCreateUser(GetOrCreateUserRequest) returns (GetOrCreateUserResponse);
+  
+  // User invites operations
+  rpc GetPendingInvitesForUser(GetPendingInvitesForUserRequest) returns (GetPendingInvitesForUserResponse);
+  rpc GetPendingInvites(GetPendingInvitesRequest) returns (GetPendingInvitesResponse);
+  rpc InviteUser(InviteUserRequest) returns (InviteUserResponse);
+  rpc ReplyToInvite(ReplyToInviteRequest) returns (ReplyToInviteResponse);
+  
+  // Personal access token operations
+  rpc CreatePAT(CreatePATRequest) returns (CreatePATResponse);
+  rpc GetPATsForUser(GetPATsForUserRequest) returns (GetPATsForUserResponse);
+  rpc GetPATByID(GetPATByIDRequest) returns (GetPATByIDResponse);
+  rpc DeletePAT(DeletePATRequest) returns (DeletePATResponse);
+}
+
+// Core User message
+message User {
+  string id = 1;
+  bool is_global_admin = 2;
+  string email = 3;
+  string given_name = 4;
+  string sub = 5;
+  string timezone = 6;
+  repeated UserTeam teams = 7;
+  bool has_finished_onboarding = 8;
+}
+
+message UserTeam {
+  string id = 1;
+  string name = 2;
+  string role = 3;
+}
+
+message PersonalAccessToken {
+  string id = 1;
+  string name = 2;
+  string token = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  repeated string scopes = 6;
+  // The team a cluster registered with this token lands in; empty means the
+  // caller's default team. It does not narrow what the token may do.
+  string cluster_registration_team_id = 7;
+}
+
+message Invite {
+  string id = 1;
+  string email = 2;
+  string organization_id = 3; // TODO: depreceated remove 
+  string team_id = 4;
+  string role = 5;
+  string status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  // The current name of the team the invite is to. Set only by GetPendingInvitesForUser.
+  string team_name = 9;
+  // The email address stored on the inviting account. Set only by GetPendingInvitesForUser.
+  string invited_by = 10;
+}
+
+// Request/Response message types
+
+// User metadata operations
+message GetUserRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  User user = 2;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message CreateUserRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  User user = 2;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message GetOrCreateUserRequest {
+  User user = 1;
+}
+
+message GetOrCreateUserResponse {
+  User user = 1;
+}
+
+// User invites operations
+message GetPendingInvitesForUserRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+}
+
+message GetPendingInvitesForUserResponse {
+  repeated Invite invites = 1;
+}
+
+// Get pending invites operations (Global admin only)
+message GetPendingInvitesRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  bool is_primary = 2; // If true, return only invites without team (primary invites)
+}
+
+message GetPendingInvitesResponse {
+  repeated Invite invites = 1;
+}
+
+// Invite user operations
+message InviteUserRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string email = 2;
+  string team_name = 3;
+}
+
+message InviteUserResponse {
+  Invite invite = 1;
+}
+
+// Personal access token operations
+message CreatePATRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string user_id = 2;
+  string name = 3;
+  repeated string scopes = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  // Recorded on the token; refused unless the caller has a write-capable
+  // membership in the team.
+  string cluster_registration_team_id = 6;
+}
+
+message CreatePATResponse {
+  PersonalAccessToken token = 1;
+}
+
+message GetPATsForUserRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string user_id = 2;
+}
+
+message GetPATsForUserResponse {
+  repeated PersonalAccessToken tokens = 1;
+}
+
+message GetPATByIDRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string user_id = 2;
+  string pat_id = 3;
+}
+
+message GetPATByIDResponse {
+  PersonalAccessToken token = 1;
+}
+
+message DeletePATRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string user_id = 2;
+  string pat_id = 3;
+}
+
+message DeletePATResponse {
+  bool success = 1;
+}
+
+// Reply to invite operations
+message ReplyToInviteRequest {
+  string sub = 1 [deprecated = true]; // Deprecated: User identification is now handled via JWT context
+  string invite_id = 2;
+  string reply = 3;
+}
+
+message ReplyToInviteResponse {
+  bool success = 1;
+}

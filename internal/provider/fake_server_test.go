@@ -30,6 +30,7 @@ type fakeBackend struct {
 	apiv1connect.UnimplementedK8SRecommendationServiceHandler
 	apiv1connect.UnimplementedK8SServiceHandler
 	apiv1connect.UnimplementedClusterMutationServiceHandler
+	apiv1connect.UnimplementedTeamServiceHandler
 
 	mu       sync.Mutex
 	nextID   int
@@ -40,6 +41,21 @@ type fakeBackend struct {
 	wpt      map[string]*apiv1.WorkloadPolicyTarget
 	rules    map[string]*apiv1.WorkloadRule
 	clusters map[string]*apiv1.Cluster
+	// clusterTeam holds each cluster's team; a call naming another team gets
+	// NotFound, as dakr scopes cluster reads and writes to the team.
+	clusterTeam   map[string]string
+	getClusterErr error
+	getClusterNil bool
+
+	// teams holds the started teams the caller is still in.
+	teams          map[string]*apiv1.Team
+	createTeamReqs []*apiv1.CreateTeamRequest
+	createTeamErr  error
+	invitesNotSent []string
+	getTeamErr     error
+	leaveTeamReqs  []*apiv1.LeaveTeamRequest
+	leaveTeamErr   error
+	leaveDeletes   bool
 }
 
 func newFakeBackend(teamID string) *fakeBackend {
@@ -51,6 +67,9 @@ func newFakeBackend(teamID string) *fakeBackend {
 		wpt:      map[string]*apiv1.WorkloadPolicyTarget{},
 		rules:    map[string]*apiv1.WorkloadRule{},
 		clusters: map[string]*apiv1.Cluster{},
+
+		clusterTeam: map[string]string{},
+		teams:       map[string]*apiv1.Team{},
 	}
 }
 
@@ -411,6 +430,7 @@ func newFakeClientSet(t *testing.T) (*ClientSet, *fakeBackend) {
 	mux.Handle(apiv1connect.NewK8SRecommendationServiceHandler(fake))
 	mux.Handle(apiv1connect.NewK8SServiceHandler(fake))
 	mux.Handle(apiv1connect.NewClusterMutationServiceHandler(fake))
+	mux.Handle(apiv1connect.NewTeamServiceHandler(fake))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return &ClientSet{
@@ -418,6 +438,7 @@ func newFakeClientSet(t *testing.T) (*ClientSet, *fakeBackend) {
 		ClusterMutationClient: apiv1connect.NewClusterMutationServiceClient(srv.Client(), srv.URL),
 		K8SServiceClient:      apiv1connect.NewK8SServiceClient(srv.Client(), srv.URL),
 		RecommendationClient:  apiv1connect.NewK8SRecommendationServiceClient(srv.Client(), srv.URL),
+		TeamClient:            apiv1connect.NewTeamServiceClient(srv.Client(), srv.URL),
 	}, fake
 }
 
