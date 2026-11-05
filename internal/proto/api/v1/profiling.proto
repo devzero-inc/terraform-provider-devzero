@@ -35,8 +35,8 @@ message GetWorkloadProfilesRequest {
   optional google.protobuf.Timestamp start_time = 11;
   optional google.protobuf.Timestamp end_time = 12;
 
-  // When set to 1D or 7D, serve from the persisted workload_profile_cache
-  // snapshot for that window instead of computing live over start_time/end_time.
+  // When set to 1D or 7D, serve the persisted current profile state for that
+  // window instead of computing live over start_time/end_time.
   // UNSPECIFIED (default) preserves today's live-compute behavior.
   ProfileWindow window = 13;
 }

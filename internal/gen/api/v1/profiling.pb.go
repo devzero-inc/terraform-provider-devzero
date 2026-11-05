@@ -136,8 +136,8 @@ type GetWorkloadProfilesRequest struct {
 	Workloads []*ProfilingWorkloadKey `protobuf:"bytes,3,rep,name=workloads,proto3" json:"workloads,omitempty"`
 	StartTime *timestamppb.Timestamp  `protobuf:"bytes,11,opt,name=start_time,json=startTime,proto3,oneof" json:"start_time,omitempty"`
 	EndTime   *timestamppb.Timestamp  `protobuf:"bytes,12,opt,name=end_time,json=endTime,proto3,oneof" json:"end_time,omitempty"`
-	// When set to 1D or 7D, serve from the persisted workload_profile_cache
-	// snapshot for that window instead of computing live over start_time/end_time.
+	// When set to 1D or 7D, serve the persisted current profile state for that
+	// window instead of computing live over start_time/end_time.
 	// UNSPECIFIED (default) preserves today's live-compute behavior.
 	Window ProfileWindow `protobuf:"varint,13,opt,name=window,proto3,enum=api.v1.ProfileWindow" json:"window,omitempty"`
 }

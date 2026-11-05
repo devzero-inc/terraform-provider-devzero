@@ -121,6 +121,10 @@ resource "devzero_node_policy" "aws_comprehensive" {
     ami_selector_terms = [
       {
         alias = "al2023@latest"
+      },
+      {
+        # Resolve the AMI ID from an SSM public parameter instead of an alias
+        ssm_parameter = "/aws/service/eks/optimized-ami/1.29/amazon-linux-2/recommended/image_id"
       }
     ]
 
@@ -153,11 +157,13 @@ resource "devzero_node_policy" "aws_comprehensive" {
     block_device_mappings = [
       {
         device_name = "/dev/xvda"
+        root_volume = true
         ebs = {
-          volume_size           = "100Gi"
-          volume_type           = "gp3"
-          encrypted             = true
-          delete_on_termination = true
+          volume_size                = "100Gi"
+          volume_type                = "gp3"
+          encrypted                  = true
+          delete_on_termination      = true
+          volume_initialization_rate = 100 # MiB/s to pre-warm the volume from its snapshot
         }
       }
     ]
@@ -258,5 +264,145 @@ resource "devzero_node_policy" "azure_example" {
       "Environment" = "production"
       "ManagedBy"   = "Karpenter"
     }
+  }
+}
+
+# GCP example
+resource "devzero_node_policy" "gcp_example" {
+  name            = "gcp-production"
+  description     = "Production-ready GCP node policy"
+  node_pool_name  = "production-pool"
+  node_class_name = "production-class"
+  weight          = 10
+
+  # GCP-only: select nodes by custom machine shape tokens
+  instance_shapes = {
+    match_expressions = [{
+      key      = "instanceShapes"
+      operator = "In"
+      values   = ["custom"]
+    }]
+  }
+
+  architectures = {
+    match_expressions = [{
+      key      = "architectures"
+      operator = "In"
+      values   = ["amd64"]
+    }]
+  }
+
+  capacity_types = {
+    match_expressions = [{
+      key      = "capacityTypes"
+      operator = "In"
+      values   = ["spot", "on-demand"]
+    }]
+  }
+
+  labels = {
+    "dedicated" = "karpenter"
+  }
+
+  disruption = {
+    consolidate_after    = "5m"
+    consolidation_policy = "WhenEmptyOrUnderutilized"
+    expire_after         = "168h" # 7 days
+  }
+
+  # GCP-specific configuration
+  gcp = {
+    service_account = "karpenter@my-project.iam.gserviceaccount.com"
+
+    image_selector_terms = [
+      {
+        alias = "ubuntu-2204-lts"
+      }
+    ]
+    image_family = "ubuntu"
+
+    labels = {
+      "environment" = "production"
+    }
+    network_tags = ["allow-ssh", "allow-health-checks"]
+
+    disks = [
+      {
+        size_gib = 100
+        category = "pd-ssd"
+        boot     = true
+      }
+    ]
+
+    kubelet = {
+      max_pods = 110
+    }
+  }
+}
+
+# OCI example
+resource "devzero_node_policy" "oci_example" {
+  name            = "oci-production"
+  description     = "Production-ready OCI node policy"
+  node_pool_name  = "production-pool"
+  node_class_name = "production-class"
+  weight          = 10
+
+  architectures = {
+    match_expressions = [{
+      key      = "architectures"
+      operator = "In"
+      values   = ["amd64"]
+    }]
+  }
+
+  disruption = {
+    consolidate_after    = "5m"
+    consolidation_policy = "WhenEmptyOrUnderutilized"
+    expire_after         = "168h" # 7 days
+  }
+
+  # OCI-specific configuration
+  oci = {
+    vcn_id = "ocid1.vcn.oc1..aaaaaaaaexample"
+
+    image_selector = [
+      {
+        name = "Oracle-Linux-8.9-2024.05.15-0"
+      }
+    ]
+    image_family = "oracle-linux-8"
+
+    subnet_selector = [
+      {
+        name = "production-subnet"
+      }
+    ]
+    security_group_selector = [
+      {
+        name = "production-node-sg"
+      }
+    ]
+
+    free_form_tags = {
+      "Environment" = "production"
+    }
+
+    boot_config = {
+      boot_volume_size_in_gbs = 100
+      boot_volume_vpus_per_gb = 10
+    }
+
+    launch_options = {
+      boot_volume_type                    = "PARAVIRTUALIZED"
+      is_consistent_volume_naming_enabled = true
+    }
+
+    block_devices = [
+      {
+        size_in_gbs = 50
+        vpus_per_gb = 10
+      }
+    ]
   }
 }

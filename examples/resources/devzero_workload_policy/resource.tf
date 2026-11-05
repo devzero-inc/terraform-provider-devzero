@@ -43,4 +43,12 @@ resource "devzero_workload_policy" "cost_saving" {
 
   enable_pmax_protection = true # guard against spike-induced OOMKills
   pmax_ratio_threshold   = 3    # raise requests when peak is 3× the recommendation
+
+  emergency_response = {
+    oom_enabled               = true
+    oom_memory_multiplier     = 1.5
+    cpu_throttling_enabled    = true
+    cpu_throttling_threshold  = 0.20
+    cpu_throttling_multiplier = 1.25
+  }
 }

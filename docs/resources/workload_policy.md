@@ -58,6 +58,14 @@ resource "devzero_workload_policy" "cost_saving" {
 
   enable_pmax_protection = true # guard against spike-induced OOMKills
   pmax_ratio_threshold   = 3    # raise requests when peak is 3× the recommendation
+
+  emergency_response = {
+    oom_enabled               = true
+    oom_memory_multiplier     = 1.5
+    cpu_throttling_enabled    = true
+    cpu_throttling_threshold  = 0.20
+    cpu_throttling_multiplier = 1.25
+  }
 }
 ```
 
@@ -83,6 +91,7 @@ resource "devzero_workload_policy" "cost_saving" {
 - `description` (String) Free-form description of the policy to help others understand its intent and scope.
 - `detection_triggers` (List of String) Detection triggers for when to apply the workload policy. Valid values: `pod_creation`, `pod_update`, `pod_evict`.The `pod_creation` trigger is used to apply the workload policy when a pod is created.The `pod_update` trigger is used to apply the workload policy when a pod is updated.The `pod_evict` trigger is used to apply the workload policy when a pod is evicted.
 - `drift_delta_percent` (Number) Percentage drift from baseline that triggers VPA refresh
+- `emergency_response` (Attributes) Emergency response configuration for OOM and CPU throttle events (see [below for nested schema](#nestedatt--emergency_response))
 - `enable_in_place_vertical_scaling` (Boolean) When true, vertical recommendations are applied in place (without recreating pods) where the cluster supports it. Default: false.
 - `enable_pmax_protection` (Boolean) When true, the recommender raises requests to cover observed peak usage when the peak-to-recommendation ratio exceeds `pmax_ratio_threshold`. Default: false.
 - `gpu_vertical_scaling` (Attributes) GPU vertical scaling options (see [below for nested schema](#nestedatt--gpu_vertical_scaling))
@@ -137,6 +146,20 @@ Optional:
 - `overhead_multiplier` (Number) Additional headroom added to recommendations, expressed as a fraction (e.g., 0.05 for 5%).
 - `request_use_rss` (Boolean) Memory only: when true, size the memory request recommendation from RSS (resident set size) instead of the default working set. Ignored for CPU/GPU.
 - `target_percentile` (Number) Target percentile for resource sizing (e.g., 0.75 = P75).
+
+
+<a id="nestedatt--emergency_response"></a>
+### Nested Schema for `emergency_response`
+
+Optional:
+
+- `cpu_throttling_enabled` (Boolean) React to CPU throttling by increasing CPU request
+- `cpu_throttling_multiplier` (Number) Multiplier applied to CPU request on throttle reaction
+- `cpu_throttling_threshold` (Number) Throttle ratio threshold that triggers a reaction (0-1)
+- `oom_cooldown_seconds` (Number) Seconds to wait between OOM reactions
+- `oom_enabled` (Boolean) React to OOM kills by increasing memory
+- `oom_max_reactions` (Number) Maximum number of OOM reactions before giving up
+- `oom_memory_multiplier` (Number) Multiplier applied to memory on OOM
 
 
 <a id="nestedatt--gpu_vertical_scaling"></a>

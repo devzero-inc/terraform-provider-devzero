@@ -81,8 +81,44 @@ resource "devzero_workload_rule" "manual" {
     cpu_throttling_multiplier = 1.25
   }
 
-  live_migration_enabled        = false
-  use_in_place_vertical_scaling = false
+  # JVM heap sizing (only applies when the workload is detected as running a JVM)
+  jvm_heap_rule = {
+    enabled                   = true
+    target_percentile         = 0.95
+    headroom_multiplier       = 1.2
+    non_heap_overhead_percent = 0.15
+    min_heap_bytes            = 268435456  # 256Mi
+    max_heap_bytes            = 4294967296 # 4Gi
+    prefer_container_support  = false
+  }
+  jvm_cpu_startup_floor_millicores = 250 # override the 75m default while the JVM warms up
+
+  # Hand the ScaledObject lifecycle to KEDA instead of generating an HPA
+  keda_scaled_object = {
+    min_replica_count = 1
+    max_replica_count = 20
+    cooldown_period   = 300
+
+    triggers = [
+      {
+        type = "prometheus"
+        metadata = {
+          serverAddress = "http://prometheus.monitoring.svc.cluster.local:9090"
+          query         = "rate(http_requests_total{job=\"my-api\"}[5m])"
+          threshold     = "100"
+        }
+      }
+    ]
+
+    fallback = {
+      failure_threshold = 3
+      replicas          = 2
+    }
+  }
+
+  live_migration_enabled               = false
+  use_in_place_vertical_scaling        = false
+  allow_in_place_memory_limit_decrease = false
 }
 
 # Per-container rules
@@ -133,6 +169,7 @@ resource "devzero_workload_rule" "per_container" {
 ### Optional
 
 - `action_triggers` (List of String) When to apply recommendations. Valid values: 'on_detection', 'on_schedule'
+- `allow_in_place_memory_limit_decrease` (Boolean) Opt-in: allow an in-place resize to lower a container's memory limit. Only consulted when `use_in_place_vertical_scaling` is true; a decrease still additionally requires a cluster new enough to accept one. Default false because shrinking a live container's memory limit can OOM-kill it.
 - `auto_generate` (Boolean) When true the engine generates all rule fields automatically; manual field overrides are ignored
 - `containers` (Attributes List) Per-container resource rule configurations. When empty, workload-level rules apply to all containers. (see [below for nested schema](#nestedatt--containers))
 - `cpu_rule` (Attributes) CPU vertical scaling rule configuration (see [below for nested schema](#nestedatt--cpu_rule))
@@ -143,6 +180,9 @@ resource "devzero_workload_rule" "per_container" {
 - `emergency_response` (Attributes) Emergency response configuration for OOM and CPU throttle events (see [below for nested schema](#nestedatt--emergency_response))
 - `gpu_rule` (Attributes) GPU vertical scaling rule configuration (see [below for nested schema](#nestedatt--gpu_rule))
 - `hpa_rule` (Attributes) Horizontal (replica) scaling rule configuration (see [below for nested schema](#nestedatt--hpa_rule))
+- `jvm_cpu_startup_floor_millicores` (Number) Per-rule override of the JVM CPU startup floor in millicores. Unset inherits the policy/system default (75m); explicit `0` disables the floor for this rule. Always-on for detected JVMs, independent of `jvm_heap_rule.enabled`.
+- `jvm_heap_rule` (Attributes) JVM heap optimization overrides for this rule (see [below for nested schema](#nestedatt--jvm_heap_rule))
+- `keda_scaled_object` (Attributes) KEDA ScaledObject template authored by the user. When set, the in-cluster operator owns the ScaledObject lifecycle (create/update/delete) instead of generating its own HPA. (see [below for nested schema](#nestedatt--keda_scaled_object))
 - `live_migration_enabled` (Boolean) Allow live pod migration when applying recommendations
 - `lookback_period_seconds` (Number) Per-rule override of the metrics lookback window in seconds. Unset inherits the team default (7 days). Minimum 3600 (1h), maximum 2592000 (30d); higher tiers may be capped server-side.
 - `memory_rule` (Attributes) Memory vertical scaling rule configuration (see [below for nested schema](#nestedatt--memory_rule))
@@ -367,6 +407,84 @@ Optional:
 - `target_utilization` (String) Target utilization as a decimal string. Example: '0.70'
 - `target_value` (String) Absolute target value as a string. Example: '50000000'
 - `weight` (String) Weight for composite formula scaling (0-1 decimal string). Example: '0.5'
+
+
+
+<a id="nestedatt--jvm_heap_rule"></a>
+### Nested Schema for `jvm_heap_rule`
+
+Optional:
+
+- `enabled` (Boolean) Enable JVM heap optimization
+- `headroom_multiplier` (Number) Multiplier applied to the target heap usage to derive the recommended max heap
+- `max_heap_bytes` (Number) Maximum recommended max heap size in bytes
+- `min_heap_bytes` (Number) Minimum recommended max heap size in bytes
+- `non_heap_overhead_bytes` (Number) Non-heap memory overhead in bytes, added on top of non_heap_overhead_percent
+- `non_heap_overhead_percent` (Number) Non-heap memory overhead as a percentage of heap size
+- `prefer_container_support` (Boolean) Prefer the JVM's own container-aware ergonomics (-XX:+UseContainerSupport) over an explicit -Xmx
+- `target_percentile` (Number) Percentile of heap usage data used as the recommendation target (0-1)
+
+
+<a id="nestedatt--keda_scaled_object"></a>
+### Nested Schema for `keda_scaled_object`
+
+Optional:
+
+- `advanced` (Attributes) Advanced KEDA ScaledObject settings (see [below for nested schema](#nestedatt--keda_scaled_object--advanced))
+- `cooldown_period` (Number) Seconds to wait after the last trigger reported active before scaling down to idle/min replicas
+- `fallback` (Attributes) Replica fallback configuration when the scaler's metrics are unavailable (see [below for nested schema](#nestedatt--keda_scaled_object--fallback))
+- `idle_replica_count` (Number) Number of replicas to scale down to when idle
+- `initial_cooldown_period` (Number) Cooldown period applied only on initial ScaledObject creation
+- `max_replica_count` (Number) Maximum number of replicas
+- `min_replica_count` (Number) Minimum number of replicas
+- `polling_interval` (Number) Seconds between checks of the trigger sources
+- `triggers` (Attributes List) KEDA scale triggers (see [below for nested schema](#nestedatt--keda_scaled_object--triggers))
+
+<a id="nestedatt--keda_scaled_object--advanced"></a>
+### Nested Schema for `keda_scaled_object.advanced`
+
+Optional:
+
+- `advanced_behavior_json` (String) Opaque JSON-encoded Kubernetes `HorizontalPodAutoscalerBehavior`, carried through verbatim so this provider never has to re-model Kubernetes autoscaling types.
+- `restore_to_original_replica_count` (Boolean) Restore the original replica count when the ScaledObject is deleted
+
+
+<a id="nestedatt--keda_scaled_object--fallback"></a>
+### Nested Schema for `keda_scaled_object.fallback`
+
+Optional:
+
+- `behavior` (String) Fallback strategy
+- `failure_threshold` (Number) Number of consecutive metric failures before activating fallback
+- `replicas` (Number) Number of replicas to fall back to when metrics are unavailable
+
+
+<a id="nestedatt--keda_scaled_object--triggers"></a>
+### Nested Schema for `keda_scaled_object.triggers`
+
+Required:
+
+- `type` (String) KEDA scaler type. Example: 'prometheus', 'cpu', 'kafka'
+
+Optional:
+
+- `authentication_ref` (Attributes) Reference to a KEDA TriggerAuthentication/ClusterTriggerAuthentication (see [below for nested schema](#nestedatt--keda_scaled_object--triggers--authentication_ref))
+- `metadata` (Map of String) Scaler-specific metadata, as required by the chosen KEDA scaler type
+- `metric_type` (String) Metric target type. One of: 'Value', 'AverageValue', 'Utilization'
+- `name` (String) Trigger name
+- `use_cached_metrics` (Boolean) Use KEDA's cached metrics for this trigger
+
+<a id="nestedatt--keda_scaled_object--triggers--authentication_ref"></a>
+### Nested Schema for `keda_scaled_object.triggers.authentication_ref`
+
+Required:
+
+- `name` (String) Name of the referenced authentication resource
+
+Optional:
+
+- `kind` (String) Kind of the referenced authentication resource. One of: 'TriggerAuthentication', 'ClusterTriggerAuthentication'
+
 
 
 
