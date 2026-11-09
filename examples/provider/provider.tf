@@ -8,5 +8,5 @@ terraform {
 
 provider "devzero" {
   team_id = "<YOUR_TEAM_ID>"
-  token   = "<YOUR_TOKEN>"
+  token   = "<YOUR_SERVICE_ACCOUNT_TOKEN>"
 }

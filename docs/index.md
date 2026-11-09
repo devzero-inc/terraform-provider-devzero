@@ -22,7 +22,7 @@ terraform {
 
 provider "devzero" {
   team_id = "<YOUR_TEAM_ID>"
-  token   = "<YOUR_TOKEN>"
+  token   = "<YOUR_SERVICE_ACCOUNT_TOKEN>"
 }
 ```
 
@@ -31,6 +31,6 @@ provider "devzero" {
 
 ### Optional
 
-- `team_id` (String) Devzero Team ID. You can retrieve it from your [Devzero Organization Settings](https://www.devzero.io/organization-settings/account)
-- `token` (String, Sensitive) The token used to authenticate with the Devzero API. For more information, see the [Devzero documentation](https://www.devzero.io/docs/platform/admin/personal-access-tokens).
+- `team_id` (String) DevZero team ID. Find it under Organization Settings > Account in the [DevZero console](https://www.devzero.io/settings/organization-settings/account).
+- `token` (String, Sensitive) The token used to authenticate with the DevZero API. Use a service account token (`dzs-`), created under Organization Settings > Service Accounts in the [DevZero console](https://www.devzero.io/settings/organization-settings/service-accounts). A personal access token, created under User Settings > General, also works, but drive `devzero_team` with a service account token.
 - `url` (String) Devzero API URL
