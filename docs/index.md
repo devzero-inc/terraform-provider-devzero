@@ -31,6 +31,6 @@ provider "devzero" {
 
 ### Optional
 
-- `team_id` (String) DevZero team ID. Find it under Organization Settings > Account in the [DevZero console](https://www.devzero.io/settings/organization-settings/account).
-- `token` (String, Sensitive) The token used to authenticate with the DevZero API. Use a service account token (`dzs-`), created under Organization Settings > Service Accounts in the [DevZero console](https://www.devzero.io/settings/organization-settings/service-accounts). A personal access token, created under User Settings > General, also works, but drive `devzero_team` with a service account token.
+- `team_id` (String) DevZero team ID. Find it, as a team Admin, under Settings > Organization Settings > Account in the [DevZero console](https://www.devzero.io/settings/organization-settings/account).
+- `token` (String, Sensitive) The token used to authenticate with the DevZero API. Use a service account token (`dzs-`), which a team Admin creates under Settings > Organization Settings > Service Accounts in the [DevZero console](https://www.devzero.io/settings/organization-settings/service-accounts). A personal access token, created under Settings > User Settings > General, also works, but drive `devzero_team` with a service account token.
 - `url` (String) Devzero API URL

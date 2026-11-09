@@ -58,11 +58,11 @@ func (p *DevzeroProvider) Schema(ctx context.Context, req provider.SchemaRequest
 				Optional:            true,
 			},
 			"team_id": schema.StringAttribute{
-				MarkdownDescription: "DevZero team ID. Find it under Organization Settings > Account in the [DevZero console](https://www.devzero.io/settings/organization-settings/account).",
+				MarkdownDescription: "DevZero team ID. Find it, as a team Admin, under Settings > Organization Settings > Account in the [DevZero console](https://www.devzero.io/settings/organization-settings/account).",
 				Optional:            true,
 			},
 			"token": schema.StringAttribute{
-				MarkdownDescription: "The token used to authenticate with the DevZero API. Use a service account token (`dzs-`), created under Organization Settings > Service Accounts in the [DevZero console](https://www.devzero.io/settings/organization-settings/service-accounts). A personal access token, created under User Settings > General, also works, but drive `devzero_team` with a service account token.",
+				MarkdownDescription: "The token used to authenticate with the DevZero API. Use a service account token (`dzs-`), which a team Admin creates under Settings > Organization Settings > Service Accounts in the [DevZero console](https://www.devzero.io/settings/organization-settings/service-accounts). A personal access token, created under Settings > User Settings > General, also works, but drive `devzero_team` with a service account token.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -149,9 +149,9 @@ func (p *DevzeroProvider) Configure(ctx context.Context, req provider.ConfigureR
 			path.Root("token"),
 			"Missing Devzero API Token",
 			"The provider cannot create the Devzero API client as there is no Devzero API Token. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the DEVZERO_TOKEN environment variable."+
-				"If either is already set, ensure the value is not empty."+
-				"Use a service account token, created under Organization Settings > Service Accounts in the DevZero console (https://www.devzero.io/settings/organization-settings/service-accounts).",
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the DEVZERO_TOKEN environment variable. "+
+				"If either is already set, ensure the value is not empty. "+
+				"Use a service account token, which a team Admin creates under Settings > Organization Settings > Service Accounts in the DevZero console (https://www.devzero.io/settings/organization-settings/service-accounts).",
 		)
 	}
 
